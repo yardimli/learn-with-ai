@@ -36,13 +36,4 @@
 		{
 			return $this->hasMany(UserAnswer::class);
 		}
-
-		// Accessor to get the public URL for the video if path exists
-		public function getInitialVideoPublicUrlAttribute()
-		{
-			if ($this->initial_video_path && Storage::disk('public')->exists($this->initial_video_path)) {
-				return Storage::disk('public')->url($this->initial_video_path);
-			}
-			return null;
-		}
 	}

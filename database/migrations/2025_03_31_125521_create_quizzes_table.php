@@ -15,10 +15,7 @@ return new class extends Migration
 	        $table->id();
 	        $table->foreignId('subject_id')->constrained()->cascadeOnDelete();
 	        $table->text('question_text');
-	        $table->string('question_audio_url')->nullable();
 	        $table->string('question_audio_path')->nullable();
-	        $table->string('question_video_url')->nullable();
-	        $table->string('question_video_path')->nullable();
 	        $table->json('answers');
 					$table->integer('difficulty_level')->default(1); // Track difficulty
 	        $table->string('session_id')->index(); // Track by session

@@ -1071,5 +1071,37 @@
 				return null;
 			}
 		}
+
+
+		public static function isValidQuizResponse($quizResult): bool
+		{
+			if (
+				!$quizResult || isset($quizResult['error']) || !isset($quizResult['question']) || !is_string($quizResult['question']) || !isset($quizResult['answers']) || !is_array($quizResult['answers']) || count($quizResult['answers']) !== 4
+			) {
+				Log::debug("Basic quiz structure validation failed.", ['result' => $quizResult]);
+				return false;
+			}
+
+			$correctCount = 0;
+			foreach ($quizResult['answers'] as $answer) {
+				if (
+					!isset($answer['text']) || !is_string($answer['text']) || !isset($answer['is_correct']) || !is_bool($answer['is_correct']) || !isset($answer['feedback']) || !is_string($answer['feedback'])
+				) {
+					Log::debug("Quiz answer structure validation failed.", ['answer' => $answer]);
+					return false; // Incomplete answer structure
+				}
+				if ($answer['is_correct'] === true) {
+					$correctCount++;
+				}
+			}
+
+			if ($correctCount !== 1) {
+				Log::debug("Quiz validation failed: Incorrect number of correct answers.", ['count' => $correctCount, 'answers' => $quizResult['answers']]);
+				return false; // Must have exactly one correct answer
+			}
+
+			return true; // Passed all checks
+		}
+
 		// --- End of MyHelper class ---
 	}
