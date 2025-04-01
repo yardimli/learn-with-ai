@@ -18,19 +18,25 @@
 		
 		<div class="row">
 			<!-- Left Column: Question Text -->
-			<div id="leftColumn"
-			     class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0"> {{-- Adjusted column size --}}
-				<div id="questionVisualsContainer" class="p-3 border rounded bg-light"> {{-- Add some styling --}}
+			<div id="leftColumn" class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0"> {{-- Adjusted column size --}}
+				<div id="questionVisualsContainer" class="p-3 border rounded bg-light position-relative"> {{-- Add position-relative for button positioning --}}
 					<h4 class="mb-3">Question:</h4>
 					{{-- Add ID for highlighting --}}
 					<p id="questionTextElement" class="fs-5 mt-2">{{ $quiz->question_text ?? 'Loading question...' }}</p>
+					
 					{{-- Optional: Add subject image as static visual aid --}}
 					@if ($subject->generatedImage?->smallUrl)
-						<img src="{{ $subject->generatedImage->smallUrl }}" class="img-fluid rounded mt-3"
-						     style="max-height: 150px;" alt="Subject Visual Aid">
+						<img src="{{ $subject->generatedImage->smallUrl }}" class="img-fluid rounded mt-3 mb-3" style="max-height: 150px;" alt="Subject Visual Aid"> {{-- Add mb-3 --}}
+					@endif
+					
+					{{-- Add Review Content Button --}}
+					@if($subject->main_text || $subject->initial_video_url)
+						<button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-bs-toggle="modal" data-bs-target="#reviewModal">
+							<i class="fas fa-book-open me-1"></i> Review Content
+						</button>
 					@endif
 				</div>
-			</div>
+			</div> <!-- End Left Column -->
 			
 			<!-- Right Column: Answers & Feedback -->
 			<div id="rightColumn" class="col-12 col-md-7"> {{-- Adjusted column size --}}
@@ -41,8 +47,7 @@
 						@if ($quiz && isset($quiz->answers))
 							@foreach ($quiz->answers as $index => $answer)
 								{{-- Add ID for highlighting --}}
-								<button type="button" id="answerBtn_{{ $index }}" class="btn btn-outline-primary btn-lg answer-btn"
-								        data-index="{{ $index }}">
+								<button type="button" id="answerBtn_{{ $index }}" class="btn btn-outline-primary btn-lg answer-btn" data-index="{{ $index }}">
 									{{ $answer['text'] }}
 								</button>
 							@endforeach
@@ -61,22 +66,61 @@
 						<hr>
 						{{-- Messages for Next button state --}}
 						<p id="feedbackIncorrectMessage" class="text-muted small mt-2 d-none">
-							Please select the correct answer to proceed.
+							Please select the correct answer to proceed, or try another answer.
 						</p>
 						<p id="feedbackListenMessage" class="text-muted small mt-2 d-none">
 							Listen to the feedback to continue.
 						</p>
 						<button id="nextQuestionButton" class="btn btn-info w-100 d-none">
-							<span id="nextQuestionSpinner" class="spinner-border spinner-border-sm d-none" role="status"
-							      aria-hidden="true"></span>
+							<span id="nextQuestionSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 							Next Question
 						</button>
 					</div>
+				
 				</div> <!-- End Quiz Area -->
 			</div> <!-- End Right Column -->
 		</div> <!-- End Row -->
 	</div> <!-- End Quiz Card -->
+
 @endsection
+
+{{-- Add Review Content Modal --}}
+@if($subject->main_text || $subject->initial_video_url)
+	<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"> {{-- Larger, centered, scrollable --}}
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="reviewModalLabel">Review: {{ $subject->title ?? $subject->name }}</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<div class="row">
+						<!-- Video Column -->
+						<div class="col-md-6 mb-3 mb-md-0">
+							@if ($subject->initial_video_url)
+								<h5>Intro Video</h5>
+								<video controls width="100%" class="rounded review-video" src="{{ $subject->initial_video_url }}" preload="metadata">
+									Your browser does not support the video tag.
+								</video>
+							@else
+								<p class="text-muted">No intro video available.</p>
+							@endif
+						</div>
+						<!-- Text Column -->
+						<div class="col-md-6">
+							<h5>Introduction</h5>
+							<p>{{ $subject->main_text ?? 'No introductory text available.' }}</p>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+				</div>
+			</div>
+		</div>
+	</div>
+@endif
+
 
 @push('styles')
 	{{-- Add any quiz-specific styles here --}}
@@ -89,19 +133,31 @@
 		window.initialQuizData = {
 			quizId: @json($quiz->id ?? null),
 			questionText: @json($quiz->question_text ?? ''),
-			questionAudioUrl: @json($quiz->question_audio_path ?? null),
+			questionAudioUrl: @json($quiz->question_audio_path ?? null), // Using path which should resolve to URL via storage link
 			answers: <?php
+				         // Ensure answers is an array, even if null from DB initially
+				         $answersData = $quiz->answers ?? [];
+				         if (!is_array($answersData)) $answersData = [];
+
 				         echo json_encode(
-					         collect($quiz->answers ?? [])->map(function ($answer, $index) use ($quiz) {
+					         collect($answersData)->map(function ($answer, $index) use ($quiz) {
+						         // Default values if answer structure is missing elements
+						         $text = $answer['text'] ?? 'Missing text';
+						         // Use the model's accessor method to get the URL
+						         $answerAudioUrl = $quiz->getAnswerAudioUrl($index);
+						         // Also get feedback url using model accessor if needed elsewhere,
+						         // but processAnswersWithTTS adds it directly now.
+						         $feedbackAudioUrl = $answer['feedback_audio_url'] ?? null;
+
 						         return [
-							         'text' => $answer['text'] ?? '',
-							         'answer_audio_url' => $quiz->getAnswerAudioUrl($index) ?? null,
-							         'feedback_audio_path' => $answer['feedback_audio_path'] ?? null,
-							         'feedback_audio_url' => $answer['feedback_audio_url'] ?? null,
+							         'text' => $text,
+							         'answer_audio_url' => $answerAudioUrl, // Use accessor result
+							         // 'feedback_audio_path' => $answer['feedback_audio_path'] ?? null, // Keep path if needed
+							         'feedback_audio_url' => $feedbackAudioUrl, // Send pre-generated URL
 						         ];
 					         })->all()
-				         )
-				         ?>,
+				         );
+			         ?>,
 			subjectImageUrl: @json($subject->generatedImage?->mediumUrl ?? null) // Keep for potential static image
 		};
 		window.subjectId = @json($subject->id); // Make subject ID available

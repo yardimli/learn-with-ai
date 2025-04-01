@@ -24,6 +24,7 @@
 		public function show(Subject $subject)
 		{
 			$sessionId = Session::getId();
+
 			// Ensure the subject belongs to the current session
 			if ($subject->session_id !== $sessionId) {
 				Log::warning("Attempt to access quiz for subject ID {$subject->id} from different session.");
@@ -44,8 +45,11 @@
 			}
 
 			// Eager load subject's image for fallback visuals in quiz
+			// Also ensure main_text and video URL are available as they are part of the Subject model
 			$subject->load('generatedImage');
-			//dd($quiz);
+
+			// dd($quiz, $subject); // For debugging if needed
+
 			return view('quiz_display', compact('subject', 'quiz'));
 		}
 
@@ -77,21 +81,25 @@
 			}
 
 			// Prevent answering the same quiz multiple times in a session
-			$alreadyAnswered = UserAnswer::where('quiz_id', $quiz->id)
+			// *** Note: This logic prevents retries on incorrect answers. Consider adjusting if retries are desired. ***
+			// If retries ARE desired, this check needs modification or removal, and the logic
+			// should handle potentially multiple UserAnswer records for the same quiz_id/session_id.
+			$alreadyAnsweredCorrectly = UserAnswer::where('quiz_id', $quiz->id)
 				->where('session_id', $sessionId)
+				->where('was_correct', true) // Only prevent re-answering if *correct*
 				->exists();
 
-			if ($alreadyAnswered) {
-				Log::warning("Attempt to re-answer Quiz ID {$quiz->id} by Session {$sessionId}");
-				// Return previous result? Or just an error? Error is simpler.
-				return response()->json(['success' => false, 'message' => 'Quiz already answered in this session.'], 409); // Conflict
+			if ($alreadyAnsweredCorrectly) {
+				Log::warning("Attempt to re-answer already correctly answered Quiz ID {$quiz->id} by Session {$sessionId}");
+				// If already correct, maybe return the existing correct result?
+				return response()->json(['success' => false, 'message' => 'Quiz already answered correctly in this session.'], 409); // Conflict
 			}
+
 
 			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Session: {$sessionId}");
 
 			// Retrieve answers WITH audio URLs/paths from the Quiz model's processing
 			$answers = $quiz->answers; // Model casts to array
-
 			if (!isset($answers[$selectedIndex])) {
 				return response()->json(['success' => false, 'message' => 'Invalid answer index provided.'], 400);
 			}
@@ -113,18 +121,25 @@
 			// Use the URL stored in the 'answers' array (added by processAnswersWithTTS)
 			$feedbackAudioUrl = $selectedAnswer['feedback_audio_url'] ?? null;
 
+			// Save User Answer - handle potential retries
+			// Find previous attempt for THIS quiz in THIS session
+			$previousAttempt = UserAnswer::where('quiz_id', $quiz->id)
+				->where('session_id', $sessionId)
+				->orderBy('attempt_number', 'desc')
+				->first();
 
-			// Save User Answer
+			$attemptNumber = $previousAttempt ? ($previousAttempt->attempt_number + 1) : 1;
+
 			UserAnswer::create([
 				'quiz_id' => $quiz->id,
 				'subject_id' => $quiz->subject_id, // Store subject link
 				'session_id' => $sessionId,
 				'selected_answer_index' => $selectedIndex,
 				'was_correct' => $wasCorrect,
-				'attempt_number' => 1, // Basic attempt tracking
+				'attempt_number' => $attemptNumber, // Track attempts
 			]);
 
-			Log::info("User answer saved for Quiz ID {$quiz->id}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
+			Log::info("User answer saved for Quiz ID {$quiz->id}. Attempt: {$attemptNumber}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
 
 			// Return feedback to frontend via JSON
 			return response()->json([
@@ -157,75 +172,86 @@
 			Log::info("Generating next quiz question for Subject ID: {$subject->id}, Session: {$sessionId}");
 
 			// --- Incorporate History & Difficulty ---
-			$previousAnswers = UserAnswer::where('subject_id', $subject->id)
+			// Get the MOST RECENT answer for this subject/session to determine the last outcome
+			$lastUserAnswer = UserAnswer::where('subject_id', $subject->id)
 				->where('session_id', $sessionId)
 				->orderBy('created_at', 'desc')
-				->get();
+				->first();
 
-			$lastAnswerCorrect = null;
-			$lastQuiz = null; // Initialize lastQuiz
-
-			if ($previousAnswers->isNotEmpty()) {
-				$lastUserAnswer = $previousAnswers->first();
-				$lastAnswerCorrect = $lastUserAnswer->was_correct;
-				// Find the specific Quiz model related to the last answer
-				$lastQuiz = Quiz::find($lastUserAnswer->quiz_id);
-			} else {
-				// This case shouldn't happen if called via "Next" button, but handle defensively
+			if (!$lastUserAnswer) {
+				// This case shouldn't happen if called via "Next" button after a correct answer,
+				// but handle defensively.
 				Log::error("generateNextQuiz called for Subject {$subject->id} but no previous answers found.");
 				return response()->json(['success' => false, 'message' => 'Cannot generate next quiz without previous history.'], 500);
 			}
 
-			$questionHistory = [];
-			$difficultyInstruction = "Generate a new multiple-choice question about the subject: '{$subject->name}'.";
-			$currentDifficultyLevel = 1; // Base difficulty
+			$lastAnswerCorrect = $lastUserAnswer->was_correct;
+			// Find the specific Quiz model related to the last answer
+			$lastQuiz = Quiz::find($lastUserAnswer->quiz_id);
 
-			if ($lastQuiz) {
-				// Check if we have a previous quiz context
-				$currentDifficultyLevel = $lastQuiz->difficulty_level ?? 1;
-
-				if ($lastAnswerCorrect === true) {
-					$difficultyInstruction .= " The user answered the previous question correctly. Generate a question of SLIGHTLY HIGHER difficulty (level " . ($currentDifficultyLevel + 1) . ").";
-					$currentDifficultyLevel++; // Target next level
-				} elseif ($lastAnswerCorrect === false) {
-					$difficultyInstruction .= " The user answered the previous question INCORRECTLY. Generate a SIMPLER question (level " . max(1, $currentDifficultyLevel - 1) . ") focusing on the basics.";
-					// Add context about the first wrong answer on the *previous* quiz attempt
-					$firstUserAnswerForLastQuiz = UserAnswer::where('quiz_id', $lastQuiz->id)
-						->where('session_id', $sessionId)
-						->orderBy('created_at', 'asc') // Get the first attempt
-						->first();
-
-					if ($firstUserAnswerForLastQuiz && !$firstUserAnswerForLastQuiz->was_correct) {
-						$firstWrongIndex = $firstUserAnswerForLastQuiz->selected_answer_index;
-						$lastQuizAnswers = $lastQuiz->answers; // Get the answers array from the last quiz model
-						// Ensure answers array and index exist before accessing
-						if (isset($lastQuizAnswers[$firstWrongIndex]['text'])) {
-							$firstWrongAnswerText = $lastQuizAnswers[$firstWrongIndex]['text'];
-							$firstWrongAnswerTextEscaped = addslashes($firstWrongAnswerText); // Basic escaping for prompt
-							$difficultyInstruction .= " The user's first incorrect selection for that question was: '{$firstWrongAnswerTextEscaped}'. Avoid similar pitfalls or clarify the concept related to that wrong answer.";
-						}
-					}
-					$currentDifficultyLevel = max(1, $currentDifficultyLevel - 1); // Target lower level, min 1
-				}
-
-				// Add some history context (limit size)
-				$historyLimit = 2;
-				foreach ($previousAnswers->take($historyLimit) as $answer) {
-					$quizForHistory = Quiz::find($answer->quiz_id); // Fetch specifically for history if needed
-					if ($quizForHistory) {
-						$correctness = $answer->was_correct ? 'Correct' : 'Incorrect';
-						$qTextShort = Str::limit($quizForHistory->question_text, 75);
-						$questionHistory[] = "[{$correctness}] Q: {$qTextShort}";
-					}
-				}
-				if (!empty($questionHistory)) {
-					$difficultyInstruction .= "\nPrevious interaction summary (most recent first):\n" . implode("\n", $questionHistory);
-				}
-			} else {
-				// Should not happen if logic is correct, but prevents errors
-				$difficultyInstruction .= " This seems to be the first question (level 1 difficulty).";
+			if (!$lastQuiz) {
+				Log::error("Could not find the last Quiz model (ID: {$lastUserAnswer->quiz_id}) for Subject {$subject->id}.");
+				return response()->json(['success' => false, 'message' => 'Error retrieving previous quiz context.'], 500);
 			}
 
+
+			// --- Determine Difficulty ---
+			$questionHistory = [];
+			$difficultyInstruction = "Generate a new multiple-choice question about the subject: '{$subject->name}'.";
+			$currentDifficultyLevel = $lastQuiz->difficulty_level ?? 1; // Start from last quiz's level
+
+			if ($lastAnswerCorrect === true) {
+				$difficultyInstruction .= " The user answered the previous question correctly. Generate a question of SLIGHTLY HIGHER difficulty (level " . ($currentDifficultyLevel + 1) . ").";
+				$currentDifficultyLevel++; // Target next level
+			} elseif ($lastAnswerCorrect === false) {
+				// This path should ideally not be taken if the button only appears on correct answers.
+				// However, if retries are allowed and this gets called somehow after an incorrect final answer,
+				// we handle it.
+				$difficultyInstruction .= " The user answered the previous question INCORRECTLY. Generate a SIMPLER question (level " . max(1, $currentDifficultyLevel - 1) . ") focusing on the basics.";
+
+				// Add context about the first wrong answer on the *previous* quiz attempt
+				$firstUserAnswerForLastQuiz = UserAnswer::where('quiz_id', $lastQuiz->id)
+					->where('session_id', $sessionId)
+					->orderBy('created_at', 'asc') // Get the first attempt
+					->first();
+
+				if ($firstUserAnswerForLastQuiz && !$firstUserAnswerForLastQuiz->was_correct) {
+					$firstWrongIndex = $firstUserAnswerForLastQuiz->selected_answer_index;
+					$lastQuizAnswers = $lastQuiz->answers; // Get the answers array from the last quiz model
+					// Ensure answers array and index exist before accessing
+					if (isset($lastQuizAnswers[$firstWrongIndex]['text'])) {
+						$firstWrongAnswerText = $lastQuizAnswers[$firstWrongIndex]['text'];
+						$firstWrongAnswerTextEscaped = addslashes($firstWrongAnswerText); // Basic escaping for prompt
+						$difficultyInstruction .= " The user's first incorrect selection for that question was: '{$firstWrongAnswerTextEscaped}'. Avoid similar pitfalls or clarify the concept related to that wrong answer.";
+					}
+				}
+				$currentDifficultyLevel = max(1, $currentDifficultyLevel - 1); // Target lower level, min 1
+			}
+
+
+			// --- Add History Context ---
+			$historyLimit = 2; // Limit history size
+			$previousAnswersForHistory = UserAnswer::where('subject_id', $subject->id)
+				->where('session_id', $sessionId)
+				->orderBy('created_at', 'desc')
+				// ->distinct('quiz_id') // Maybe only show history per quiz, not per attempt? Complex.
+				->with('quiz:id,question_text') // Eager load only necessary fields from Quiz
+				->take($historyLimit + 1) // Fetch one more to potentially skip the very last one
+				->get();
+
+			// Exclude the very last answer itself from the history prompt context if needed
+			// For simplicity, we include it for now. Adjust if needed.
+			foreach ($previousAnswersForHistory->take($historyLimit) as $answer) {
+				if ($answer->quiz) { // Check if quiz relation loaded
+					$correctness = $answer->was_correct ? 'Correct' : 'Incorrect';
+					$qTextShort = Str::limit($answer->quiz->question_text, 75);
+					$questionHistory[] = "[{$correctness}] Q: {$qTextShort}";
+				}
+			}
+
+			if (!empty($questionHistory)) {
+				$difficultyInstruction .= "\nPrevious interaction summary (most recent first):\n" . implode("\n", $questionHistory);
+			}
 
 			// --- LLM Prompt for Quiz Generation (Same structure as first quiz) ---
 			$systemPromptQuizGen = <<<PROMPT
@@ -253,6 +279,7 @@ RULES:
 - Feedback should be helpful and educational (1-2 sentences).
 - Ensure the entire output is ONLY the JSON object, nothing before or after.
 PROMPT;
+
 			$chatHistoryQuizGen = [];
 			$quizResult = MyHelper::llm_no_tool_call($llm, $systemPromptQuizGen, $chatHistoryQuizGen, true);
 
@@ -275,6 +302,7 @@ PROMPT;
 				'en-US',
 				'question_' . $subject->id . '_' . $nextIdentifier . '_' . Str::slug(Str::limit($quizData['question'], 20))
 			);
+
 			if ($questionTtsResult && isset($questionTtsResult['fileUrl'])) {
 				$questionAudioUrl = $questionTtsResult['fileUrl']; // Store the URL
 				Log::info("Generated TTS for next question {$nextIdentifier}: {$questionAudioUrl}");
@@ -301,13 +329,14 @@ PROMPT;
 			// We need to re-fetch or build the answer structure expected by the frontend JS
 			$frontendAnswers = [];
 			foreach ($processedAnswers as $index => $pa) {
+				// The Quiz model's getAnswerAudioUrl accessor can generate URLs if needed,
+				// but processAnswersWithTTS now adds 'answer_audio_url' directly.
 				$frontendAnswers[] = [
 					'text' => $pa['text'] ?? '',
 					'answer_audio_url' => $pa['answer_audio_url'] ?? null, // Send URL
 					// Don't send feedback/correctness info for the *next* question yet
 				];
 			}
-
 
 			return response()->json([
 				'success' => true,
