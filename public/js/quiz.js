@@ -4,8 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- State Variables ---
 	let currentQuizId = window.initialQuizData?.quizId || null;
-	const subjectId = window.subjectId || null;
-	const subjectImageUrl = window.initialQuizData?.subjectImageUrl || null; // For static image
+	const subjectSessionId = window.subjectSessionId || null;
 	let selectedIndex = null;
 	let answered = null; // null, 'correct', 'incorrect', 'error'
 	let correctIndex = null;
@@ -13,11 +12,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	let feedbackAudioUrl = null; // For the feedback after answering
 	let interactionsDisabled = false; // For loading, video/audio playback
 	let isLoading = false;
-	let showNextButton = false; // --- TTS Playback State ---
-	let playbackQueue = []; // Array of {element: HTMLElement, url: string}
+	let showNextButton = false;
+	
+	// --- TTS Playback State ---
+	let playbackQueue = [];
 	let currentPlaybackIndex = -1;
 	let isAutoPlaying = false;
-	let currentHighlightElement = null; // --- DOM Element References ---
+	let currentHighlightElement = null;
+	
+	// --- DOM Element References ---
 	const loadingOverlay = document.getElementById('loadingOverlay');
 	const loadingMessageEl = document.getElementById('loadingMessage');
 	const errorMessageArea = document.getElementById('errorMessageArea');
@@ -25,8 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	const closeErrorButton = document.getElementById('closeErrorButton');
 	
 	// Visuals & Question
-	const questionVisualsContainer = document.getElementById('questionVisualsContainer');
-	const questionTextElement = document.getElementById('questionTextElement'); // Specific element for question text
+	const questionImageElement = document.getElementById('questionImageElement');
+	const noImagePlaceholder = document.getElementById('noImagePlaceholder');
+	const questionTextElement = document.getElementById('questionTextElement');
 	
 	// Answers & Feedback
 	const quizAnswersContainer = document.getElementById('quizAnswersContainer');
@@ -40,20 +44,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	const feedbackListenMessage = document.getElementById('feedbackListenMessage');
 	
 	// Audio Players
-	const ttsAudioPlayer = document.getElementById('ttsAudioPlayer'); // For sequence playback
-	const feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer'); // Separate for feedback after answer
-	const reviewModal = document.getElementById('reviewModal'); // Reference to the new modal
-	
+	const ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
+	const feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
+	const reviewModal = document.getElementById('reviewModal');
 	
 	// --- Helper Functions ---
 	function setLoadingState(loading, message = '') {
 		isLoading = loading;
-		setInteractionsDisabled(loading); // Loading always disables interactions
+		setInteractionsDisabled(loading);
 		if (loadingOverlay && loadingMessageEl) {
 			loadingMessageEl.textContent = message;
 			loadingOverlay.classList.toggle('d-none', !loading);
 		}
-		// No need to call updateQuizUI here, setInteractionsDisabled does it
 	}
 	
 	function setErrorState(message) {
@@ -67,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		// Disable if explicitly asked, OR if loading, OR if auto-playing sequence
 		interactionsDisabled = disabled || isLoading || isAutoPlaying;
 		console.log(`Interactions Disabled: ${interactionsDisabled} (Requested: ${disabled}, Loading: ${isLoading}, AutoPlaying: ${isAutoPlaying})`);
-		updateQuizUI(); // Reflect disabled state on buttons etc.
+		updateQuizUI();
 	}
 	
 	function toggleElement(element, show) {
@@ -89,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (currentHighlightElement) {
 			highlightElement(currentHighlightElement, false);
 		}
-		// Also clear highlight from any other element just in case
 		document.querySelectorAll('.reading-highlight').forEach(el => el.classList.remove('reading-highlight'));
 		currentHighlightElement = null;
 	}
@@ -100,13 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
 		currentPlaybackIndex = -1;
 		// 1. Add Question
 		if (questionAudioUrl && questionTextElement) {
-			playbackQueue.push({ element: questionTextElement, url: questionAudioUrl });
+			playbackQueue.push({element: questionTextElement, url: questionAudioUrl});
 		}
 		// 2. Add Answers
 		answersData.forEach((answer, index) => {
 			const answerButton = document.getElementById(`answerBtn_${index}`);
 			if (answer.answer_audio_url && answerButton) {
-				playbackQueue.push({ element: answerButton, url: answer.answer_audio_url });
+				playbackQueue.push({element: answerButton, url: answer.answer_audio_url});
 			}
 		});
 		console.log("Playback queue built:", playbackQueue);
@@ -115,14 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	function startPlaybackSequence() {
 		if (playbackQueue.length === 0) {
 			console.log("Playback queue empty, enabling interactions.");
-			setInteractionsDisabled(false); // Nothing to play, enable interactions
+			setInteractionsDisabled(false);
 			return;
 		}
-		stopPlaybackSequence(); // Stop any previous playback first
+		stopPlaybackSequence();
 		console.log("Starting playback sequence...");
 		isAutoPlaying = true;
 		currentPlaybackIndex = 0;
-		setInteractionsDisabled(true); // Disable interactions during sequence
+		setInteractionsDisabled(true);
 		playNextInSequence();
 	}
 	
@@ -133,12 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			ttsAudioPlayer.pause();
 			ttsAudioPlayer.currentTime = 0; // Reset
 		}
-		removeHighlight(); // Do NOT re-enable interactions here, let the calling context decide
-		// (e.g., it might stop because loading started, or user clicked)
+		removeHighlight();
 	}
 	
 	function playNextInSequence() {
-		removeHighlight(); // Remove highlight from previous item
+		removeHighlight();
 		
 		if (!isAutoPlaying || currentPlaybackIndex < 0 || currentPlaybackIndex >= playbackQueue.length) {
 			console.log("Playback sequence finished or stopped.");
@@ -159,14 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		highlightElement(item.element, true);
 		
 		if (ttsAudioPlayer) {
-			//ttsAudioPlayer.src = ""; // Clear previous source first - Optional, might cause issues
-			// Delay setting src slightly to help avoid race conditions on some browsers
 			setTimeout(() => {
 				if (!isAutoPlaying) return; // Check if stopped during timeout
 				ttsAudioPlayer.src = item.url;
 				ttsAudioPlayer.play().catch(error => {
 					console.error(`Error playing TTS audio for index ${currentPlaybackIndex}:`, error);
-					// Handle error: Stop playback, remove highlight, enable interactions
 					stopPlaybackSequence();
 					setInteractionsDisabled(false);
 				});
@@ -182,8 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	function handleTtsAudioEnded() {
 		if (!isAutoPlaying) return; // Ignore if manually stopped
 		console.log(`Finished item ${currentPlaybackIndex}`);
-		// Don't remove highlight immediately, wait for next item or end
-		// removeHighlight(); handled by playNextInSequence start
 		currentPlaybackIndex++;
 		playNextInSequence(); // Play the next item
 	}
@@ -212,40 +207,33 @@ document.addEventListener('DOMContentLoaded', () => {
 			closeErrorButton.setAttribute('listener', 'true');
 		}
 		
-		// --- Question Visuals Logic (Simplified) ---
-		// Hide all old video/image placeholders etc. Question text is always visible.
-		// The static image added in the blade is just there.
-		
 		// --- Answer Buttons ---
 		const answerButtons = quizAnswersContainer.querySelectorAll('.answer-btn');
 		answerButtons.forEach((button) => {
 			const index = parseInt(button.dataset.index, 10);
 			
-			// Disable if:
-			// 1. Interactions are generally disabled (loading, playing sequence, playing feedback)
-			// 2. The answer was CORRECT (can't re-answer)
+			// Disable button if interactions are disabled OR if the quiz is marked as correctly answered
 			const disableButton = interactionsDisabled || (answered === 'correct');
 			button.disabled = disableButton;
 			
-			// Keep visual styles based on 'answered' and 'selectedIndex'/'correctIndex'
+			// Visual Styles
 			button.classList.toggle('selected', selectedIndex === index);
 			button.classList.toggle('correct', answered === 'correct' && index === correctIndex);
-			// Only show 'incorrect' style on the selected wrong answer
 			button.classList.toggle('incorrect', answered === 'incorrect' && selectedIndex === index);
-			// Don't apply reading-highlight here, it's handled by playback sequence
 		});
 		
 		// --- Feedback Section ---
-		// Show feedback ONLY if an answer was submitted AND it wasn't an error
-		toggleElement(feedbackSection, answered !== null && answered !== 'error');
+		// Show feedback ONLY if an answer has been processed (correct/incorrect)
+		const showFeedback = answered === 'correct' || answered === 'incorrect';
+		toggleElement(feedbackSection, showFeedback);
 		
-		if (answered !== null && answered !== 'error' && feedbackHeading && feedbackTextEl && playFeedbackButton) {
+		if (showFeedback && feedbackHeading && feedbackTextEl && playFeedbackButton) {
 			const isCorrect = answered === 'correct';
 			feedbackHeading.textContent = isCorrect ? 'Correct!' : 'Not Quite!';
-			feedbackHeading.className = isCorrect ? 'text-success mb-2' : 'text-danger mb-2'; // Add margin
+			feedbackHeading.className = isCorrect ? 'text-success mb-2' : 'text-danger mb-2';
 			feedbackTextEl.textContent = feedbackText;
-			toggleElement(playFeedbackButton, !!feedbackAudioUrl); // Show button only if URL exists
-			// Disable feedback button ONLY if interactions are disabled (i.e., sequence playing, loading, or feedback itself playing)
+			
+			toggleElement(playFeedbackButton, !!feedbackAudioUrl);
 			playFeedbackButton.disabled = interactionsDisabled;
 			
 			// Next Question Button and Messages
@@ -281,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 		stopPlaybackSequence(); // Stop auto-play if user clicks an answer
 		
-		// **NEW**: If already answered incorrectly, reset state before processing new click
 		if (answered === 'incorrect') {
 			console.log("Retrying after incorrect answer. Resetting feedback state.");
 			answered = null;
@@ -306,9 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	async function submitAnswer(index) {
-		// Redundant checks, but safe
-		if (isLoading || interactionsDisabled) { // Check interactionsDisabled here too
-			// Don't submit if interactions are disabled (e.g., feedback playing)
+		if (isLoading || interactionsDisabled) {
 			console.warn("Submit answer called while loading or interactions disabled.");
 			return;
 		}
@@ -316,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		selectedIndex = index;
 		setLoadingState(true, 'Checking answer...'); // Disables interactions
 		setErrorState(null);
-		// updateQuizUI(); // Show selection immediately - setLoadingState calls this
 		console.log('Submitting answer index:', index, 'for quiz:', currentQuizId);
 		
 		try {
@@ -327,16 +311,15 @@ document.addEventListener('DOMContentLoaded', () => {
 					'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 					'Accept': 'application/json',
 				},
-				body: JSON.stringify({ selected_index: index })
+				body: JSON.stringify({selected_index: index})
 			});
 			
 			const data = await response.json();
 			setLoadingState(false); // Stop loading indicator BEFORE potentially playing audio
 			
 			if (!response.ok || !data.success) {
-				// Handle specific errors first
 				if (response.status === 409) { // Conflict (Already answered correctly)
-					answered = 'error'; // Treat as error to prevent further action
+					answered = 'error';
 					setErrorState(data.message || 'Quiz already answered correctly.');
 				} else if (response.status === 403) { // Forbidden
 					answered = 'error';
@@ -362,12 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (feedbackAudioUrl && feedbackAudioPlayer) {
 					// Interactions disabled BEFORE playing, buttons updated by updateQuizUI call inside setInteractionsDisabled
 					setInteractionsDisabled(true); // This calls updateQuizUI
-					// updateQuizUI(); // Update UI to show feedback text/colors AND disable buttons appropriately
 					playFeedbackAudio(); // This will call handleFeedbackAudioEnd which calls setInteractionsDisabled(false) -> updateQuizUI
 				} else {
 					// No feedback audio, feedback is instant. If correct, next button shows. If incorrect, buttons re-enable.
 					setInteractionsDisabled(false); // Re-enable interactions now, calls updateQuizUI
-					// updateQuizUI(); // Update UI fully (will show Next button if correct)
 				}
 			}
 		} catch (error) {
@@ -376,18 +357,16 @@ document.addEventListener('DOMContentLoaded', () => {
 			selectedIndex = null; // Reset selection on error
 			answered = 'error'; // Set answered state to error
 			setLoadingState(false); // Stop loading, re-enables interactions
-			// setInteractionsDisabled(false); // Re-enable on error - handled by setLoadingState(false)
-			// updateQuizUI(); // Update UI to reflect error state - handled by setInteractionsDisabled
 		}
 	}
 	
 	function playFeedbackAudio() {
 		if (!feedbackAudioUrl || !feedbackAudioPlayer) {
 			console.warn("Cannot play feedback audio - no URL or player.");
-			// Ensure interactions enabled if we can't play
-			setInteractionsDisabled(false); // Calls updateQuizUI
+			setInteractionsDisabled(false);
 			return;
 		}
+		
 		// Interactions should already be disabled here
 		console.log("Playing feedback audio:", feedbackAudioUrl);
 		feedbackAudioPlayer.src = feedbackAudioUrl;
@@ -399,21 +378,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	function handleFeedbackAudioEnd() {
 		console.log("Feedback audio finished or failed.");
-		// Re-enable interactions (buttons etc.)
-		setInteractionsDisabled(false); // This internally calls updateQuizUI
-		// No need to explicitly hide feedback here. updateQuizUI handles button states.
+		setInteractionsDisabled(false);
 	}
 	
 	async function handleNextQuestionClick() {
 		if (isLoading || interactionsDisabled) return;
-		setLoadingState(true, 'Generating next question...'); // Disables interactions
-		setErrorState(null);
-		showNextButton = false; // Hide button while loading
-		// updateQuizUI(); // Show loading spinner - called by setLoadingState
 		
-		console.log('Requesting next quiz for subject:', subjectId);
+		setLoadingState(true, 'Generating next question...');
+		setErrorState(null);
+		showNextButton = false;
+		
+		console.log('Requesting next quiz for subject:', subjectSessionId);
 		try {
-			const response = await fetch(`/quiz/${subjectId}/next`, {
+			const response = await fetch(`/quiz/${subjectSessionId}/next`, {
 				method: 'POST',
 				headers: { // Add required headers
 					'Content-Type': 'application/json',
@@ -447,6 +424,24 @@ document.addEventListener('DOMContentLoaded', () => {
 				questionTextElement.textContent = data.question_text;
 			}
 			
+			if (questionImageElement) {
+				const newImageUrl = data.question_image_url;
+				if (newImageUrl) {
+					questionImageElement.src = newImageUrl;
+					questionImageElement.alt = `Visual aid for question: ${data.question_text.substring(0, 50)}...`;
+					toggleElement(questionImageElement, true); // Show image element
+					toggleElement(noImagePlaceholder, false); // Hide text placeholder
+				} else {
+					// Option 1: Hide image element entirely
+					toggleElement(questionImageElement, false);
+					// Option 2: Set to a default placeholder image src
+					// questionImageElement.src = '/images/placeholder_q.png';
+					// toggleElement(questionImageElement, true); // Keep element visible with placeholder
+					
+					toggleElement(noImagePlaceholder, true); // Show text placeholder if desired
+				}
+			}
+			
 			// Update Answer Buttons
 			quizAnswersContainer.innerHTML = ''; // Clear old buttons
 			if (data.answers && Array.isArray(data.answers)) {
@@ -471,8 +466,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			buildPlaybackQueue(data.question_audio_url, data.answers);
 			startPlaybackSequence(); // This will disable interactions again
 			
-			// Update the UI (mostly button states, feedback section hidden)
-			// updateQuizUI() is called by startPlaybackSequence -> setInteractionsDisabled(true)
 			
 		} catch (error) {
 			console.error('Error generating next quiz:', error);
@@ -492,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			setErrorState("Failed to load initial quiz data.");
 			setLoadingState(false); // Ensure loading overlay is hidden
 			setInteractionsDisabled(true); // Disable page
-			// updateQuizUI() is called by setInteractionsDisabled
 			return;
 		}
 		
@@ -511,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			feedbackAudioPlayer.addEventListener('error', handleFeedbackAudioEnd); // Treat error same as end
 		}
 		
-		// Add listener for the review modal
 		if (reviewModal) {
 			const reviewVideo = reviewModal.querySelector('.review-video');
 			reviewModal.addEventListener('show.bs.modal', () => {
@@ -546,15 +537,43 @@ document.addEventListener('DOMContentLoaded', () => {
 			});
 		}
 		
-		// Initial UI Render based on passed data
-		// updateQuizUI(); // Called by setInteractionsDisabled(false) below
+		// --- *** Check if already answered correctly on load *** ---
+		const alreadyCorrect = window.isAlreadyAnsweredCorrectly || false;
 		
-		// Build and Start Initial Playback Sequence
-		buildPlaybackQueue(window.initialQuizData.questionAudioUrl, window.initialQuizData.answers);
-		startPlaybackSequence(); // This will disable interactions initially
-		
-		// Hide loading overlay if it was somehow shown
-		setLoadingState(false); // Will call updateQuizUI
+		if (alreadyCorrect) {
+			console.log('Quiz already answered correctly on load.');
+			answered = 'correct';
+			// Find the correct answer details from initial data
+			const answers = window.initialQuizData?.answers || [];
+			correctIndex = answers.findIndex(a => a.is_correct === true);
+			
+			if (correctIndex !== -1) {
+				const correctAnswerData = answers[correctIndex];
+				feedbackText = correctAnswerData?.feedback || "You previously answered this correctly.";
+				feedbackAudioUrl = correctAnswerData?.feedback_audio_url || null;
+				// Highlight the correct answer button immediately (optional)
+				const correctButton = document.getElementById(`answerBtn_${correctIndex}`);
+				if (correctButton) {
+					correctButton.classList.add('correct');
+				}
+			} else {
+				console.warn("Could not find correct answer details in initial data despite flag being true.");
+				feedbackText = "You previously answered this correctly.";
+				feedbackAudioUrl = null;
+			}
+			
+			setLoadingState(false); // Ensure loading is off
+			setInteractionsDisabled(false); // Enable interactions to show button/allow feedback play
+			updateQuizUI(); // Render the correct state immediately
+			// DO NOT start the playback sequence
+			
+		} else {
+			// Normal flow: Build and Start Initial Playback Sequence
+			console.log('Quiz not previously answered correctly. Starting playback sequence.');
+			buildPlaybackQueue(window.initialQuizData.questionAudioUrl, window.initialQuizData.answers);
+			startPlaybackSequence(); // This will disable interactions initially
+			setLoadingState(false);
+		}
 		
 		console.log('Quiz Page Initialized (TTS Version).');
 	}

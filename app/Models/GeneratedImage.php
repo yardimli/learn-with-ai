@@ -14,7 +14,6 @@
 		protected $table = 'generated_images';
 
 		protected $fillable = [
-			'subject_id',
 			'image_type',
 			'image_guid',
 			'image_alt',
@@ -36,6 +35,11 @@
 		public function subject()
 		{
 			return $this->belongsTo(Subject::class);
+		}
+
+		public function quiz()
+		{
+			return $this->belongsTo(Quiz::class);
 		}
 
 		// Accessors for URLs

@@ -45,7 +45,7 @@
 		
 		{{-- Button/Form to start the quiz --}}
 		<div class="text-center">
-			<form action="{{ route('quiz.start', $subject->id) }}" method="POST">
+			<form action="{{ route('quiz.start', $subject->session_id) }}" method="POST">
 				@csrf
 				<button type="submit" id="startQuizButton" class="btn btn-success btn-lg" {{-- Disabled state controlled by JS --}}>
 					<span id="startQuizSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>

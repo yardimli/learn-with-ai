@@ -13,8 +13,6 @@ return new class extends Migration
     {
         Schema::create('generated_images', function (Blueprint $table) {
 	        $table->id();
-	        // $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // Removed user dependency
-	        $table->foreignId('subject_id')->nullable()->constrained()->cascadeOnDelete(); // Link back to subject
 	        $table->string('image_type')->default('generated'); // e.g., generated, uploaded
 	        $table->uuid('image_guid')->unique(); // Keep GUID for referencing image set
 	        $table->string('image_alt', 255)->nullable(); // Alt text

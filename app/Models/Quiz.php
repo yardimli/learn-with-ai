@@ -17,11 +17,11 @@
 
 		protected $fillable = [
 			'subject_id',
+			'generated_image_id',
 			'question_text',
 			'question_audio_path',
 			'answers', // JSON
 			'difficulty_level',
-			'session_id',
 		];
 
 		protected $casts = [
@@ -38,6 +38,10 @@
 			return $this->hasMany(UserAnswer::class);
 		}
 
+		public function generatedImage()
+		{
+			return $this->belongsTo(GeneratedImage::class, 'generated_image_id');
+		}
 
 		// Helper to get feedback audio URL for a specific answer index
 		public function getFeedbackAudioUrl(int $index): ?string

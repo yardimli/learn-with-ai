@@ -11,15 +11,14 @@
 		use HasFactory;
 
 		protected $fillable = [
+			'session_id',
 			'name',
 			'title',
 			'main_text',
 			'image_prompt_idea',
 			'generated_image_id',
-			'initial_video_job_id',
 			'initial_video_path',
-			'initial_video_url', // Consider removing if always derived
-			'session_id',
+			'initial_video_url',
 		];
 
 		public function generatedImage()

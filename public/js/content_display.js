@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Initial Setup ---
 	const videoExists = !!initialVideoPlayer;
+	hasVideoPlayedOnce = true; // Treat as "played" if no video
 	if (startQuizButton) {
 		if (videoExists) {
 			startQuizButton.disabled = true; // Disable initially if video exists

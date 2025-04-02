@@ -12,7 +12,6 @@
 		protected $fillable = [
 			'quiz_id',
 			'subject_id',
-			'session_id',
 			'selected_answer_index',
 			'was_correct',
 			'attempt_number',

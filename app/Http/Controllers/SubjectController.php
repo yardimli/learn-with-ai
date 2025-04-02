@@ -47,13 +47,13 @@
 
 			$userSubject = $request->input('subject');
 			$llm = $request->input('llm', env('DEFAULT_LLM'));
-			$sessionId = Session::getId(); // Important for tracking session
+			$sessionId = Str::uuid(); // Generate a new session ID for this interaction
 
 			Log::info("Starting content generation for subject: '{$userSubject}' by session: {$sessionId}");
 
 			// --- Generate Text ---
 			$systemPromptTextGen = <<<PROMPT
-You are an AI assistant creating educational micro-content. Generate a short introductory text about the subject provided by the user.
+You are an AI assistant creating educational micro-content. Generate a short introductory text about the subject provided by the user. The text contain multiple facts that later can be used to generate a quiz. 
 The output MUST be a JSON object containing:
 1. "title": A concise and engaging title (max 10 words).
 2. "main_text": A brief introductory paragraph (3-5 sentences, approx 50-100 words) explaining the core concept of the subject. Keep it simple and clear.
@@ -109,11 +109,6 @@ PROMPT;
 				'initial_video_url' => null,
 			]);
 
-			// If image model was created, link it back to the subject
-			if ($generatedImageModel && !$generatedImageModel->subject_id) {
-				$generatedImageModel->subject_id = $subject->id;
-				$generatedImageModel->save();
-			}
 			Log::info("Subject record created with ID: {$subject->id}");
 
 			// --- Initiate Video Generation (Async - no waiting here) ---
@@ -135,6 +130,6 @@ PROMPT;
 			}
 
 			// Redirect to the content display page
-			return redirect()->route('content.show', $subject->id);
+			return redirect()->route('content.show', $sessionId);
 		}
 	}

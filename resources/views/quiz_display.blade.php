@@ -4,51 +4,59 @@
 
 @section('content')
 	{{-- Hidden input to store current Subject ID --}}
-	<input type="hidden" id="subjectId" value="{{ $subject->id }}">
+	<input type="hidden" id="subjectId" value="{{ $subject->session_id ?? '' }}">
+	
 	{{-- Hidden input to store current Quiz ID --}}
 	<input type="hidden" id="currentQuizId" value="{{ $quiz->id ?? '' }}">
 	
 	{{-- Single Audio Player for TTS --}}
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio> {{-- Preload auto --}}
 	
-	<div class="quiz-card"> {{-- Use consistent card class --}}
-		<h2 class="text-center mb-3">Quiz Time!</h2>
-		{{-- Add Subject Name for Context --}}
-		<p class="text-center text-muted mb-4">Subject: {{ $subject->name }}</p>
+	<div class="quiz-card" style="padding:1rem;"> {{-- Use consistent card class --}}
+		<h3 class="text-center mb-4">Subject: {{ $subject->name }}</h3>
 		
 		<div class="row">
-			<!-- Left Column: Question Text -->
-			<div id="leftColumn" class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0"> {{-- Adjusted column size --}}
-				<div id="questionVisualsContainer" class="p-3 border rounded bg-light position-relative"> {{-- Add position-relative for button positioning --}}
+			<!-- Left Column: Question Text & Image -->
+			<div id="leftColumn"
+			     class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0">
+				<div id="questionVisualsContainer"
+				     class="p-3 border rounded bg-light position-relative">
 					<h4 class="mb-3">Question:</h4>
-					{{-- Add ID for highlighting --}}
+					
+					{{-- Question Image Display --}}
+					<div class="mb-3 text-center">
+						<img id="questionImageElement"
+						     src="{{ $quiz->generatedImage?->mediumUrl ?? asset('images/placeholder_q.png') }}"
+						     class="img-fluid rounded mb-2 {{ !$quiz->generatedImage ? 'd-none' : '' }}"
+						     style="max-height: 200px;" alt="Visual aid for the question">
+					</div>
+					
 					<p id="questionTextElement" class="fs-5 mt-2">{{ $quiz->question_text ?? 'Loading question...' }}</p>
 					
-					{{-- Optional: Add subject image as static visual aid --}}
-					@if ($subject->generatedImage?->smallUrl)
-						<img src="{{ $subject->generatedImage->smallUrl }}" class="img-fluid rounded mt-3 mb-3" style="max-height: 150px;" alt="Subject Visual Aid"> {{-- Add mb-3 --}}
-					@endif
-					
-					{{-- Add Review Content Button --}}
 					@if($subject->main_text || $subject->initial_video_url)
-						<button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-bs-toggle="modal" data-bs-target="#reviewModal">
+						<button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-bs-toggle="modal"
+						        data-bs-target="#reviewModal">
 							<i class="fas fa-book-open me-1"></i> Review Content
 						</button>
 					@endif
+					
+					@if(isset($quiz->difficulty_level))
+						<p class="text-muted small mt-3">Difficulty Level: {{ $quiz->difficulty_level }}</p>
+					@endif
 				</div>
-			</div> <!-- End Left Column -->
+			</div>
 			
 			<!-- Right Column: Answers & Feedback -->
-			<div id="rightColumn" class="col-12 col-md-7"> {{-- Adjusted column size --}}
+			<div id="rightColumn" class="col-12 col-md-7">
 				<div id="quizArea">
 					<!-- Answer Buttons -->
-					<h4 class="mb-3">Select your answer:</h4>
 					<div id="quizAnswersContainer" class="d-grid gap-3 mb-4">
 						@if ($quiz && isset($quiz->answers))
 							@foreach ($quiz->answers as $index => $answer)
 								{{-- Add ID for highlighting --}}
-								<button type="button" id="answerBtn_{{ $index }}" class="btn btn-outline-primary btn-lg answer-btn" data-index="{{ $index }}">
-									{{ $answer['text'] }}
+								<button type="button" id="answerBtn_{{ $index }}" class="btn btn-outline-primary btn-lg answer-btn"
+								        data-index="{{ $index }}">
+									{{ $answer['text'] ?? 'Error loading answer' }}
 								</button>
 							@endforeach
 						@else
@@ -72,68 +80,64 @@
 							Listen to the feedback to continue.
 						</p>
 						<button id="nextQuestionButton" class="btn btn-info w-100 d-none">
-							<span id="nextQuestionSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+							<span id="nextQuestionSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+							      aria-hidden="true"></span>
 							Next Question
 						</button>
 					</div>
-				
 				</div> <!-- End Quiz Area -->
 			</div> <!-- End Right Column -->
 		</div> <!-- End Row -->
 	</div> <!-- End Quiz Card -->
-
-@endsection
-
-{{-- Add Review Content Modal --}}
-@if($subject->main_text || $subject->initial_video_url)
-	<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
-		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"> {{-- Larger, centered, scrollable --}}
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="reviewModalLabel">Review: {{ $subject->title ?? $subject->name }}</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<div class="row">
-						<!-- Video Column -->
-						<div class="col-md-6 mb-3 mb-md-0">
-							@if ($subject->initial_video_url)
-								<h5>Intro Video</h5>
-								<video controls width="100%" class="rounded review-video" src="{{ $subject->initial_video_url }}" preload="metadata">
-									Your browser does not support the video tag.
-								</video>
-							@else
-								<p class="text-muted">No intro video available.</p>
-							@endif
-						</div>
-						<!-- Text Column -->
-						<div class="col-md-6">
-							<h5>Introduction</h5>
-							<p>{{ $subject->main_text ?? 'No introductory text available.' }}</p>
+	
+	@if($subject->main_text || $subject->initial_video_url)
+		<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+			<div
+				class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"> {{-- Larger, centered, scrollable --}}
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="reviewModalLabel">Review: {{ $subject->title ?? $subject->name }}</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<div class="row">
+							<!-- Video Column -->
+							<div class="col-md-6 mb-3 mb-md-0">
+								@if ($subject->initial_video_url)
+									<h5>Intro Video</h5>
+									<video controls width="100%" class="rounded review-video" src="{{ $subject->initial_video_url }}"
+									       preload="metadata">
+										Your browser does not support the video tag.
+									</video>
+								@else
+									<p class="text-muted">No intro video available.</p>
+								@endif
+							</div>
+							<!-- Text Column -->
+							<div class="col-md-6">
+								<h5>Introduction</h5>
+								<p>{{ $subject->main_text ?? 'No introductory text available.' }}</p>
+							</div>
 						</div>
 					</div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
-@endif
+	@endif
 
-
-@push('styles')
-	{{-- Add any quiz-specific styles here --}}
-@endpush
+@endsection
 
 @push('scripts')
-	{{-- Pass initial quiz data to JS --}}
 	<script>
 		// Make initial data available to quiz.js
 		window.initialQuizData = {
 			quizId: @json($quiz->id ?? null),
 			questionText: @json($quiz->question_text ?? ''),
 			questionAudioUrl: @json($quiz->question_audio_path ?? null), // Using path which should resolve to URL via storage link
+			questionImageUrl: @json($quiz->generatedImage?->mediumUrl ?? null), // PASS IMAGE URL
 			answers: <?php
 				         // Ensure answers is an array, even if null from DB initially
 				         $answersData = $quiz->answers ?? [];
@@ -158,9 +162,10 @@
 					         })->all()
 				         );
 			         ?>,
-			subjectImageUrl: @json($subject->generatedImage?->mediumUrl ?? null) // Keep for potential static image
 		};
-		window.subjectId = @json($subject->id); // Make subject ID available
+		window.subjectSessionId = @json($subject->session_id); // Make subject ID available
+		window.isAlreadyAnsweredCorrectly = @json($isAlreadyAnsweredCorrectly ?? false);
+	
 	</script>
 	<script src="{{ asset('js/quiz.js') }}"></script> {{-- Ensure this is loaded --}}
 @endpush

@@ -3,6 +3,7 @@
 	namespace App\Http\Controllers;
 
 	use App\Helpers\MyHelper;
+	use App\Models\GeneratedImage;
 	use App\Models\Quiz;
 	use App\Models\Subject;
 	use App\Models\UserAnswer;
@@ -14,56 +15,43 @@
 
 	class QuizController extends Controller
 	{
-		/**
-		 * Display the current quiz question for the subject.
-		 * Finds the latest quiz for the subject and session.
-		 *
-		 * @param Subject $subject Route model binding
-		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
-		 */
-		public function show(Subject $subject)
+		public function show($sessionId)
 		{
-			$sessionId = Session::getId();
+			$subject = Subject::where('session_id', $sessionId)->first();
 
-			// Ensure the subject belongs to the current session
-			if ($subject->session_id !== $sessionId) {
-				Log::warning("Attempt to access quiz for subject ID {$subject->id} from different session.");
-				return redirect()->route('home')->with('error', 'Quiz not found or session expired.');
+			// Check if subject exists
+			if (!$subject) {
+				Log::warning("Subject not found for session ID: {$sessionId}");
+				return redirect()->route('home')->with('error', 'Content not found or session expired.');
 			}
 
-			// Find the LATEST quiz associated with this subject AND session
-			$quiz = Quiz::where('subject_id', $subject->id)
-				->where('session_id', $sessionId)
+			$subject_id = $subject->id;
+
+			// Find the LATEST quiz associated with this subject
+			$quiz = Quiz::where('subject_id', $subject_id)
 				->orderBy('created_at', 'desc')
 				->first();
 
-			// What if no quiz exists yet? Redirect back to content page?
 			if (!$quiz) {
-				Log::warning("No quiz found for subject ID {$subject->id} and session {$sessionId}. Redirecting to content.");
-				// Maybe the first quiz generation failed, redirect to content page to try again
-				return redirect()->route('content.show', $subject->id)->with('info', 'Generate the quiz first.');
+				Log::warning("No quiz found for subject ID {$subject_id} and session {$sessionId}. Redirecting to content.");
+				return redirect()->route('content.show', $subject_id)->with('info', 'Generate the quiz first.');
 			}
 
-			// Eager load subject's image for fallback visuals in quiz
-			// Also ensure main_text and video URL are available as they are part of the Subject model
+			$isAlreadyAnsweredCorrectly = UserAnswer::where('quiz_id', $quiz->id)
+				->where('subject_id', $subject_id) // Check within the same session
+				->where('was_correct', true)
+				->exists();
+
 			$subject->load('generatedImage');
 
 			// dd($quiz, $subject); // For debugging if needed
 
-			return view('quiz_display', compact('subject', 'quiz'));
+			return view('quiz_display', compact('subject', 'quiz', 'isAlreadyAnsweredCorrectly'));
 		}
 
-		/**
-		 * Submit an answer for a specific quiz (AJAX).
-		 *
-		 * @param Request $request
-		 * @param Quiz $quiz Route model binding
-		 * @return \Illuminate\Http\JsonResponse
-		 */
 		public function submitAnswer(Request $request, Quiz $quiz)
 		{
 			$validator = Validator::make($request->all(), [
-				// quiz_id comes from the route model binding ($quiz)
 				'selected_index' => 'required|integer|min:0|max:3', // Assuming 4 answers (0-3)
 			]);
 
@@ -71,32 +59,23 @@
 				return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
 			}
 
+			$subject_id = $quiz->subject_id; // Get session ID from the quiz
+
 			$selectedIndex = $request->input('selected_index');
-			$sessionId = Session::getId();
 
-			// Security check: Ensure quiz belongs to the current session
-			if ($quiz->session_id !== $sessionId) {
-				Log::warning("Session mismatch for Quiz ID {$quiz->id}. Expected {$quiz->session_id}, got {$sessionId}");
-				return response()->json(['success' => false, 'message' => 'Invalid session for this quiz.'], 403); // Forbidden
-			}
-
-			// Prevent answering the same quiz multiple times in a session
-			// *** Note: This logic prevents retries on incorrect answers. Consider adjusting if retries are desired. ***
-			// If retries ARE desired, this check needs modification or removal, and the logic
-			// should handle potentially multiple UserAnswer records for the same quiz_id/session_id.
 			$alreadyAnsweredCorrectly = UserAnswer::where('quiz_id', $quiz->id)
-				->where('session_id', $sessionId)
+				->where('subject_id', $subject_id)
 				->where('was_correct', true) // Only prevent re-answering if *correct*
 				->exists();
 
 			if ($alreadyAnsweredCorrectly) {
-				Log::warning("Attempt to re-answer already correctly answered Quiz ID {$quiz->id} by Session {$sessionId}");
+				Log::warning("Attempt to re-answer already correctly answered Quiz ID {$quiz->id} by Subject ID {$subject_id}");
 				// If already correct, maybe return the existing correct result?
 				return response()->json(['success' => false, 'message' => 'Quiz already answered correctly in this session.'], 409); // Conflict
 			}
 
 
-			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Session: {$sessionId}");
+			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}");
 
 			// Retrieve answers WITH audio URLs/paths from the Quiz model's processing
 			$answers = $quiz->answers; // Model casts to array
@@ -124,7 +103,7 @@
 			// Save User Answer - handle potential retries
 			// Find previous attempt for THIS quiz in THIS session
 			$previousAttempt = UserAnswer::where('quiz_id', $quiz->id)
-				->where('session_id', $sessionId)
+				->where('subject_id', $subject_id)
 				->orderBy('attempt_number', 'desc')
 				->first();
 
@@ -132,8 +111,7 @@
 
 			UserAnswer::create([
 				'quiz_id' => $quiz->id,
-				'subject_id' => $quiz->subject_id, // Store subject link
-				'session_id' => $sessionId,
+				'subject_id' => $subject_id,
 				'selected_answer_index' => $selectedIndex,
 				'was_correct' => $wasCorrect,
 				'attempt_number' => $attemptNumber, // Track attempts
@@ -151,80 +129,61 @@
 			]);
 		}
 
-		/**
-		 * Generate the NEXT quiz question based on history and difficulty (AJAX).
-		 *
-		 * @param Request $request
-		 * @param Subject $subject Route model binding
-		 * @return \Illuminate\Http\JsonResponse
-		 */
-		public function generateNextQuiz(Request $request, Subject $subject)
+
+		public function generateNextQuiz(Request $request, $sessionId)
 		{
-			$sessionId = Session::getId();
+			$subject = Subject::where('session_id', $sessionId)->first();
 			$llm = $request->input('llm', env('DEFAULT_LLM')); // Allow LLM override from request?
 
-			// Security check
-			if ($subject->session_id !== $sessionId) {
-				Log::warning("Attempt to get next quiz for subject ID {$subject->id} from different session.");
-				return response()->json(['success' => false, 'message' => 'Invalid session for this subject.'], 403);
+			if (!$subject) {
+				Log::warning("Subject not found for session ID: {$sessionId}");
+				return redirect()->route('home')->with('error', 'Content not found or session expired.');
 			}
 
-			Log::info("Generating next quiz question for Subject ID: {$subject->id}, Session: {$sessionId}");
-
-			// --- Incorporate History & Difficulty ---
-			// Get the MOST RECENT answer for this subject/session to determine the last outcome
-			$lastUserAnswer = UserAnswer::where('subject_id', $subject->id)
-				->where('session_id', $sessionId)
+			// Find the last quiz created specifically for THIS subject
+			$lastQuiz = Quiz::where('subject_id', $subject->id)
 				->orderBy('created_at', 'desc')
 				->first();
 
-			if (!$lastUserAnswer) {
-				// This case shouldn't happen if called via "Next" button after a correct answer,
-				// but handle defensively.
+			if (!$lastQuiz) {
+				Log::error("Could not find the last Quiz model for Subject {$subject->id}.");
+				return response()->json(['success' => false, 'message' => 'Error retrieving previous quiz context.'], 500);
+			}
+
+			// --- Incorporate History & Difficulty ---
+			// Get the MOST RECENT answer for this subject/session to determine the last outcome
+			$hasUserAnswer = UserAnswer::where('subject_id', $subject->id)
+				->where('quiz_id', $lastQuiz->id)
+				->orderBy('created_at', 'desc')
+				->first();
+
+			if (!$hasUserAnswer) {
 				Log::error("generateNextQuiz called for Subject {$subject->id} but no previous answers found.");
 				return response()->json(['success' => false, 'message' => 'Cannot generate next quiz without previous history.'], 500);
 			}
 
-			$lastAnswerCorrect = $lastUserAnswer->was_correct;
-			// Find the specific Quiz model related to the last answer
-			$lastQuiz = Quiz::find($lastUserAnswer->quiz_id);
 
-			if (!$lastQuiz) {
-				Log::error("Could not find the last Quiz model (ID: {$lastUserAnswer->quiz_id}) for Subject {$subject->id}.");
-				return response()->json(['success' => false, 'message' => 'Error retrieving previous quiz context.'], 500);
-			}
+			Log::info("Generating next quiz question for Subject ID: {$subject->id}, Session: {$sessionId}");
 
+			// Check if there is a wrong answer for this quiz in th user_answers
+			$lastQuizHadIncorrectAnswer = UserAnswer::where('quiz_id', $lastQuiz->id)
+				->where('subject_id', $subject->id)
+				->where('was_correct', false)
+				->exists();
+
+			$lastAnswerCorrect = !$lastQuizHadIncorrectAnswer;
 
 			// --- Determine Difficulty ---
 			$questionHistory = [];
 			$difficultyInstruction = "Generate a new multiple-choice question about the subject: '{$subject->name}'.";
 			$currentDifficultyLevel = $lastQuiz->difficulty_level ?? 1; // Start from last quiz's level
 
-			if ($lastAnswerCorrect === true) {
+			if ($lastAnswerCorrect) {
 				$difficultyInstruction .= " The user answered the previous question correctly. Generate a question of SLIGHTLY HIGHER difficulty (level " . ($currentDifficultyLevel + 1) . ").";
 				$currentDifficultyLevel++; // Target next level
-			} elseif ($lastAnswerCorrect === false) {
-				// This path should ideally not be taken if the button only appears on correct answers.
-				// However, if retries are allowed and this gets called somehow after an incorrect final answer,
-				// we handle it.
-				$difficultyInstruction .= " The user answered the previous question INCORRECTLY. Generate a SIMPLER question (level " . max(1, $currentDifficultyLevel - 1) . ") focusing on the basics.";
+			} else {
+				$difficultyInstruction .= " The user answered the previous question INCORRECTLY. Generate a SIMPLER question (level " . max(1, $currentDifficultyLevel - 1) . ") focusing on the basics. Avoid similar pitfalls or clarify the concept related to that wrong answer.";
 
-				// Add context about the first wrong answer on the *previous* quiz attempt
-				$firstUserAnswerForLastQuiz = UserAnswer::where('quiz_id', $lastQuiz->id)
-					->where('session_id', $sessionId)
-					->orderBy('created_at', 'asc') // Get the first attempt
-					->first();
-
-				if ($firstUserAnswerForLastQuiz && !$firstUserAnswerForLastQuiz->was_correct) {
-					$firstWrongIndex = $firstUserAnswerForLastQuiz->selected_answer_index;
-					$lastQuizAnswers = $lastQuiz->answers; // Get the answers array from the last quiz model
-					// Ensure answers array and index exist before accessing
-					if (isset($lastQuizAnswers[$firstWrongIndex]['text'])) {
-						$firstWrongAnswerText = $lastQuizAnswers[$firstWrongIndex]['text'];
-						$firstWrongAnswerTextEscaped = addslashes($firstWrongAnswerText); // Basic escaping for prompt
-						$difficultyInstruction .= " The user's first incorrect selection for that question was: '{$firstWrongAnswerTextEscaped}'. Avoid similar pitfalls or clarify the concept related to that wrong answer.";
-					}
-				}
 				$currentDifficultyLevel = max(1, $currentDifficultyLevel - 1); // Target lower level, min 1
 			}
 
@@ -232,12 +191,11 @@
 			// --- Add History Context ---
 			$historyLimit = 2; // Limit history size
 			$previousAnswersForHistory = UserAnswer::where('subject_id', $subject->id)
-				->where('session_id', $sessionId)
 				->orderBy('created_at', 'desc')
-				// ->distinct('quiz_id') // Maybe only show history per quiz, not per attempt? Complex.
-				->with('quiz:id,question_text') // Eager load only necessary fields from Quiz
-				->take($historyLimit + 1) // Fetch one more to potentially skip the very last one
+				->with('quiz:id,question_text,answers')
+				->take($historyLimit + 1)
 				->get();
+
 
 			// Exclude the very last answer itself from the history prompt context if needed
 			// For simplicity, we include it for now. Adjust if needed.
@@ -245,7 +203,8 @@
 				if ($answer->quiz) { // Check if quiz relation loaded
 					$correctness = $answer->was_correct ? 'Correct' : 'Incorrect';
 					$qTextShort = Str::limit($answer->quiz->question_text, 75);
-					$questionHistory[] = "[{$correctness}] Q: {$qTextShort}";
+					$qAnswerText = $answer->quiz->answers[$answer->selected_answer_index]['text'] ?? 'Unknown';
+					$questionHistory[] = "[{$correctness}] Q: {$qTextShort} A: $qAnswerText (Attempt: {$answer->attempt_number})";
 				}
 			}
 
@@ -253,29 +212,33 @@
 				$difficultyInstruction .= "\nPrevious interaction summary (most recent first):\n" . implode("\n", $questionHistory);
 			}
 
+
 			// --- LLM Prompt for Quiz Generation (Same structure as first quiz) ---
 			$systemPromptQuizGen = <<<PROMPT
 You are an AI quiz master creating educational multiple-choice questions based on a given subject and context.
 The user is learning about: '{$subject->name}'.
-The introductory text provided was: '{$subject->main_text}' // You might want to omit this for later questions to avoid repetition
+The introductory text provided was: '{$subject->main_text}'
 
-{$difficultyInstruction} // Inject the dynamic instructions here
+{$difficultyInstruction}
 
 Your output MUST be a valid JSON object with the following structure:
 {
   "question": "The text of the multiple-choice question?",
+  "image_prompt_idea": "Short visual description related ONLY to the question itself (max 15 words).",
   "answers": [
     { "text": "Answer option 1", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
-    { "text": "Answer option 2", "is_correct": true, "feedback": "Brief explanation why this answer is correct." },
+    { "text": "Answer option 2", "is_correct": true,  "feedback": "Brief explanation why this answer is correct." },
     { "text": "Answer option 3", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
     { "text": "Answer option 4", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." }
   ]
 }
 
 RULES:
+- The Question must be something explained in the introductory text.
 - There must be exactly 4 answer options.
 - Exactly ONE answer must have "is_correct": true.
 - Keep question and answer text concise.
+- Provide a relevant image_prompt_idea for the question (max 15 words).
 - Feedback should be helpful and educational (1-2 sentences).
 - Ensure the entire output is ONLY the JSON object, nothing before or after.
 PROMPT;
@@ -292,6 +255,31 @@ PROMPT;
 
 			Log::info("Next quiz question generated successfully.");
 			$quizData = $quizResult;
+
+			// --- Generate Image for the NEW Question ---
+			$imagePromptIdea = $quizData['image_prompt_idea'];
+			$nextIdentifier = 'next_' . Str::random(4); // Unique identifier for TTS/Image
+			$questionImageId = 0;
+			$questionImageUrl = null; // Store URL for response
+
+			if (!empty($imagePromptIdea)) {
+				Log::info("Generating image for next quiz question ({$nextIdentifier}) with prompt: '{$imagePromptIdea}'");
+				$imageResult = MyHelper::makeImage( $imagePromptIdea, env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell'),  'landscape_16_9');
+
+				if ($imageResult['success'] && isset($imageResult['image_guid'])) {
+					Log::info("Next quiz question image generated successfully. GUID: " . $imageResult['image_guid']);
+					$questionImageModel = GeneratedImage::where('image_guid', $imageResult['image_guid'])->first();
+					if ($questionImageModel) {
+						$questionImageId = $questionImageModel->id;
+						$questionImageUrl = $questionImageModel->mediumUrl; // Get URL for response
+					}
+				} else {
+					Log::error("Next quiz question image generation failed: " . ($imageResult['message'] ?? 'Unknown error'));
+				}
+			} else {
+				Log::warning("LLM did not provide an image_prompt_idea for the next quiz question ({$nextIdentifier}).");
+			}
+
 
 			// --- Generate TTS for the NEW Question ---
 			$questionAudioUrl = null; // Store URL
@@ -316,11 +304,11 @@ PROMPT;
 			// --- Save NEW Quiz to Database ---
 			$newQuiz = Quiz::create([
 				'subject_id' => $subject->id,
+				'generated_image_id' => $questionImageId,
 				'question_text' => $quizData['question'],
 				'question_audio_path' => $questionAudioUrl, // Store URL
 				'answers' => $processedAnswers, // Store answers with TTS paths/urls
 				'difficulty_level' => $currentDifficultyLevel, // Store calculated difficulty
-				'session_id' => $sessionId, // Link to session
 			]);
 
 			Log::info("Next Quiz record created with ID: {$newQuiz->id}");
@@ -334,7 +322,6 @@ PROMPT;
 				$frontendAnswers[] = [
 					'text' => $pa['text'] ?? '',
 					'answer_audio_url' => $pa['answer_audio_url'] ?? null, // Send URL
-					// Don't send feedback/correctness info for the *next* question yet
 				];
 			}
 
@@ -344,7 +331,8 @@ PROMPT;
 				'quiz_id' => $newQuiz->id,
 				'question_text' => $newQuiz->question_text,
 				'question_audio_url' => $questionAudioUrl, // Send question audio URL
-				'answers' => $frontendAnswers, // Send only necessary fields for display
+				'question_image_url' => $questionImageUrl, // Send question image URL
+				'answers' => $frontendAnswers,
 			]);
 		}
 	}

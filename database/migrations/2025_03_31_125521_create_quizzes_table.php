@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('quizzes', function (Blueprint $table) {
 	        $table->id();
-	        $table->foreignId('subject_id')->constrained()->cascadeOnDelete();
+	        $table->integer('subject_id')->default(0)->index(); // Track by session
+	        $table->integer('generated_image_id')->default(0);
 	        $table->text('question_text');
 	        $table->string('question_audio_path')->nullable();
 	        $table->json('answers');
 					$table->integer('difficulty_level')->default(1); // Track difficulty
-	        $table->string('session_id')->index(); // Track by session
 	        $table->timestamps();
         });
     }

@@ -843,6 +843,7 @@
 							'success' => true,
 							'message' => __('Image generated successfully'),
 							'image_guid' => $guid,
+							'image_id' => $imageModel->id,
 							'image_urls' => [ // Provide URLs for frontend
 								'large' => Storage::disk('public')->url($largePath),
 								'medium' => Storage::disk('public')->url($mediumPath),
@@ -877,7 +878,7 @@
 		}
 
 
-		public static function text2video( $text, $faceUrl,  $voice = 'en-US-Studio-O', float  $speakingRate = 1.0, float  $pitch = 0.0)
+		public static function text2video($text, $faceUrl, $voice = 'en-US-Studio-O', float $speakingRate = 1.0, float $pitch = 0.0)
 		{
 			$gooeyApiKey = env('GOOEY_API_KEY');
 			if (empty($gooeyApiKey)) {
@@ -978,7 +979,7 @@
 
 
 		// --- Paste and Adapt text2speech function ---
-		public static function text2speech($text, $voice_name = 'en-US-Wavenet-A', $language = 'en-US',$filename_base = '')
+		public static function text2speech($text, $voice_name = 'en-US-Wavenet-A', $language = 'en-US', $filename_base = '')
 		{
 			if (empty($text)) {
 				Log::warning('Text-to-speech called with empty text.');
@@ -1073,34 +1074,26 @@
 		}
 
 
-		public static function isValidQuizResponse($quizResult): bool
+		public static function isValidQuizResponse($data, $requireImagePrompt = false): bool
 		{
-			if (
-				!$quizResult || isset($quizResult['error']) || !isset($quizResult['question']) || !is_string($quizResult['question']) || !isset($quizResult['answers']) || !is_array($quizResult['answers']) || count($quizResult['answers']) !== 4
-			) {
-				Log::debug("Basic quiz structure validation failed.", ['result' => $quizResult]);
-				return false;
-			}
+			if (!is_array($data)) return false;
+			if (!isset($data['question']) || !is_string($data['question'])) return false;
+			if ($requireImagePrompt && (!isset($data['image_prompt_idea']) || !is_string($data['image_prompt_idea']))) return false; // Check added
+			if (!isset($data['answers']) || !is_array($data['answers']) || count($data['answers']) !== 4) return false;
+
 
 			$correctCount = 0;
-			foreach ($quizResult['answers'] as $answer) {
-				if (
-					!isset($answer['text']) || !is_string($answer['text']) || !isset($answer['is_correct']) || !is_bool($answer['is_correct']) || !isset($answer['feedback']) || !is_string($answer['feedback'])
-				) {
-					Log::debug("Quiz answer structure validation failed.", ['answer' => $answer]);
-					return false; // Incomplete answer structure
-				}
+			foreach ($data['answers'] as $answer) {
+				if (!is_array($answer)) return false;
+				if (!isset($answer['text']) || !is_string($answer['text'])) return false;
+				if (!isset($answer['is_correct']) || !is_bool($answer['is_correct'])) return false;
+				if (!isset($answer['feedback']) || !is_string($answer['feedback'])) return false;
 				if ($answer['is_correct'] === true) {
 					$correctCount++;
 				}
 			}
 
-			if ($correctCount !== 1) {
-				Log::debug("Quiz validation failed: Incorrect number of correct answers.", ['count' => $correctCount, 'answers' => $quizResult['answers']]);
-				return false; // Must have exactly one correct answer
-			}
-
-			return true; // Passed all checks
+			return $correctCount === 1; // Exactly one correct answer
 		}
 
 		// --- End of MyHelper class ---

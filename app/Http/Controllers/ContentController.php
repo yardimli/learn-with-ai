@@ -5,50 +5,47 @@
 	use App\Helpers\MyHelper;
 	use App\Models\Quiz;
 	use App\Models\Subject;
-	use App\Models\UserAnswer; // Needed for context in first quiz prompt potentially
-	use Illuminate\Http\Request; // Needed if you add Request param later
+	use App\Models\UserAnswer;
+
+	// Needed for context in first quiz prompt potentially
+	use Illuminate\Http\Request;
+
+	// Needed if you add Request param later
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Session;
-	use Illuminate\Support\Facades\Storage; // Potentially needed if handling files directly
+	use Illuminate\Support\Facades\Storage;
+
+	// Potentially needed if handling files directly
 	use Illuminate\Support\Str;
+	use App\Models\GeneratedImage;
 
 	class ContentController extends Controller
 	{
-		/**
-		 * Display the generated content (title, text, image/video).
-		 *
-		 * @param Subject $subject Route model binding
-		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
-		 */
-		public function show(Subject $subject)
+		public function show($sessionId)
 		{
-			// Ensure the subject belongs to the current session for security
-			if ($subject->session_id !== Session::getId()) {
-				Log::warning("Attempt to access subject ID {$subject->id} from different session.");
-				// Decide action: show error, redirect home?
+			$subject = Subject::where('session_id', $sessionId)->first();
+
+			// Check if subject exists
+			if (!$subject) {
+				Log::warning("Subject not found for session ID: {$sessionId}");
 				return redirect()->route('home')->with('error', 'Content not found or session expired.');
 			}
 
-			// Eager load relations if needed often (optional optimization)
 			$subject->load('generatedImage');
-			// dd($subject);
+			$mediumImageUrl = $subject->generatedImage ? $subject->generatedImage->medium_url : null;
+			$subject->medium_image_url = $mediumImageUrl;
+
 			return view('content_display', compact('subject'));
 		}
 
-		/**
-		 * Generate the FIRST quiz for a subject and redirect to quiz view.
-		 * Triggered by the "Start Quiz" button on the content page.
-		 *
-		 * @param Subject $subject Route model binding
-		 * @return \Illuminate\Http\RedirectResponse
-		 */
-		public function generateFirstQuiz(Subject $subject)
+		public function generateFirstQuiz($sessionId)
 		{
-			$sessionId = Session::getId();
-			// Ensure the subject belongs to the current session
-			if ($subject->session_id !== $sessionId) {
-				Log::warning("Attempt to start quiz for subject ID {$subject->id} from different session.");
-				return redirect()->route('content.show', $subject->id)->with('error', 'Cannot start quiz: Session mismatch.');
+			$subject = Subject::where('session_id', $sessionId)->first();
+
+			// Check if subject exists
+			if (!$subject) {
+				Log::warning("Subject not found for session ID: {$sessionId}");
+				return redirect()->route('home')->with('error', 'Content not found or session expired.');
 			}
 
 			Log::info("Generating first quiz for Subject ID: {$subject->id}, Session: {$sessionId}");
@@ -68,21 +65,25 @@ The introductory text provided was: '{$subject->main_text}'
 Your output MUST be a valid JSON object with the following structure:
 {
   "question": "The text of the multiple-choice question?",
+  "image_prompt_idea": "Short visual description related ONLY to the question itself (max 15 words).",
   "answers": [
     { "text": "Answer option 1", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
-    { "text": "Answer option 2", "is_correct": true, "feedback": "Brief explanation why this answer is correct." },
+    { "text": "Answer option 2", "is_correct": true,  "feedback": "Brief explanation why this answer is correct." },
     { "text": "Answer option 3", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
     { "text": "Answer option 4", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." }
   ]
 }
 
 RULES:
+- The Question must be something explained in the introductory text.
 - There must be exactly 4 answer options.
 - Exactly ONE answer must have "is_correct": true.
 - Keep question and answer text concise.
+- Provide a relevant image_prompt_idea for the question (max 15 words).
 - Feedback should be helpful and educational (1-2 sentences).
 - Ensure the entire output is ONLY the JSON object, nothing before or after.
 PROMPT;
+
 			$chatHistoryQuizGen = []; // No user message needed
 			$quizResult = MyHelper::llm_no_tool_call($llm, $systemPromptQuizGen, $chatHistoryQuizGen, true);
 
@@ -96,6 +97,24 @@ PROMPT;
 			Log::info("First quiz question generated successfully.");
 			$quizData = $quizResult;
 			$currentDifficultyLevel = 1; // First question is level 1
+
+			// --- Generate Image for the Question ---
+			$imagePromptIdea = $quizData['image_prompt_idea'];
+			$questionImageId = 0;
+			if (!empty($imagePromptIdea)) {
+				Log::info("Generating image for first quiz question with prompt: '{$imagePromptIdea}'");
+				$imageResult = MyHelper::makeImage($imagePromptIdea, env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell'),
+					'landscape_16_9');
+				Log::info("Image generation result: " . json_encode($imageResult));
+
+				if ($imageResult['success']) {
+					$questionImageId = $imageResult['image_id'];
+				} else {
+					Log::error("Quiz question image generation failed: " . ($imageResult['message'] ?? 'Unknown error'));
+				}
+			} else {
+				Log::warning("LLM did not provide an image_prompt_idea for the first quiz question.");
+			}
 
 			// --- Generate TTS for Question Text ---
 			$questionAudioPath = null; // Store the public URL now
@@ -118,16 +137,16 @@ PROMPT;
 			// --- Save Quiz to Database ---
 			$quiz = Quiz::create([
 				'subject_id' => $subject->id,
+				'generated_image_id' => $questionImageId,
 				'question_text' => $quizData['question'],
 				'question_audio_path' => $questionAudioPath, // Store the URL
 				'answers' => $processedAnswers, // Store full processed data including TTS URLs
 				'difficulty_level' => $currentDifficultyLevel,
-				'session_id' => $sessionId, // Link quiz to session
 			]);
 
-			Log::info("First Quiz record created with ID: {$quiz->id}");
+			Log::info("First Quiz record created with ID: {$quiz->id}, Image ID: {$questionImageId}");
 
 			// Redirect to the quiz display page (handled by QuizController::show)
-			return redirect()->route('quiz.show', $subject->id);
+			return redirect()->route('quiz.show', $sessionId);
 		}
 	}
