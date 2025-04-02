@@ -744,7 +744,7 @@
 
 					$status_url = $data['status_url'];
 					$check_count = 0;
-					$check_limit = 10;
+					$check_limit = 20;
 					$response_url = '';
 					while ($check_count < $check_limit) {
 						$response = $client->get($status_url, [
@@ -978,98 +978,190 @@
 		}
 
 
-		// --- Paste and Adapt text2speech function ---
-		public static function text2speech($text, $voice_name = 'en-US-Wavenet-A', $language = 'en-US', $filename_base = '')
-		{
-			if (empty($text)) {
-				Log::warning('Text-to-speech called with empty text.');
-				return null;
+
+		public static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0) {
+			// Check if input file exists
+			if (!file_exists($inputFile)) {
+				return false;
 			}
 
-			$credentialsPath = base_path(env('GOOGLE_TTS_CREDENTIALS'));
-			if (empty($credentialsPath) || !File::exists($credentialsPath)) {
-				Log::error('Google TTS credentials path not set or file not found: ' . $credentialsPath);
-				return null;
+			// Validate volume level (prevent negative values)
+			$volumeLevel = max(0, (float)$volumeLevel);
+			$bitrate = '128k';
+
+			// Construct FFmpeg command
+			$command = sprintf(
+				'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
+				escapeshellarg($inputFile),
+				$volumeLevel,
+				$bitrate,
+				escapeshellarg($outputFile)
+			);
+
+			// Execute command
+			exec($command, $output, $returnCode);
+
+			return $returnCode === 0;
+		}
+
+		/**
+		 * Converts text to speech using the specified engine.
+		 *
+		 * @param string $text The text to synthesize.
+		 * @param string $voiceName The voice name (engine-specific). Google: 'en-US-Wavenet-A', OpenAI: 'alloy'.
+		 * @param string $languageCode The language code (primarily for Google, e.g., 'en-US').
+		 * @param string $outputFilenameBase Base name for the output file (without extension).
+		 * @param string|null $engine The TTS engine ('google' or 'openai'). Defaults to env('DEFAULT_TTS_ENGINE').
+		 * @return array Associative array with 'success' (bool), 'storage_path' (string|null), 'fileUrl' (string|null), 'message' (string|null).
+		 */
+		public static function text2speech(
+			string  $text,
+			string  $voiceName,
+			string  $languageCode = 'en-US', // Keep for Google compatibility
+			string  $outputFilenameBase = 'tts_output',
+			?string $engine = null // Add engine parameter
+		): array
+		{
+			// Determine engine, defaulting from .env
+			$selectedEngine = $engine ?? env('DEFAULT_TTS_ENGINE', 'google');
+			$filename = Str::slug($outputFilenameBase) . '.mp3'; // Use mp3 for both now
+			$directory = 'tts'; // Store in storage/app/public/tts
+			$storagePath = $directory . '/' . $filename;
+
+			if (!Storage::exists($directory)) {
+				Storage::makeDirectory($directory); // This is relative to the disk's root (storage/app)
 			}
+
+			Log::info("text2speech called. Engine: {$selectedEngine}, Voice: {$voiceName}, Text: '" . Str::limit($text, 50) . "...'");
 
 			try {
-				// Check if credentials file is readable
-				if (!is_readable($credentialsPath)) {
-					Log::error('Google TTS credentials file is not readable: ' . $credentialsPath);
-					return null;
+				// Ensure the directory exists
+				Storage::disk('public')->makeDirectory($directory);
+
+				if ($selectedEngine === 'openai') {
+					// --- OpenAI TTS Implementation ---
+					$apiKey = env('OPENAI_API_KEY');
+					$openAiVoice = $voiceName; // Directly use the voice name provided
+					$openAiModel = env('OPENAI_TTS_MODEL', 'tts-1');
+
+					if (!$apiKey) {
+						throw new \Exception('OpenAI API key is not configured in .env');
+					}
+
+					$response = Http::withToken($apiKey)
+						->timeout(60) // Increased timeout for audio generation
+						->post('https://api.openai.com/v1/audio/speech', [
+							'model' => $openAiModel,
+							'input' => $text,
+							'voice' => $openAiVoice,
+							'instructions' => 'Speak in a cheerful and positive tone.',
+							'response_format' => 'mp3', // Request MP3 format
+						]);
+
+					if ($response->successful()) {
+						// Save the raw audio content directly
+						$saved = Storage::disk('public')->put($storagePath, $response->body());
+						if (!$saved) {
+							throw new \Exception("Failed to save OpenAI TTS audio to disk at {$storagePath}. Check permissions.");
+						}
+
+						$loudness = 4.0; // Adjust volume level as needed
+						$newFilePath = Storage::disk('public')->path($storagePath);
+						$newFilePath = str_replace('.mp3', '_loud.mp3', $newFilePath);
+						$amplified = self::amplifyMp3Volume(Storage::disk('public')->path($storagePath), $newFilePath, $loudness);
+
+						if ($amplified) {
+							$fileUrl = Storage::disk('public')->url(str_replace('.mp3', '_loud.mp3', $storagePath));
+							$storagePath = str_replace('.mp3', '_loud.mp3', $storagePath);
+						} else {
+							$fileUrl = Storage::disk('public')->url($storagePath);
+						}
+						Log::info("OpenAI TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
+						return [
+							'success' => true,
+							'storage_path' => $storagePath,
+							'fileUrl' => $fileUrl,
+							'message' => 'OpenAI TTS generated successfully.',
+						];
+					} else {
+						$errorMessage = "OpenAI TTS API request failed. Status: " . $response->status();
+						$errorBody = $response->body();
+						Log::error($errorMessage . " Body: " . $errorBody);
+						// Attempt to decode JSON error if possible
+						$decodedError = json_decode($errorBody, true);
+						if (isset($decodedError['error']['message'])) {
+							$errorMessage .= " Message: " . $decodedError['error']['message'];
+						}
+						throw new \Exception($errorMessage);
+					}
+
+				} elseif ($selectedEngine === 'google') {
+					$credentialsPath = base_path(env('GOOGLE_TTS_CREDENTIALS'));
+					if (empty($credentialsPath) || !File::exists($credentialsPath)) {
+						Log::error('Google TTS credentials path not set or file not found: ' . $credentialsPath);
+						return null;
+					}
+
+					// Check if credentials file is readable
+					if (!is_readable($credentialsPath)) {
+						Log::error('Google TTS credentials file is not readable: ' . $credentialsPath);
+						return null;
+					}
+
+					// Instantiates a client
+					$client = new TextToSpeechClient(['credentials' => $credentialsPath]);
+
+					// Sets the text input to be synthesized
+					$synthesisInput = (new SynthesisInput())->setText($text);
+
+					// Builds the voice request; languageCode and name are required
+					$voice = (new VoiceSelectionParams())
+						->setLanguageCode($languageCode) // Use the provided language code
+						->setName($voiceName);           // Use the provided Google voice name
+
+					// Selects the type of audio file to return
+					$audioConfig = (new AudioConfig())
+						->setAudioEncoding(AudioEncoding::MP3); // Use MP3
+
+					// Performs the text-to-speech request
+					$response = $client->synthesizeSpeech($synthesisInput, $voice, $audioConfig);
+					$audioContent = $response->getAudioContent();
+
+					// Save the MP3 audio content to the public disk
+					$saved = Storage::disk('public')->put($storagePath, $audioContent);
+					if (!$saved) {
+						throw new \Exception("Failed to save Google TTS audio to disk at {$storagePath}. Check permissions.");
+					}
+
+					$fileUrl = Storage::disk('public')->url($storagePath);
+					Log::info("Google TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
+
+					// Close the client connection
+					$client->close();
+
+					return [
+						'success' => true,
+						'storage_path' => $storagePath,
+						'fileUrl' => $fileUrl,
+						'message' => 'Google TTS generated successfully.',
+					];
+				} else {
+					throw new \Exception("Unsupported TTS engine: {$selectedEngine}");
 				}
 
-
-				$textToSpeechClient = new TextToSpeechClient(['credentials' => $credentialsPath]);
-
-				$input = (new SynthesisInput())->setText($text);
-
-				// Determine gender (simple heuristic, might need refinement or mapping)
-				// Google's more descriptive names often don't include gender directly.
-				// Wavenet-A/B/C/D are often male, E/F female for en-US, but not guaranteed.
-				// Studio voices often have M/F. Let's default to NEUTRAL or remove if causing issues.
-				$gender = SsmlVoiceGender::NEUTRAL; // Safer default
-				if (str_contains($voice_name, 'Studio-M')) $gender = SsmlVoiceGender::MALE;
-				if (str_contains($voice_name, 'Studio-F') || str_contains($voice_name, 'Studio-O')) $gender = SsmlVoiceGender::FEMALE; // Studio-O is often female
-
-
-				$voice = (new VoiceSelectionParams())
-					->setLanguageCode($language)
-					->setName($voice_name);
-				// ->setSsmlGender($gender); // Setting gender can sometimes conflict if name implies it. Test this.
-
-				$audioConfig = (new AudioConfig())
-					->setAudioEncoding(AudioEncoding::MP3);
-
-				Log::info("Requesting TTS from Google for voice: {$voice_name}, lang: {$language}");
-				$response = $textToSpeechClient->synthesizeSpeech($input, $voice, $audioConfig);
-				$audioContent = $response->getAudioContent();
-
-				// Generate filename
-				$filename_base = $filename_base ?: Str::slug(Str::limit($text, 30, '')); // Use slug of text if no base provided
-				$filename = $filename_base . '_' . Str::uuid()->toString() . '.mp3'; // Ensure UUID is string
-				$directory = 'public/audio_cache';
-				$storagePath = $directory . '/' . $filename; // Path for Storage facade
-
-				// Check if the directory exists; if not, create it
-				if (!Storage::exists($directory)) {
-					Storage::makeDirectory($directory); // This is relative to the disk's root (storage/app)
-				}
-
-				// Store the audio file using Storage facade (automatically handles driver: local, s3 etc.)
-				$putSuccess = Storage::put($storagePath, $audioContent);
-
-				if (!$putSuccess) {
-					Log::error("Failed to store TTS audio file to: {$storagePath}");
-					$textToSpeechClient->close();
-					return null;
-				}
-
-				// Generate URL for the stored audio file (relative to 'public' disk)
-				$fileUrl = Storage::url($storagePath); // Correct way to get URL for public disk
-
-				$textToSpeechClient->close(); // Close the client connection
-
-				Log::info("TTS audio saved: {$storagePath}, URL: {$fileUrl}");
-
-				// Return the relative storage path and its public URL
+			} catch (\Throwable $e) {
+				Log::error("text2speech Error ({$selectedEngine}): " . $e->getMessage(), [
+					'exception' => $e,
+					'text' => Str::limit($text, 100) . '...',
+					'voice' => $voiceName,
+					'engine' => $selectedEngine
+				]);
 				return [
-					'filename' => $filename, // Just the filename part
-					'storage_path' => $storagePath, // Relative path within the disk
-					'fileUrl' => $fileUrl,    // Publicly accessible URL
+					'success' => false,
+					'storage_path' => null,
+					'fileUrl' => null,
+					'message' => "TTS generation failed ({$selectedEngine}): " . $e->getMessage(),
 				];
-
-			} catch (\Google\ApiCore\ApiException $e) {
-				Log::error("Google API Exception during TTS: " . $e->getMessage() . " Code: " . $e->getCode());
-				// Try closing client if it exists
-				if (isset($textToSpeechClient)) $textToSpeechClient->close();
-				return null;
-			} catch (\Exception $e) {
-				Log::error("General Exception during TTS: " . $e->getMessage());
-				Log::error("Trace: " . $e->getTraceAsString()); // More detailed trace
-				// Try closing client if it exists
-				if (isset($textToSpeechClient)) $textToSpeechClient->close();
-				return null;
 			}
 		}
 

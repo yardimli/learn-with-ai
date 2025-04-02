@@ -116,14 +116,23 @@ PROMPT;
 				Log::warning("LLM did not provide an image_prompt_idea for the first quiz question.");
 			}
 
+
+			$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
+			$ttsVoice = ($ttsEngine === 'openai')
+				? env('OPENAI_TTS_VOICE', 'alloy') // Default OpenAI voice
+				: env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A'); // Default Google voice
+			$ttsLanguageCode = 'en-US'; // Primarily for Google
+
 			// --- Generate TTS for Question Text ---
 			$questionAudioPath = null; // Store the public URL now
 			$questionTtsResult = MyHelper::text2speech(
 				$quizData['question'],
-				env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A'), // Use appropriate voice
-				'en-US',
-				'question_' . $subject->id . '_initial_' . Str::slug(Str::limit($quizData['question'], 20))
+				$ttsVoice,            // Use determined voice
+				$ttsLanguageCode,     // Pass language code
+				'question_' . $subject->id . '_initial_' . Str::slug(Str::limit($quizData['question'], 20)),
+				$ttsEngine            // Pass determined engine
 			);
+
 			if ($questionTtsResult && isset($questionTtsResult['fileUrl'])) {
 				$questionAudioPath = $questionTtsResult['fileUrl']; // Store the URL
 				Log::info("Generated TTS for initial question: {$questionAudioPath}");
@@ -132,7 +141,14 @@ PROMPT;
 			}
 
 			// --- Process Answers (Generate TTS for feedback & answers) ---
-			$processedAnswers = Quiz::processAnswersWithTTS($quizData['answers'], $subject->id, 'initial');
+			$processedAnswers = Quiz::processAnswersWithTTS(
+				$quizData['answers'],
+				$subject->id,
+				'initial',
+				$ttsEngine,         // Pass engine
+				$ttsVoice,          // Pass voice
+				$ttsLanguageCode    // Pass lang code
+			);
 
 			// --- Save Quiz to Database ---
 			$quiz = Quiz::create([

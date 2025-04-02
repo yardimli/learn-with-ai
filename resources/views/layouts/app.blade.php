@@ -15,9 +15,59 @@
 	<link rel="stylesheet" href="{{ asset('css/app.css') }}">
 	
 	@stack('styles') {{-- For page-specific styles --}}
+	
+	<script>
+		       (function() {
+			           const darkModeEnabled = localStorage.getItem('darkModeEnabled') === 'true';
+			           if (darkModeEnabled) {
+				               document.documentElement.classList.add('dark-mode'); // Apply to <html>
+				           }
+			           // Ensure body exists before trying to add class (though applying to html is better for early application)
+				           // document.addEventListener('DOMContentLoaded', () => {
+					           //    if (darkModeEnabled) document.body.classList.add('dark-mode');
+						           // });
+							       })();
+		   </script>
+	
+	   <style>
+               /* Style for the switch container */
+               .dark-mode-switch-container {
+                   position: fixed; /* Or absolute if you prefer relative to a parent */
+                   top: 1rem;
+                   right: 1rem;
+                   z-index: 1050; /* Ensure it's above most content */
+                   background: rgba(var(--bs-body-bg-rgb), 0.8); /* Semi-transparent background */
+                   padding: 0.4rem 0.6rem;
+                   border-radius: 50px; /* Rounded pill shape */
+                   backdrop-filter: blur(3px); /* Optional: blur background */
+                   display: flex;
+                   align-items: center;
+               }
+               .dark-mode-switch-container .form-check-label {
+                  margin-left: 0.5rem;
+                  cursor: pointer; /* Make label clickable */
+               }
+              .dark-mode-switch-container .form-switch .form-check-input {
+                  cursor: pointer;
+                  width: 2.5em; /* Slightly larger switch */
+                  height: 1.3em;
+              }
+           </style>
 
 </head>
 <body class="antialiased">
+
+    {{-- Dark Mode Switch --}}
+    <div class="dark-mode-switch-container shadow-sm">
+	        <div class="form-check form-switch">
+		            <input class="form-check-input" type="checkbox" role="switch" id="darkModeSwitch">
+		            <label class="form-check-label" for="darkModeSwitch">
+			                <i class="fas fa-moon" id="darkModeIconMoon"></i>
+			                <i class="fas fa-sun d-none" id="darkModeIconSun"></i>
+			            </label>
+		        </div>
+	    </div>
+
 <div class="container mt-4 mb-5">
 	
 	<!-- Loading Indicator -->

@@ -68,18 +68,36 @@
 			return null;
 		}
 
-		public static function processAnswersWithTTS(array $answers, int $subjectId, string $identifier): array
-		{
+		/**
+		 * Process answers array, generating TTS for text and feedback using the specified engine.
+		 *
+		 * @param array $answers The original answers array from LLM.
+		 * @param int $subjectId Subject ID for filename uniqueness.
+		 * @param string $identifier Unique identifier (e.g., 'initial', 'next_xyz').
+		 * @param string $ttsEngine The TTS engine ('google' or 'openai').
+		 * @param string $ttsVoice The voice name specific to the chosen engine.
+		 * @param string $languageCode Language code (primarily for Google).
+		 * @return array The processed answers array with audio paths/URLs.
+		 */
+		public static function processAnswersWithTTS(
+			array $answers,
+			int $subjectId,
+			string $identifier,
+			string $ttsEngine, // Add engine
+			string $ttsVoice,   // Add voice
+			string $languageCode = 'en-US' // Keep for Google
+		): array {
 			$processedAnswers = $answers; // Start with the original array
 			foreach ($processedAnswers as $index => &$answer) { // Use reference
 				$baseFilename = Str::slug(Str::limit($answer['text'], 20)); // Create safer filename base
 
 				// Generate TTS for ANSWER TEXT
 				$answerTtsResult = MyHelper::text2speech(
-					$answer['text'],
-					env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A'),
-					'en-US',
-					'answer_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index
+					$answer['text'] ?? '', // Ensure text exists
+					$ttsVoice,            // Pass the correct voice
+					$languageCode,        // Pass language code
+					'answer_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index,
+					$ttsEngine            // Pass the engine
 				);
 
 				if ($answerTtsResult && isset($answerTtsResult['storage_path'], $answerTtsResult['fileUrl'])) {
@@ -94,10 +112,11 @@
 
 				// Generate TTS for FEEDBACK TEXT (existing logic)
 				$feedbackTtsResult = MyHelper::text2speech(
-					$answer['feedback'],
-					env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A'),
-					'en-US',
-					'feedback_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index
+					$answer['feedback'] ?? '', // Ensure feedback exists
+					$ttsVoice,               // Pass the correct voice
+					$languageCode,           // Pass language code
+					'feedback_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index,
+					$ttsEngine               // Pass the engine
 				);
 
 				if ($feedbackTtsResult && isset($feedbackTtsResult['storage_path'], $feedbackTtsResult['fileUrl'])) {

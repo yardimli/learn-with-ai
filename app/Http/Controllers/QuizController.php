@@ -282,13 +282,20 @@ PROMPT;
 
 
 			// --- Generate TTS for the NEW Question ---
+			$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
+			$ttsVoice = ($ttsEngine === 'openai')
+				? env('OPENAI_TTS_VOICE', 'alloy')
+				: env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A');
+			$ttsLanguageCode = 'en-US'; // Primarily for Google
+
 			$questionAudioUrl = null; // Store URL
 			$nextIdentifier = 'next_' . Str::random(4); // Unique identifier
 			$questionTtsResult = MyHelper::text2speech(
 				$quizData['question'],
-				env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A'),
-				'en-US',
-				'question_' . $subject->id . '_' . $nextIdentifier . '_' . Str::slug(Str::limit($quizData['question'], 20))
+				$ttsVoice,           // Use determined voice
+				$ttsLanguageCode,    // Pass language code
+				'question_' . $subject->id . '_' . $nextIdentifier . '_' . Str::slug(Str::limit($quizData['question'], 20)),
+				$ttsEngine           // Pass determined engine
 			);
 
 			if ($questionTtsResult && isset($questionTtsResult['fileUrl'])) {
@@ -299,7 +306,14 @@ PROMPT;
 			}
 
 			// --- Process Answers (Generate TTS for feedback & answers) ---
-			$processedAnswers = Quiz::processAnswersWithTTS($quizData['answers'], $subject->id, $nextIdentifier);
+			$processedAnswers = Quiz::processAnswersWithTTS(
+				$quizData['answers'],
+				$subject->id,
+				$nextIdentifier,
+				$ttsEngine,         // Pass engine
+				$ttsVoice,          // Pass voice
+				$ttsLanguageCode    // Pass lang code
+			);
 
 			// --- Save NEW Quiz to Database ---
 			$newQuiz = Quiz::create([

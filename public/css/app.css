@@ -150,3 +150,193 @@ body {
     /* Override default background if needed, or keep outline style */
     /* background-color: #cfe2ff; */ /* Example: If using solid background */
 }
+
+
+
+
+
+
+
+
+
+.dark-mode {
+    /* Basic Colors */
+    --bs-body-bg: #1c1c1e; /* Dark background */
+    --bs-body-color: #e4e4e6; /* Light text */
+    --bs-border-color: #3a3a3c; /* Darker borders */
+    --bs-secondary-bg: #2c2c2e; /* Slightly lighter dark bg */
+    --bs-tertiary-bg: #3a3a3c; /* Even lighter dark bg */
+
+    /* Ensure links are visible */
+    --bs-link-color: #58a6ff; /* Lighter blue for links */
+    --bs-link-hover-color: #79bbff;
+}
+
+/* Component Overrides */
+.dark-mode body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.dark-mode .content-card,
+.dark-mode .quiz-card,
+.dark-mode .modal-content {
+    background-color: #2a2a2e; /* Slightly different card background */
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6 {
+    color: #f0f0f0; /* Slightly brighter headings */
+}
+
+.dark-mode .text-muted {
+    color: #8e8e93 !important; /* More visible muted text */
+}
+
+.dark-mode .form-control,
+.dark-mode .form-select {
+    background-color: #3a3a3c;
+    color: var(--bs-body-color);
+    border-color: #545458;
+}
+.dark-mode .form-control::placeholder {
+    color: #8e8e93;
+}
+.dark-mode .form-control:focus,
+.dark-mode .form-select:focus {
+    background-color: #3a3a3c;
+    color: var(--bs-body-color);
+    border-color: #58a6ff; /* Highlight focus */
+    box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
+}
+
+.dark-mode .btn-primary {
+    /* Adjust primary button colors if needed */
+}
+.dark-mode .btn-secondary {
+    background-color: #58585a;
+    border-color: #58585a;
+    color: #fff;
+}
+.dark-mode .btn-secondary:hover {
+    background-color: #6a6a6c;
+    border-color: #6a6a6c;
+}
+.dark-mode .btn-outline-primary {
+    color: #58a6ff;
+    border-color: #58a6ff;
+}
+.dark-mode .btn-outline-primary:hover {
+    background-color: #58a6ff;
+    color: #1c1c1e;
+}
+.dark-mode .btn-outline-secondary {
+    color: #a0a0a5;
+    border-color: #a0a0a5;
+}
+.dark-mode .btn-outline-secondary:hover {
+    background-color: #a0a0a5;
+    color: #1c1c1e;
+}
+.dark-mode .btn-success {
+    /* Adjust if needed */
+}
+.dark-mode .btn-info {
+    /* Adjust if needed */
+}
+.dark-mode .btn-danger {
+    /* Adjust if needed */
+}
+
+.dark-mode .alert-danger {
+    background-color: #5e1e23;
+    color: #f8d7da;
+    border-color: #f5c6cb;
+}
+.dark-mode .alert-danger .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.dark-mode hr {
+    border-top-color: var(--bs-border-color);
+}
+
+.dark-mode .modal-header,
+.dark-mode .modal-footer {
+    border-bottom-color: var(--bs-border-color);
+    border-top-color: var(--bs-border-color);
+}
+
+.dark-mode .spinner-border {
+    /* Use default color or adjust if needed */
+}
+
+.dark-mode .loading-overlay {
+    background-color: rgba(30, 30, 30, 0.8); /* Darker overlay */
+}
+
+.dark-mode .reading-highlight {
+    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
+    border-radius: 3px;
+    padding: 0.1em 0.2em;
+    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
+}
+
+.dark-mode .answer-btn.selected {
+    background-color: #0d6efd; /* Use primary color or adjust */
+    border-color: #0d6efd;
+    color: white;
+}
+.dark-mode .answer-btn.correct {
+    background-color: #198754; /* Success color */
+    border-color: #198754;
+    color: white;
+}
+.dark-mode .answer-btn.incorrect {
+    background-color: #dc3545; /* Danger color */
+    border-color: #dc3545;
+    color: white;
+}
+
+/* Adjust switch appearance in dark mode */
+.dark-mode .form-switch .form-check-input {
+    background-color: #545458;
+    border-color: rgba(255, 255, 255, 0.25);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.25)'/%3e%3c/svg%3e");
+}
+.dark-mode .form-switch .form-check-input:focus {
+    border-color: rgba(255, 255, 255, 0.25);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.25)'/%3e%3c/svg%3e");
+}
+.dark-mode .form-switch .form-check-input:checked {
+    background-color: #58a6ff; /* Use a light blue for checked state */
+    border-color: #58a6ff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+}
+
+.dark-mode .dark-mode-switch-container {
+    /* Update background if needed, maybe make it less transparent */
+    background: rgba(var(--bs-body-bg-rgb), 0.1);
+    border: 1px solid var(--bs-border-color);
+}
+
+.dark-mode .dark-mode-switch-container .form-check-label {
+    color: #a0a0a5; /* Adjust icon color */
+}
+
+.dark-mode .dark-mode-switch-container .form-check-input:checked + .form-check-label {
+    color: #ffcc66; /* Sun color */
+}
+
+/* --- End Dark Mode Styles --- */
+
+/* Add your other CSS rules here... */
+.content-card, .quiz-card {
+    background-color: #fff; /* Default light background */
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef; /* Default light border */
+    margin-bottom: 1.5rem;
+}
