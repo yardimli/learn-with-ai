@@ -13,7 +13,7 @@
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio> {{-- Preload auto --}}
 	
 	<div class="quiz-card" style="padding:1rem;"> {{-- Use consistent card class --}}
-		<h3 class="text-center mb-4">Subject: {{ $subject->name }}</h3>
+		<h3 class="text-center mb-3">Subject: {{ $subject->name }}</h3>
 		
 		<div class="row">
 			<!-- Left Column: Question Text & Image -->
@@ -22,7 +22,7 @@
 				<div id="questionVisualsContainer"
 				     class="p-3 border rounded question-container position-relative">
 					
-					<p id="questionTextElement" class="quiz-question-text fs-5 mt-2 mb-3">{{ $quiz->question_text ?? 'Loading question...' }}</p>
+					<p id="questionTextElement" class="quiz-question-text fs-5 mb-4">{{ $quiz->question_text ?? 'Loading question...' }}</p>
 					
 					{{-- Question Image Display --}}
 					<div class="mb-3 text-center">
