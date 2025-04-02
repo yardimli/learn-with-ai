@@ -13,7 +13,7 @@
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio> {{-- Preload auto --}}
 	
 	<div class="quiz-card" style="padding:1rem;"> {{-- Use consistent card class --}}
-		<h3 class="text-center mb-3">Subject: {{ $subject->name }}</h3>
+		<h3 class="text-center mb-3">{{ $subject->title }}</h3>
 		
 		<div class="row">
 			<!-- Left Column: Question Text & Image -->
