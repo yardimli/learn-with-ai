@@ -20,7 +20,7 @@
 			<div id="leftColumn"
 			     class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0">
 				<div id="questionVisualsContainer"
-				     class="p-3 border rounded bg-light position-relative">
+				     class="p-3 border rounded question-container position-relative">
 					<h4 class="mb-3">Question:</h4>
 					
 					{{-- Question Image Display --}}
@@ -28,10 +28,10 @@
 						<img id="questionImageElement"
 						     src="{{ $quiz->generatedImage?->mediumUrl ?? asset('images/placeholder_q.png') }}"
 						     class="img-fluid rounded mb-2 {{ !$quiz->generatedImage ? 'd-none' : '' }}"
-						     style="max-height: 200px;" alt="Visual aid for the question">
+						     style="max-height: 400px;" alt="Visual aid for the question">
 					</div>
 					
-					<p id="questionTextElement" class="fs-5 mt-2">{{ $quiz->question_text ?? 'Loading question...' }}</p>
+					<p id="questionTextElement" class="quiz-question-text fs-5 mt-2">{{ $quiz->question_text ?? 'Loading question...' }}</p>
 					
 					@if($subject->main_text || $subject->initial_video_url)
 						<button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-bs-toggle="modal"

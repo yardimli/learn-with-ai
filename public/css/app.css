@@ -151,6 +151,19 @@ body {
     /* background-color: #cfe2ff; */ /* Example: If using solid background */
 }
 
+.question-container {
+    background-color: #f8f9fa; /* Light background */
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.quiz-question-text {
+    font-size: 1.25rem; /* Adjust size */
+    font-weight: 500; /* Medium weight */
+    margin-bottom: 1rem; /* Space below */
+}
 
 
 
@@ -339,4 +352,13 @@ body {
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
     border: 1px solid #e9ecef; /* Default light border */
     margin-bottom: 1.5rem;
+}
+
+.dark-mode .quiz-question-text {
+    color: #e4e4e6; /* Light text for dark mode */
+}
+
+.dark-mode .question-container {
+    background-color: #2c2c2e; /* Darker background for question container */
+    color: #e4e4e6; /* Light text */
 }
