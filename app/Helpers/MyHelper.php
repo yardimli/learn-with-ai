@@ -890,7 +890,7 @@
 			}
 			if (!filter_var($faceUrl, FILTER_VALIDATE_URL)) {
 				Log::warning("Invalid face URL provided for text2video: {$faceUrl}. Using default.");
-				$faceUrl = env('DEFAULT_FACE_URL', 'https://img.freepik.com/free-photo/handsome-cheerful-man-with-happy-smile_176420-18028.jpg'); // Fallback to default
+				$faceUrl = env('DEFAULT_FACE_URL', 'https://elooi.com/video/video1.mp4'); // Fallback to default
 			}
 
 

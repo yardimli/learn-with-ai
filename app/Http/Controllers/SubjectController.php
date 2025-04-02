@@ -111,13 +111,22 @@ PROMPT;
 
 			Log::info("Subject record created with ID: {$subject->id}");
 
-			// --- Initiate Video Generation (Async - no waiting here) ---
-			// Use job queue later for robustness, for now direct call
-			$videoResult = MyHelper::text2video(
-				$mainText,
-				env('DEFAULT_FACE_URL'),
-				env('DEFAULT_TTS_VOICE', 'en-US-Studio-O')
-			);
+			$defaultFaceUrl = env('DEFAULT_FACE_URL'); // Get face URL from .env
+
+			if (stripos(env('APP_URL'), 'localhost') !== false) {
+				$videoResult = MyHelper::text2video(
+					$mainText,
+					$defaultFaceUrl,
+					env('DEFAULT_TTS_VOICE', 'en-US-Studio-O')
+				);
+			} else {
+				// need to be able to save voice as url to pass to text2videov2 so need to be online version
+				$videoResult = MyHelper::text2videov2(
+					$mainText,
+					$defaultFaceUrl
+				);
+			}
+
 			if ($videoResult['success'] && isset($videoResult['video_path'], $videoResult['video_url'])) {
 				// Update subject immediately if path/URL available (sync generation assumed here)
 				$subject->initial_video_path = $videoResult['video_path'];
