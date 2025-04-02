@@ -977,6 +977,146 @@
 			return ['success' => false, 'message' => __('Failed to start video generation job.')];
 		}
 
+		/**
+		 * NEW: Generates a talking head video using OpenAI TTS and Gooey Lipsync API.
+		 *
+		 * @param string $text The text content for the speech.
+		 * @param string $faceVideoUrl URL of the input face video (e.g., stored on GCS).
+		 * @return array Result array: ['success' => bool, 'message' => string, 'video_url' => string|null, 'gooey_run_id' => string|null, 'api_response' => array|null]
+		 */
+		public static function text2videov2(string $text, string $faceVideoUrl): array
+		{
+			Log::info("Starting text2videov2 process for text: " . Str::limit($text, 50) . "...");
+
+			if (empty(trim($text))) {
+				Log::warning('text2videov2 called with empty text.');
+				return ['success' => false, 'message' => 'Input text cannot be empty.'];
+			}
+			if (empty(trim($faceVideoUrl))) {
+				Log::warning('text2videov2 called with empty face video URL.');
+				return ['success' => false, 'message' => 'Input face video URL cannot be empty.'];
+			}
+
+			// --- Step 1: Generate Audio using OpenAI TTS ---
+			$openaiVoice = env('OPENAI_TTS_VOICE', 'alloy'); // Default OpenAI voice
+			$filenameBase = 'video_audio_' . Str::slug(Str::limit($text, 30));
+
+			Log::info("Generating audio using OpenAI TTS (Voice: {$openaiVoice})...");
+			$ttsResult = self::text2speech($text, $openaiVoice, 'en-US', $filenameBase, 'openai'); // Force engine to 'openai'
+
+			if (!$ttsResult['success'] || empty($ttsResult['fileUrl'])) {
+				Log::error("Failed to generate audio for video: " . ($ttsResult['message'] ?? 'Unknown TTS error'));
+				return [
+					'success' => false,
+					'message' => 'Failed to generate prerequisite audio: ' . ($ttsResult['message'] ?? 'Unknown TTS error'),
+					'video_url' => null,
+					'gooey_run_id' => null,
+					'api_response' => null,
+				];
+			}
+
+			$audioFileUrl = $ttsResult['fileUrl']; // Public URL of the generated audio
+			Log::info("Audio generated successfully: {$audioFileUrl}");
+
+			// --- Step 2: Call Gooey Lipsync API ---
+			$gooeyApiKey = env('GOOEY_API_KEY');
+			$gooeyApiUrl = 'https://api.gooey.ai/v2/Lipsync';
+
+			if (!$gooeyApiKey) {
+				Log::error('Gooey API Key (GOOEY_API_KEY) is not configured in .env');
+				return [
+					'success' => false,
+					'message' => 'Gooey API Key is not configured.',
+					'video_url' => null,
+					'gooey_run_id' => null,
+					'api_response' => null,
+				];
+			}
+
+			// Define payload based on the Gooey API documentation/example
+			$payload = [
+				'input_face' => $faceVideoUrl,
+				'face_padding_top' => 3,        // From example
+				'face_padding_bottom' => 16,    // From example
+				'face_padding_left' => 12,     // From example
+				'face_padding_right' => 6,      // From example
+				'selected_model' => 'Wav2Lip',  // From example
+				'input_audio' => $audioFileUrl, // Use the URL from our TTS step
+				// Optional: Add 'run_settings' if you need async callbacks later
+				// 'run_settings' => [
+				//     'callback_url' => route('gooey.webhook') // Example if you set up a webhook route
+				// ]
+			];
+
+			Log::info("Calling Gooey Lipsync API at: {$gooeyApiUrl} with input face video URL: {$faceVideoUrl} and audio URL: {$audioFileUrl}");
+			// Log::debug("Gooey Payload: ", $payload); // Optional: Log payload for debugging (sensitive data!)
+
+			try {
+				$response = Http::withToken($gooeyApiKey)
+					->timeout(120) // Set a reasonable timeout (Gooey can take time)
+					->withHeaders([
+						'Content-Type' => 'application/json',
+						'Accept' => 'application/json', // Be explicit
+					])
+					->post($gooeyApiUrl, $payload);
+
+				$statusCode = $response->status();
+				$responseData = $response->json(); // Get response body as array
+
+				Log::info("Gooey API Response Status: {$statusCode}");
+				// Log::debug("Gooey Response Body: ", $responseData); // Optional: Log full response
+
+				if (!$response->successful()) {
+					// Check for specific Gooey errors if documented, otherwise generic message
+					$errorMessage = $responseData['detail'] ?? ($responseData['error'] ?? 'Unknown Gooey API error');
+					if (is_array($errorMessage)) { // Sometimes detail is an array
+						$errorMessage = json_encode($errorMessage);
+					}
+					Log::error("Gooey Lipsync API Error (Status: {$statusCode}): " . $errorMessage);
+					return [
+						'success' => false,
+						'message' => "Gooey Lipsync API failed (Status: {$statusCode}): " . $errorMessage,
+						'video_url' => null,
+						'gooey_run_id' => $responseData['id'] ?? null, // Might still get an ID on failure
+						'api_response' => $responseData,
+					];
+				}
+
+				// --- Step 3: Process Successful Gooey Response ---
+				$runId = $responseData['id'] ?? null;
+				$outputVideoUrl = $responseData['output']['output_video'] ?? null;
+
+				if ($runId && $outputVideoUrl) {
+					Log::info("Gooey Lipsync successful. Run ID: {$runId}, Video URL: {$outputVideoUrl}");
+					return [
+						'success' => true,
+						'message' => 'Video generation initiated successfully via Gooey.',
+						'video_url' => $outputVideoUrl,
+						'gooey_run_id' => $runId,
+						'api_response' => $responseData, // Return the full response
+					];
+				} else {
+					Log::error("Gooey Lipsync response structure invalid or missing output_video. Run ID: {$runId}");
+					return [
+						'success' => false,
+						'message' => 'Gooey API returned success status but output video URL was not found.',
+						'video_url' => null,
+						'gooey_run_id' => $runId,
+						'api_response' => $responseData,
+					];
+				}
+
+			} catch (Exception $e) {
+				Log::error("Exception during Gooey Lipsync API call: " . $e->getMessage());
+				return [
+					'success' => false,
+					'message' => 'An exception occurred while contacting the video generation service: ' . $e->getMessage(),
+					'video_url' => null,
+					'gooey_run_id' => null,
+					'api_response' => null,
+				];
+			}
+		}
 
 
 		public static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0) {
