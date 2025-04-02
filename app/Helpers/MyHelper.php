@@ -1108,242 +1108,240 @@
 						'video_url' => $outputVideoUrl,
 						'video_path' => $video_path, // Relative path
 					];
-				}
-			} else {
-			Log::error("Gooey Lipsync response structure invalid or missing output_video. Run ID: {$runId}");
-			return [
-				'success' => false,
-				'message' => 'Gooey API returned success status but output video URL was not found.',
-				'video_url' => null,
-				'gooey_run_id' => $runId,
-				'api_response' => $responseData,
-			];
-		}
-
-			} catch (Exception $e)
-	{
-	Log::error("Exception during Gooey Lipsync API call: " . $e->getMessage());
-	return ['success' => false,
-	'message' => 'An exception occurred while contacting the video generation service: ' . $e->getMessage(),
-	'video_url' => null,
-	'gooey_run_id' => null,
-	'api_response' => null,];
-	}
-	}
-
-
-	public
-	static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0)
-	{
-		// Check if input file exists
-		if (!file_exists($inputFile)) {
-			return false;
-		}
-
-		// Validate volume level (prevent negative values)
-		$volumeLevel = max(0, (float)$volumeLevel);
-		$bitrate = '128k';
-
-		// Construct FFmpeg command
-		$command = sprintf(
-			'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
-			escapeshellarg($inputFile),
-			$volumeLevel,
-			$bitrate,
-			escapeshellarg($outputFile)
-		);
-
-		// Execute command
-		exec($command, $output, $returnCode);
-
-		return $returnCode === 0;
-	}
-
-	/**
-	 * Converts text to speech using the specified engine.
-	 *
-	 * @param string $text The text to synthesize.
-	 * @param string $voiceName The voice name (engine-specific). Google: 'en-US-Wavenet-A', OpenAI: 'alloy'.
-	 * @param string $languageCode The language code (primarily for Google, e.g., 'en-US').
-	 * @param string $outputFilenameBase Base name for the output file (without extension).
-	 * @param string|null $engine The TTS engine ('google' or 'openai'). Defaults to env('DEFAULT_TTS_ENGINE').
-	 * @return array Associative array with 'success' (bool), 'storage_path' (string|null), 'fileUrl' (string|null), 'message' (string|null).
-	 */
-	public
-	static function text2speech(
-		string  $text,
-		string  $voiceName,
-		string  $languageCode = 'en-US', // Keep for Google compatibility
-		string  $outputFilenameBase = 'tts_output',
-		?string $engine = null // Add engine parameter
-	): array
-	{
-		// Determine engine, defaulting from .env
-		$selectedEngine = $engine ?? env('DEFAULT_TTS_ENGINE', 'google');
-		$filename = Str::slug($outputFilenameBase) . '.mp3'; // Use mp3 for both now
-		$directory = 'tts'; // Store in storage/app/public/tts
-		$storagePath = $directory . '/' . $filename;
-
-		if (!Storage::exists($directory)) {
-			Storage::makeDirectory($directory); // This is relative to the disk's root (storage/app)
-		}
-
-		Log::info("text2speech called. Engine: {$selectedEngine}, Voice: {$voiceName}, Text: '" . Str::limit($text, 50) . "...'");
-
-		try {
-			// Ensure the directory exists
-			Storage::disk('public')->makeDirectory($directory);
-
-			if ($selectedEngine === 'openai') {
-				// --- OpenAI TTS Implementation ---
-				$apiKey = env('OPENAI_API_KEY');
-				$openAiVoice = $voiceName; // Directly use the voice name provided
-				$openAiModel = env('OPENAI_TTS_MODEL', 'tts-1');
-
-				if (!$apiKey) {
-					throw new \Exception('OpenAI API key is not configured in .env');
+				} else {
+					Log::error("Gooey Lipsync response structure invalid or missing output_video. Run ID: {$runId}");
+					return [
+						'success' => false,
+						'message' => 'Gooey API returned success status but output video URL was not found.',
+						'video_url' => null,
+						'gooey_run_id' => $runId,
+						'api_response' => $responseData,
+					];
 				}
 
-				$response = Http::withToken($apiKey)
-					->timeout(60) // Increased timeout for audio generation
-					->post('https://api.openai.com/v1/audio/speech', [
-						'model' => $openAiModel,
-						'input' => $text,
-						'voice' => $openAiVoice,
-						'instructions' => 'Speak in a cheerful and positive tone.',
-						'response_format' => 'mp3', // Request MP3 format
-					]);
+			} catch (Exception $e) {
+				Log::error("Exception during Gooey Lipsync API call: " . $e->getMessage());
+				return ['success' => false,
+					'message' => 'An exception occurred while contacting the video generation service: ' . $e->getMessage(),
+					'video_url' => null,
+					'gooey_run_id' => null,
+					'api_response' => null,];
+			}
+		}
 
-				if ($response->successful()) {
-					// Save the raw audio content directly
-					$saved = Storage::disk('public')->put($storagePath, $response->body());
-					if (!$saved) {
-						throw new \Exception("Failed to save OpenAI TTS audio to disk at {$storagePath}. Check permissions.");
+
+		public
+		static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0)
+		{
+			// Check if input file exists
+			if (!file_exists($inputFile)) {
+				return false;
+			}
+
+			// Validate volume level (prevent negative values)
+			$volumeLevel = max(0, (float)$volumeLevel);
+			$bitrate = '128k';
+
+			// Construct FFmpeg command
+			$command = sprintf(
+				'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
+				escapeshellarg($inputFile),
+				$volumeLevel,
+				$bitrate,
+				escapeshellarg($outputFile)
+			);
+
+			// Execute command
+			exec($command, $output, $returnCode);
+
+			return $returnCode === 0;
+		}
+
+		/**
+		 * Converts text to speech using the specified engine.
+		 *
+		 * @param string $text The text to synthesize.
+		 * @param string $voiceName The voice name (engine-specific). Google: 'en-US-Wavenet-A', OpenAI: 'alloy'.
+		 * @param string $languageCode The language code (primarily for Google, e.g., 'en-US').
+		 * @param string $outputFilenameBase Base name for the output file (without extension).
+		 * @param string|null $engine The TTS engine ('google' or 'openai'). Defaults to env('DEFAULT_TTS_ENGINE').
+		 * @return array Associative array with 'success' (bool), 'storage_path' (string|null), 'fileUrl' (string|null), 'message' (string|null).
+		 */
+		public
+		static function text2speech(
+			string  $text,
+			string  $voiceName,
+			string  $languageCode = 'en-US', // Keep for Google compatibility
+			string  $outputFilenameBase = 'tts_output',
+			?string $engine = null // Add engine parameter
+		): array
+		{
+			// Determine engine, defaulting from .env
+			$selectedEngine = $engine ?? env('DEFAULT_TTS_ENGINE', 'google');
+			$filename = Str::slug($outputFilenameBase) . '.mp3'; // Use mp3 for both now
+			$directory = 'tts'; // Store in storage/app/public/tts
+			$storagePath = $directory . '/' . $filename;
+
+			if (!Storage::exists($directory)) {
+				Storage::makeDirectory($directory); // This is relative to the disk's root (storage/app)
+			}
+
+			Log::info("text2speech called. Engine: {$selectedEngine}, Voice: {$voiceName}, Text: '" . Str::limit($text, 50) . "...'");
+
+			try {
+				// Ensure the directory exists
+				Storage::disk('public')->makeDirectory($directory);
+
+				if ($selectedEngine === 'openai') {
+					// --- OpenAI TTS Implementation ---
+					$apiKey = env('OPENAI_API_KEY');
+					$openAiVoice = $voiceName; // Directly use the voice name provided
+					$openAiModel = env('OPENAI_TTS_MODEL', 'tts-1');
+
+					if (!$apiKey) {
+						throw new \Exception('OpenAI API key is not configured in .env');
 					}
 
-					$loudness = 4.0; // Adjust volume level as needed
-					$newFilePath = Storage::disk('public')->path($storagePath);
-					$newFilePath = str_replace('.mp3', '_loud.mp3', $newFilePath);
-					$amplified = self::amplifyMp3Volume(Storage::disk('public')->path($storagePath), $newFilePath, $loudness);
+					$response = Http::withToken($apiKey)
+						->timeout(60) // Increased timeout for audio generation
+						->post('https://api.openai.com/v1/audio/speech', [
+							'model' => $openAiModel,
+							'input' => $text,
+							'voice' => $openAiVoice,
+							'instructions' => 'Speak in a cheerful and positive tone.',
+							'response_format' => 'mp3', // Request MP3 format
+						]);
 
-					if ($amplified) {
-						$fileUrl = Storage::disk('public')->url(str_replace('.mp3', '_loud.mp3', $storagePath));
-						$storagePath = str_replace('.mp3', '_loud.mp3', $storagePath);
+					if ($response->successful()) {
+						// Save the raw audio content directly
+						$saved = Storage::disk('public')->put($storagePath, $response->body());
+						if (!$saved) {
+							throw new \Exception("Failed to save OpenAI TTS audio to disk at {$storagePath}. Check permissions.");
+						}
+
+						$loudness = 4.0; // Adjust volume level as needed
+						$newFilePath = Storage::disk('public')->path($storagePath);
+						$newFilePath = str_replace('.mp3', '_loud.mp3', $newFilePath);
+						$amplified = self::amplifyMp3Volume(Storage::disk('public')->path($storagePath), $newFilePath, $loudness);
+
+						if ($amplified) {
+							$fileUrl = Storage::disk('public')->url(str_replace('.mp3', '_loud.mp3', $storagePath));
+							$storagePath = str_replace('.mp3', '_loud.mp3', $storagePath);
+						} else {
+							$fileUrl = Storage::disk('public')->url($storagePath);
+						}
+						Log::info("OpenAI TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
+						return [
+							'success' => true,
+							'storage_path' => $storagePath,
+							'fileUrl' => $fileUrl,
+							'message' => 'OpenAI TTS generated successfully.',
+						];
 					} else {
-						$fileUrl = Storage::disk('public')->url($storagePath);
+						$errorMessage = "OpenAI TTS API request failed. Status: " . $response->status();
+						$errorBody = $response->body();
+						Log::error($errorMessage . " Body: " . $errorBody);
+						// Attempt to decode JSON error if possible
+						$decodedError = json_decode($errorBody, true);
+						if (isset($decodedError['error']['message'])) {
+							$errorMessage .= " Message: " . $decodedError['error']['message'];
+						}
+						throw new \Exception($errorMessage);
 					}
-					Log::info("OpenAI TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
+
+				} elseif ($selectedEngine === 'google') {
+					$credentialsPath = base_path(env('GOOGLE_TTS_CREDENTIALS'));
+					if (empty($credentialsPath) || !File::exists($credentialsPath)) {
+						Log::error('Google TTS credentials path not set or file not found: ' . $credentialsPath);
+						return null;
+					}
+
+					// Check if credentials file is readable
+					if (!is_readable($credentialsPath)) {
+						Log::error('Google TTS credentials file is not readable: ' . $credentialsPath);
+						return null;
+					}
+
+					// Instantiates a client
+					$client = new TextToSpeechClient(['credentials' => $credentialsPath]);
+
+					// Sets the text input to be synthesized
+					$synthesisInput = (new SynthesisInput())->setText($text);
+
+					// Builds the voice request; languageCode and name are required
+					$voice = (new VoiceSelectionParams())
+						->setLanguageCode($languageCode) // Use the provided language code
+						->setName($voiceName);           // Use the provided Google voice name
+
+					// Selects the type of audio file to return
+					$audioConfig = (new AudioConfig())
+						->setAudioEncoding(AudioEncoding::MP3); // Use MP3
+
+					// Performs the text-to-speech request
+					$response = $client->synthesizeSpeech($synthesisInput, $voice, $audioConfig);
+					$audioContent = $response->getAudioContent();
+
+					// Save the MP3 audio content to the public disk
+					$saved = Storage::disk('public')->put($storagePath, $audioContent);
+					if (!$saved) {
+						throw new \Exception("Failed to save Google TTS audio to disk at {$storagePath}. Check permissions.");
+					}
+
+					$fileUrl = Storage::disk('public')->url($storagePath);
+					Log::info("Google TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
+
+					// Close the client connection
+					$client->close();
+
 					return [
 						'success' => true,
 						'storage_path' => $storagePath,
 						'fileUrl' => $fileUrl,
-						'message' => 'OpenAI TTS generated successfully.',
+						'message' => 'Google TTS generated successfully.',
 					];
 				} else {
-					$errorMessage = "OpenAI TTS API request failed. Status: " . $response->status();
-					$errorBody = $response->body();
-					Log::error($errorMessage . " Body: " . $errorBody);
-					// Attempt to decode JSON error if possible
-					$decodedError = json_decode($errorBody, true);
-					if (isset($decodedError['error']['message'])) {
-						$errorMessage .= " Message: " . $decodedError['error']['message'];
-					}
-					throw new \Exception($errorMessage);
+					throw new \Exception("Unsupported TTS engine: {$selectedEngine}");
 				}
 
-			} elseif ($selectedEngine === 'google') {
-				$credentialsPath = base_path(env('GOOGLE_TTS_CREDENTIALS'));
-				if (empty($credentialsPath) || !File::exists($credentialsPath)) {
-					Log::error('Google TTS credentials path not set or file not found: ' . $credentialsPath);
-					return null;
-				}
-
-				// Check if credentials file is readable
-				if (!is_readable($credentialsPath)) {
-					Log::error('Google TTS credentials file is not readable: ' . $credentialsPath);
-					return null;
-				}
-
-				// Instantiates a client
-				$client = new TextToSpeechClient(['credentials' => $credentialsPath]);
-
-				// Sets the text input to be synthesized
-				$synthesisInput = (new SynthesisInput())->setText($text);
-
-				// Builds the voice request; languageCode and name are required
-				$voice = (new VoiceSelectionParams())
-					->setLanguageCode($languageCode) // Use the provided language code
-					->setName($voiceName);           // Use the provided Google voice name
-
-				// Selects the type of audio file to return
-				$audioConfig = (new AudioConfig())
-					->setAudioEncoding(AudioEncoding::MP3); // Use MP3
-
-				// Performs the text-to-speech request
-				$response = $client->synthesizeSpeech($synthesisInput, $voice, $audioConfig);
-				$audioContent = $response->getAudioContent();
-
-				// Save the MP3 audio content to the public disk
-				$saved = Storage::disk('public')->put($storagePath, $audioContent);
-				if (!$saved) {
-					throw new \Exception("Failed to save Google TTS audio to disk at {$storagePath}. Check permissions.");
-				}
-
-				$fileUrl = Storage::disk('public')->url($storagePath);
-				Log::info("Google TTS successful. File saved: {$storagePath}, URL: {$fileUrl}");
-
-				// Close the client connection
-				$client->close();
-
+			} catch (\Throwable $e) {
+				Log::error("text2speech Error ({$selectedEngine}): " . $e->getMessage(), [
+					'exception' => $e,
+					'text' => Str::limit($text, 100) . '...',
+					'voice' => $voiceName,
+					'engine' => $selectedEngine
+				]);
 				return [
-					'success' => true,
-					'storage_path' => $storagePath,
-					'fileUrl' => $fileUrl,
-					'message' => 'Google TTS generated successfully.',
+					'success' => false,
+					'storage_path' => null,
+					'fileUrl' => null,
+					'message' => "TTS generation failed ({$selectedEngine}): " . $e->getMessage(),
 				];
-			} else {
-				throw new \Exception("Unsupported TTS engine: {$selectedEngine}");
-			}
-
-		} catch (\Throwable $e) {
-			Log::error("text2speech Error ({$selectedEngine}): " . $e->getMessage(), [
-				'exception' => $e,
-				'text' => Str::limit($text, 100) . '...',
-				'voice' => $voiceName,
-				'engine' => $selectedEngine
-			]);
-			return [
-				'success' => false,
-				'storage_path' => null,
-				'fileUrl' => null,
-				'message' => "TTS generation failed ({$selectedEngine}): " . $e->getMessage(),
-			];
-		}
-	}
-
-
-	public
-	static function isValidQuizResponse($data, $requireImagePrompt = false): bool
-	{
-		if (!is_array($data)) return false;
-		if (!isset($data['question']) || !is_string($data['question'])) return false;
-		if ($requireImagePrompt && (!isset($data['image_prompt_idea']) || !is_string($data['image_prompt_idea']))) return false; // Check added
-		if (!isset($data['answers']) || !is_array($data['answers']) || count($data['answers']) !== 4) return false;
-
-
-		$correctCount = 0;
-		foreach ($data['answers'] as $answer) {
-			if (!is_array($answer)) return false;
-			if (!isset($answer['text']) || !is_string($answer['text'])) return false;
-			if (!isset($answer['is_correct']) || !is_bool($answer['is_correct'])) return false;
-			if (!isset($answer['feedback']) || !is_string($answer['feedback'])) return false;
-			if ($answer['is_correct'] === true) {
-				$correctCount++;
 			}
 		}
 
-		return $correctCount === 1; // Exactly one correct answer
-	}
 
-	// --- End of MyHelper class ---
+		public
+		static function isValidQuizResponse($data, $requireImagePrompt = false): bool
+		{
+			if (!is_array($data)) return false;
+			if (!isset($data['question']) || !is_string($data['question'])) return false;
+			if ($requireImagePrompt && (!isset($data['image_prompt_idea']) || !is_string($data['image_prompt_idea']))) return false; // Check added
+			if (!isset($data['answers']) || !is_array($data['answers']) || count($data['answers']) !== 4) return false;
+
+
+			$correctCount = 0;
+			foreach ($data['answers'] as $answer) {
+				if (!is_array($answer)) return false;
+				if (!isset($answer['text']) || !is_string($answer['text'])) return false;
+				if (!isset($answer['is_correct']) || !is_bool($answer['is_correct'])) return false;
+				if (!isset($answer['feedback']) || !is_string($answer['feedback'])) return false;
+				if ($answer['is_correct'] === true) {
+					$correctCount++;
+				}
+			}
+
+			return $correctCount === 1; // Exactly one correct answer
+		}
+
+		// --- End of MyHelper class ---
 	}
