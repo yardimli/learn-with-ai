@@ -13,7 +13,7 @@
 				{{-- Video Container (Initially visible if video exists) --}}
 				@if ($subject->initial_video_url)
 					<div id="initialVideoWrapper" class="{{-- Visibility controlled by JS --}}">
-						<video controls width="100%" id="initialVideoPlayer" class="rounded" src="{{ $subject->initial_video_url }}" preload="metadata"> {{-- Preload metadata --}}
+						<video controls style="max-width: 320px;" id="initialVideoPlayer" class="rounded" src="{{ $subject->initial_video_url }}" preload="metadata"> {{-- Preload metadata --}}
 							Your browser does not support the video tag. Try refreshing.
 						</video>
 					</div>

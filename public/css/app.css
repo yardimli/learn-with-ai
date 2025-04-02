@@ -82,11 +82,13 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    width: 80px; /* Adjust size */
+    height: 80px; /* Adjust size */
     font-size: 3rem; /* Adjust size */
     color: rgba(255, 255, 255, 0.8); /* White with transparency */
     background-color: rgba(0, 0, 0, 0.4); /* Dark semi-transparent circle */
     border-radius: 50%;
-    padding: 10px 15px;
+    padding-left: 10px; /* Center icon */
     pointer-events: none; /* Allow clicks to pass through to the container initially */
     transition: opacity 0.3s ease;
     opacity: 0; /* Hidden by default */
