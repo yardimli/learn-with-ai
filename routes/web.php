@@ -8,8 +8,23 @@
 // Route for the initial subject input page (Home)
 	Route::get('/', [SubjectController::class, 'index'])->name('home');
 
-// Route to handle the subject submission and start content generation
-	Route::post('/start-learning', [SubjectController::class, 'startLearning'])->name('content.start_learning');
+	// NEW: Route to generate the lesson plan preview (AJAX)
+	Route::post('/plan-preview', [SubjectController::class, 'generatePlanPreview'])->name('plan.preview');
+
+// MODIFIED/NEW: Route to handle the actual creation after user confirmation
+	Route::post('/create-lesson', [SubjectController::class, 'createLesson'])->name('lesson.create');
+
+	Route::get('/lesson/{subject}/edit', [SubjectController::class, 'edit'])->name('lesson.edit');
+
+	// NEW: AJAX Routes for generating assets from the edit page
+	Route::post('/lesson/{subject}/part/{partIndex}/generate-video', [SubjectController::class, 'generatePartVideoAjax'])->name('lesson.part.generate.video');
+
+	Route::post('/quiz/{quiz}/generate-audio/question', [QuizController::class, 'generateQuestionAudioAjax'])->name('quiz.generate.audio.question');
+	Route::post('/quiz/{quiz}/generate-audio/answers', [QuizController::class, 'generateAnswerAudioAjax'])->name('quiz.generate.audio.answers');
+	Route::post('/quiz/{quiz}/generate-image', [QuizController::class, 'generateQuizImageAjax'])->name('quiz.generate.image');
+
+
+
 
 // --- Content Display ---
 // Route to display the generated content (title, text, image/video)

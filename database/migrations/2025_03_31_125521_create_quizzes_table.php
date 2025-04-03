@@ -14,11 +14,14 @@ return new class extends Migration
         Schema::create('quizzes', function (Blueprint $table) {
 	        $table->id();
 	        $table->integer('subject_id')->default(0)->index(); // Track by session
+	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
 	        $table->integer('generated_image_id')->default(0);
 	        $table->text('question_text');
 	        $table->string('question_audio_path')->nullable();
 	        $table->json('answers');
-					$table->integer('difficulty_level')->default(1); // Track difficulty
+					$table->string('difficulty_level')->default('easy'); // Track difficulty
+	        $table->integer('lesson_part_index')->default(0);
+	        $table->integer('order')->default(0);
 	        $table->timestamps();
         });
     }

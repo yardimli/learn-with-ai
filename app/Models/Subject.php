@@ -14,12 +14,22 @@
 			'session_id',
 			'name',
 			'title',
-			'main_text',
 			'image_prompt_idea',
 			'generated_image_id',
-			'initial_video_path',
-			'initial_video_url',
+			'lesson_parts',
+			'llm_used',
 		];
+
+		protected $casts = [
+			'lesson_parts' => 'array', // << Cast JSON column to array
+			'generated_image_id' => 'integer', // Ensure cast if using relationship checks
+		];
+
+		public function getRouteKeyName()
+		{
+			return 'session_id';
+		}
+
 
 		public function generatedImage()
 		{
@@ -28,7 +38,8 @@
 
 		public function quizzes()
 		{
-			return $this->hasMany(Quiz::class);
+			// Order quizzes maybe by difficulty then ID?
+			return $this->hasMany(Quiz::class)->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")->orderBy('id');
 		}
 
 		public function userAnswers()

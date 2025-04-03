@@ -17,15 +17,19 @@
 
 		protected $fillable = [
 			'subject_id',
+			'image_prompt_idea',
 			'generated_image_id',
 			'question_text',
 			'question_audio_path',
 			'answers', // JSON
 			'difficulty_level',
+			'lesson_part_index',
+			'order',
 		];
 
 		protected $casts = [
 			'answers' => 'array', // Automatically encode/decode JSON
+			'generated_image_id' => 'integer',
 		];
 
 		public function subject()
@@ -41,6 +45,13 @@
 		public function generatedImage()
 		{
 			return $this->belongsTo(GeneratedImage::class, 'generated_image_id');
+		}
+
+		public function getQuestionAudioUrlAttribute(): ?string {
+			if ($this->question_audio_path && Storage::disk('public')->exists($this->question_audio_path)) {
+				return Storage::disk('public')->url($this->question_audio_path);
+			}
+			return null;
 		}
 
 		// Helper to get feedback audio URL for a specific answer index

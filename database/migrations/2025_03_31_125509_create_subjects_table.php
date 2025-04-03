@@ -16,11 +16,10 @@ return new class extends Migration
 	        $table->string('session_id')->index(); // Track by session
 	        $table->string('name'); // User entered subject
 	        $table->string('title')->nullable(); // Generated title
-	        $table->text('main_text')->nullable(); // Generated main text
 	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
 	        $table->unsignedBigInteger('generated_image_id')->default(0);
-	        $table->string('initial_video_path')->nullable(); // Relative storage path for video file
-	        $table->string('initial_video_url')->nullable(); // Public URL (optional, can derive)
+	        $table->json('lesson_parts')->nullable(); // Store structured lesson
+	        $table->string('llm_used')->nullable(); // Track which LLM
 	        $table->timestamps();
         });
     }

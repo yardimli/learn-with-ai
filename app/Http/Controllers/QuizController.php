@@ -129,7 +129,6 @@
 			]);
 		}
 
-
 		public function generateNextQuiz(Request $request, $sessionId)
 		{
 			$subject = Subject::where('session_id', $sessionId)->first();
