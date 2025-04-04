@@ -212,7 +212,6 @@
 	{{-- Pass initial data from Controller to JS --}}
 	<script>
 		window.quizInitialState = @json($state);
-		window.initialQuizData = @json($quiz); // Can be null if completed
 		window.totalLessonParts = @json($totalParts);
 	</script>
 	<script src="{{ asset('js/quiz_interface.js') }}"></script> {{-- Load the new JS file --}}

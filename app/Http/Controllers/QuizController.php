@@ -55,35 +55,23 @@
 		{
 			Log::info("Loading quiz interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
 
-			// Ensure assets are generated (can be slow, consider background job or on-demand)
-			// This might be better placed elsewhere or triggered differently
-			// SubjectController::generateLessonAssets($subject);
-
-			// 1. Determine Current State (Part Index, Difficulty, Correct Counts)
 			$state = $this->calculateCurrentState($subject->id);
 
-			// 2. Get the First/Next Quiz Based on State
-			$quiz = $this->fetchQuizBasedOnState($subject->id, $state);
-
-			if (!$quiz && $state['status'] !== 'completed') {
-				Log::error("Could not fetch starting quiz for Subject ID {$subject->id} in state: ", $state);
-				return redirect()->route('quiz.interface', $subject->session_id)
-					->with('error', 'Could not load the quiz. Please try again later or contact support.');
-			}
-
-			// 3. Prepare Initial Data for the View
 			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
 
 			// Add intro text/video for the starting part
-			$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
-			$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
+			$state['currentPartIntroText'] = null; // Default to null
+			$state['currentPartVideoUrl'] = null; // Default to null
+			if ($state['status'] !== 'completed' && $state['partIndex'] >= 0 && $state['partIndex'] < $totalParts) {
+				$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
+				$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
+			}
 
-			// Load image relation if quiz exists
-			$quiz?->load('generatedImage');
 
+			// We pass null for the initial quiz now. JS handles loading.
+			$quiz = null;
 
 			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
-			Log::info("Initial Quiz ID for Subject ID {$subject->id}: " . ($quiz->id ?? 'None/Completed'));
 
 			return view('quiz_interface', compact('subject', 'quiz', 'state', 'totalParts'));
 		}
@@ -209,82 +197,84 @@
 
 		}
 
-
 		/**
-		 * AJAX endpoint to get the next question data.
-		 * Calculates the state AFTER the last question was (presumably) answered.
+		 * AJAX endpoint to get all questions for a specific part and difficulty.
 		 *
 		 * @param Request $request
 		 * @param Subject $subject Route model binding via session_id
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function getNextQuestionAjax(Request $request, Subject $subject)
+		public function getPartQuestionsAjax(Request $request, Subject $subject)
 		{
-			Log::info("AJAX request for next question for Subject Session: {$subject->session_id}");
+			$validator = Validator::make($request->all(), [
+				'partIndex' => 'required|integer|min:0',
+				'difficulty' => 'required|string|in:easy,medium,hard',
+			]);
 
-			// 1. Recalculate the current state based on latest UserAnswers
-			$state = $this->calculateCurrentState($subject->id);
+			if ($validator->fails()) {
+				return response()->json(['success' => false, 'message' => 'Invalid part or difficulty.', 'errors' => $validator->errors()], 422);
+			}
 
-			// 2. Fetch the appropriate quiz for this new state
-			$quiz = $this->fetchQuizBasedOnState($subject->id, $state);
+			$partIndex = $request->input('partIndex');
+			$difficulty = $request->input('difficulty');
 
-			// 3. Prepare response data
-			if ($state['status'] === 'completed') {
+			Log::info("AJAX request for ALL questions for Subject Session: {$subject->session_id}, Part: {$partIndex}, Difficulty: {$difficulty}");
+
+			try {
+				$quizzes = Quiz::where('subject_id', $subject->id)
+					->where('lesson_part_index', $partIndex)
+					->where('difficulty_level', $difficulty)
+					->with('generatedImage') // Eager load image
+					->orderBy('order') // Or 'id'
+					->get();
+
+				if ($quizzes->isEmpty()) {
+					Log::warning("No quizzes found for Subject {$subject->id}, Part {$partIndex}, Difficulty {$difficulty}.");
+					// Return success true but empty array, JS should handle this
+					return response()->json([
+						'success' => true,
+						'quizzes' => [],
+						'message' => 'No questions found for this section.'
+					]);
+				}
+
+				// Process each quiz to include necessary URLs
+				$processedQuizzes = $quizzes->map(function ($quiz) {
+					$processedAnswers = $quiz->answers; // Assume cast to array
+					if ($processedAnswers && is_array($processedAnswers)) {
+						foreach ($processedAnswers as $index => &$answer) {
+							$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
+							$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index);
+						}
+						unset($answer);
+					}
+					return [
+						'id' => $quiz->id,
+						'question_text' => $quiz->question_text,
+						'question_audio_url' => $quiz->question_audio_url, // Accessor
+						'image_url' => $quiz->generatedImage?->mediumUrl, // Relationship + Accessor
+						'answers' => $processedAnswers,
+						'difficulty_level' => $quiz->difficulty_level,
+						'lesson_part_index' => $quiz->lesson_part_index,
+					];
+				});
+
+				Log::info("Found {$processedQuizzes->count()} quizzes for Part {$partIndex}, Difficulty {$difficulty}.");
+
 				return response()->json([
 					'success' => true,
-					'status' => 'completed',
-					'message' => 'Congratulations! You have completed all parts of this lesson.',
-					'state' => $state, // Send final state
+					'quizzes' => $processedQuizzes,
 				]);
-			}
 
-			if (!$quiz) {
-				Log::error("getNextQuestionAjax: Failed to fetch next quiz for Subject ID {$subject->id} in state", $state);
+			} catch (\Exception $e) {
+				Log::error("Error fetching part questions for Subject ID {$subject->id}, Part {$partIndex}, Difficulty {$difficulty}: " . $e->getMessage());
 				return response()->json([
 					'success' => false,
-					'message' => 'Could not determine the next question. Please refresh or contact support.'
+					'message' => 'An error occurred while loading questions. Please try again.'
 				], 500);
 			}
-
-			// Load necessary data for the quiz
-			$quiz->load('generatedImage');
-			// Ensure answers have audio URLs pre-processed or generate them here if needed
-			// Assuming processAnswersWithTTS happened during creation or asset generation
-			$processedAnswers = $quiz->answers; // Get potentially processed answers
-			if ($processedAnswers && is_array($processedAnswers)) {
-				foreach ($processedAnswers as $index => &$answer) {
-					// Ensure URLs are present, using accessors as fallback
-					$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
-					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index); // Assuming this exists now
-				}
-				unset($answer);
-			}
-
-
-			// Add intro text/video URL for the current part if state changed partIndex
-			// Check if partIndex changed compared to previous state (if tracked) - simpler: always include it
-			$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
-			$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
-
-
-			Log::info("Next quiz fetched: ID {$quiz->id}. State: ", $state);
-
-
-			return response()->json([
-				'success' => true,
-				'status' => $state['status'], // 'inprogress'
-				'quiz' => [
-					'id' => $quiz->id,
-					'question_text' => $quiz->question_text,
-					'question_audio_url' => $quiz->question_audio_url, // Accessor provides URL
-					'image_url' => $quiz->generatedImage?->mediumUrl, // Use relationship + accessor
-					'answers' => $processedAnswers, // Pass processed answers with URLs
-					'difficulty_level' => $quiz->difficulty_level,
-					'lesson_part_index' => $quiz->lesson_part_index,
-				],
-				'state' => $state, // Send the new state back to the client
-			]);
 		}
+
 
 		/**
 		 * Handles submitting a user's answer to a quiz.

@@ -22,9 +22,8 @@
 	Route::get('/lesson/{subject:session_id}/quiz', [QuizController::class, 'showQuizInterface'])
 		->name('quiz.interface'); // Use session_id for route model binding
 
-// AJAX endpoint to get the next quiz question based on progress
-	Route::post('/lesson/{subject:session_id}/next-question', [QuizController::class, 'getNextQuestionAjax'])
-		->name('quiz.next_question'); // Use session_id
+	Route::post('/lesson/{subject:session_id}/part-questions', [QuizController::class, 'getPartQuestionsAjax'])
+		->name('quiz.part_questions'); // Use session_id
 
 // AJAX endpoint to submit an answer (Keep Existing - uses Quiz ID)
 	Route::post('/quiz/{quiz}/submit', [QuizController::class, 'submitAnswer'])
