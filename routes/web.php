@@ -19,9 +19,9 @@
 	// NEW: AJAX Routes for generating assets from the edit page
 	Route::post('/lesson/{subject}/part/{partIndex}/generate-video', [SubjectController::class, 'generatePartVideoAjax'])->name('lesson.part.generate.video');
 
-	Route::post('/quiz/{quiz}/generate-audio/question', [QuizController::class, 'generateQuestionAudioAjax'])->name('quiz.generate.audio.question');
-	Route::post('/quiz/{quiz}/generate-audio/answers', [QuizController::class, 'generateAnswerAudioAjax'])->name('quiz.generate.audio.answers');
-	Route::post('/quiz/{quiz}/generate-image', [QuizController::class, 'generateQuizImageAjax'])->name('quiz.generate.image');
+	Route::post('/quiz/{quiz}/generate-audio/question', [SubjectController::class, 'generateQuestionAudioAjax'])->name('quiz.generate.audio.question');
+	Route::post('/quiz/{quiz}/generate-audio/answers', [SubjectController::class, 'generateAnswerAudioAjax'])->name('quiz.generate.audio.answers');
+	Route::post('/quiz/{quiz}/generate-image', [SubjectController::class, 'generateQuizImageAjax'])->name('quiz.generate.image');
 
 
 

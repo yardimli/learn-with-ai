@@ -762,7 +762,7 @@
 							$response_url = $data['response_url'];
 							break;
 						}
-						sleep(1);
+						sleep(3);
 						$check_count++;
 					}
 
@@ -1130,8 +1130,7 @@
 		}
 
 
-		public
-		static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0)
+		public static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0)
 		{
 			// Check if input file exists
 			if (!file_exists($inputFile)) {
@@ -1167,8 +1166,7 @@
 		 * @param string|null $engine The TTS engine ('google' or 'openai'). Defaults to env('DEFAULT_TTS_ENGINE').
 		 * @return array Associative array with 'success' (bool), 'storage_path' (string|null), 'fileUrl' (string|null), 'message' (string|null).
 		 */
-		public
-		static function text2speech(
+		public static function text2speech(
 			string  $text,
 			string  $voiceName,
 			string  $languageCode = 'en-US', // Keep for Google compatibility
@@ -1320,8 +1318,7 @@
 		}
 
 
-		public
-		static function isValidQuizResponse($data, $requireImagePrompt = false): bool
+		public static function isValidQuizResponse($data, $requireImagePrompt = false): bool
 		{
 			if (!is_array($data)) return false;
 			if (!isset($data['question']) || !is_string($data['question'])) return false;

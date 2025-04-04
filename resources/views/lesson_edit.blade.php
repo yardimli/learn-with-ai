@@ -4,89 +4,137 @@
 
 @push('styles')
 	<style>
+      .content-card, .quiz-item-card { /* Use a common class for styling */
+          background-color: var(--bs-body-bg); /* Use CSS var for dark mode */
+          border: 1px solid var(--bs-border-color);
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+          border-radius: 0.375rem; /* bs default */
+          box-shadow: 0 1px 3px rgba(0,0,0,.1);
+      }
+
       .asset-container {
-          border: 1px solid #eee;
+          border: 1px solid var(--bs-border-color-translucent);
           padding: 1rem;
           margin-bottom: 1rem;
           border-radius: 0.25rem;
-          background-color: #f8f9fa; /* Light background */
+          background-color: var(--bs-secondary-bg); /* Use CSS var */
       }
 
-      .asset-container .btn {
-          margin-top: 0.5rem;
+      .asset-container h6 {
+          margin-bottom: 0.75rem;
+          border-bottom: 1px solid var(--bs-border-color);
+          padding-bottom: 0.5rem;
+      }
+
+      .asset-container .btn-sm { /* Ensure buttons are visible */
+          margin-top: 0rem;
+          margin-left: 0.5rem;
+          vertical-align: middle;
       }
 
       .asset-status {
           font-size: 0.9em;
           margin-left: 0.5rem;
+          display: inline-block; /* To allow spinner placement */
+          vertical-align: middle;
+          min-width: 80px; /* Give status some space */
+          text-align: left;
       }
-
       .asset-status .spinner-border-sm {
           width: 1rem;
           height: 1rem;
           vertical-align: text-bottom;
+          margin-right: 0.3rem;
       }
+      .asset-status .text-success,
+      .asset-status .text-danger {
+          font-weight: bold;
+      }
+
 
       .quiz-difficulty-group {
           margin-bottom: 1.5rem;
           padding-left: 1rem;
-          border-left: 3px solid #dee2e6;
+          border-left: 3px solid var(--bs-tertiary-bg); /* Use CSS var */
       }
 
-      .quiz-item {
-          border-bottom: 1px dashed #ccc;
-          padding-bottom: 1rem;
+      .quiz-item { /* Individual quiz box */
+          /* border-bottom: 1px dashed var(--bs-border-color); */
+          padding: 1rem;
           margin-bottom: 1rem;
+          border: 1px solid var(--bs-border-color);
+          border-radius: 0.25rem;
+          background-color: var(--bs-body-bg); /* Slight contrast if needed */
       }
 
       .quiz-item:last-child {
+          /* border-bottom: none; */
+          margin-bottom: 0;
+          /* padding-bottom: 0; */
+      }
+      .quiz-item p strong { /* Question text */
+          display: block;
+          margin-bottom: 0.75rem;
+          font-size: 1.1em;
+      }
+
+      .generated-video-container {
+          background-color: var(--bs-secondary-bg); /* Use CSS var */
+      }
+
+      .generated-video {
+          max-width: 100%; /* Responsive video */
+          max-height: 400px; /* Limit video preview height */
+          background-color: #000; /* Black background for video player */
+          border-radius: 0.25rem;
+      }
+
+      .quiz-image-thumb {
+          max-width: 150px;
+          max-height: 150px;
+          object-fit: cover;
+          margin-right: 0.5rem;
+      }
+
+      audio {
+          max-width: 250px; /* Prevent audio players getting too wide */
+          height: 35px; /* Consistent height */
+          vertical-align: middle;
+      }
+
+      .answer-list li {
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid var(--bs-tertiary-bg);
+      }
+      .answer-list li:last-child {
           border-bottom: none;
           margin-bottom: 0;
           padding-bottom: 0;
       }
 
-      .generated-video-container {
-          background-color: #f8f9fa; /* Light background */
+      .answer-audio-status {
+          font-size: 0.85em;
+          margin-left: 0.5rem;
       }
-
-      .generated-video {
-          max-height: 300px; /* Limit video preview height */
-          background-color: #f8f9fa; /* Light background for video */
-      }
-
-      /* Dark mode adjustments */
-      .dark-mode .asset-container {
-          background-color: #343a40; /* Darker background */
-          border: 1px solid #495057;
-      }
-
-      .dark-mode .quiz-difficulty-group {
-          border-left-color: #495057;
-      }
-
-      .dark-mode .quiz-item {
-          border-bottom-color: #495057;
-      }
-
-      .dark-mode .generated-video-container {
-          background-color: #343a40; /* Darker background */
-      }
-
-      .dark-mode .generated-video {
-          background-color: #495057; /* Darker background for video */
-      }
-	
 	
 	</style>
 @endpush
 
 @section('content')
-	<a href="{{ route('home') }}" class="btn btn-outline-secondary mb-3"><i class="fas fa-arrow-left"></i> Back to Lessons</a>
-	<h1 class="mb-4">Edit Lesson Assets: {{ $subject->title }}</h1>
-	<p class="text-muted">Subject: {{ $subject->name }} (ID: {{ $subject->id }}, Session: {{ $subject->session_id }})</p>
-	<p><small>Use the buttons below to generate missing video, audio, or images for this lesson.</small></p>
+	<div class="d-flex justify-content-between align-items-center mb-3">
+		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
+		{{-- Maybe add a "View Live Lesson" button here later --}}
+		<a href="{{ route('content.show', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> View Live Lesson</a>
+	</div>
 	
-	<hr>
+	<div class="content-card mb-4">
+		<h1 class="mb-1">Edit Lesson Assets: {{ $subject->title }}</h1>
+		<p class="text-muted mb-3">Subject: {{ $subject->name }} (ID: {{ $subject->id }}, Session: {{ $subject->session_id }})</p>
+		<p><small>Use the buttons below to generate missing video, audio, or images for this lesson. Generated assets will appear automatically.</small></p>
+	</div>
+	
 	
 	{{-- Lesson Parts and Quizzes --}}
 	@if (!empty($subject->lesson_parts))
@@ -95,37 +143,51 @@
 				<h3 class="mb-3">Lesson Part {{ $partIndex + 1 }}: {{ $part['title'] }}</h3>
 				<p>{{ $part['text'] }}</p>
 				
-				<div class="border rounded p-3 mb-3 generated-video-container">
-					<h6>Part Video</h6>
+				<div class="asset-container mb-3 generated-video-container">
+					<h6><i class="fas fa-film me-2 text-primary"></i>Part Video</h6>
 					{{-- Check if video_url exists within the part array --}}
 					@if(isset($part['video_url']) && !empty($part['video_url']))
-						<div class="mb-2 text-center">
-							<video controls preload="metadata" src="{{ $part['video_url'] }}"
-							       class="rounded generated-video">
+						<div class="mb-2 text-center" id="video-display-{{ $partIndex }}">
+							<video controls preload="metadata" src="{{ Storage::url($part['video_path']) /* Ensure URL is correct */ }}" class="generated-video">
 								Your browser does not support the video tag.
 							</video>
-							<p><small class="text-muted">Video generated. Path: {{ $part['video_path'] ?? 'N/A' }}</small></p>
+							<p><small class="text-muted d-block mt-1">Video generated. Path: {{ $part['video_path'] ?? 'N/A' }}</small></p>
 							{{-- Optional: Add Regenerate/Delete Button --}}
 							{{-- <button class="btn btn-sm btn-outline-warning generate-part-video-btn" ...>Regenerate</button> --}}
 						</div>
-					@else
-						{{-- Display the Generate button only if video doesn't exist --}}
-						<div class="mb-2 text-center">
+						<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;"></div>
+						<div class="text-center" id="video-button-area-{{ $partIndex }}" style="display: none;">
+							{{-- Button is hidden initially if video exists, shown by JS if regeneration is added --}}
 							<button class="btn btn-outline-info generate-part-video-btn"
 							        data-subject-id="{{ $subject->session_id }}"
 							        data-part-index="{{ $partIndex }}"
 							        data-generate-url="{{ route('lesson.part.generate.video', ['subject' => $subject->session_id, 'partIndex' => $partIndex]) }}">
 								<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-								<i class="fas fa-video me-1"></i> Generate Video for Part {{ $partIndex + 1 }}
+								<i class="fas fa-video me-1"></i> Generate Video
 							</button>
-							{{-- Placeholder where the video will be inserted by JS --}}
-							<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;">
-								<!-- Video tag will be inserted here by JS -->
-							</div>
-							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's
-								text.</small>
-							<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}"
-							     style="display: none;"></div>
+							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's text.</small>
+							<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}" style="display: none;"></div>
+						</div>
+					
+					@else
+						{{-- Display the Generate button only if video doesn't exist --}}
+						<div class="mb-2 text-center" id="video-button-area-{{ $partIndex }}">
+							<button class="btn btn-outline-info generate-part-video-btn"
+							        data-subject-id="{{ $subject->session_id }}"
+							        data-part-index="{{ $partIndex }}"
+							        data-generate-url="{{ route('lesson.part.generate.video', ['subject' => $subject->session_id, 'partIndex' => $partIndex]) }}">
+								<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+								<i class="fas fa-video me-1"></i> Generate Video
+							</button>
+							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's text.</small>
+							<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}" style="display: none;"></div>
+						</div>
+						{{-- Placeholder where the video will be inserted by JS --}}
+						<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;">
+							<!-- Video tag will be inserted here by JS -->
+						</div>
+						<div class="mb-2 text-center" id="video-display-{{ $partIndex }}" style="display: none;">
+							<!-- Video display area if generated -->
 						</div>
 					@endif
 				</div>
@@ -141,84 +203,144 @@
 										<p><strong>Q: {{ $quiz->question_text }}</strong></p>
 										
 										{{-- Quiz Question Audio --}}
-										<div class="mb-2" id="q-audio-area-{{ $quiz->id }}">
-											<strong>Question Audio:</strong>
-											@if($quiz->question_audio_url)
-												<audio controls controlsList="nodownload noremoteplayback"
-												       style="vertical-align: middle; height: 30px; margin-left: 5px;">
-													<source src="{{ $quiz->question_audio_url }}" type="audio/mpeg">
-													Your browser doesn't support audio.
-												</audio>
-											@else
-												<button class="btn btn-sm btn-secondary generate-asset-btn ms-2"
+										<div class="asset-container mb-3" id="q-audio-container-{{ $quiz->id }}">
+											<h6><i class="fas fa-volume-up me-2 text-info"></i>Question Audio</h6>
+											<div id="q-audio-display-{{ $quiz->id }}">
+												@if($quiz->question_audio_url)
+													<audio controls controlsList="nodownload noremoteplayback">
+														<source src="{{ $quiz->question_audio_url }}" type="audio/mpeg">
+														Your browser doesn't support audio.
+													</audio>
+												@else
+													<span class="text-muted">Not generated</span>
+												@endif
+											</div>
+											<div id="q-audio-button-area-{{ $quiz->id }}" class="{{ $quiz->question_audio_url ? 'd-none' : '' }}">
+												<button class="btn btn-sm btn-outline-secondary generate-asset-btn"
 												        data-url="{{ route('quiz.generate.audio.question', $quiz->id) }}"
 												        data-asset-type="question-audio"
-												        data-target-area="#q-audio-area-{{ $quiz->id }}">
-													<i class="fas fa-volume-up"></i> Generate
+												        data-quiz-id="{{ $quiz->id }}"
+												        data-target-area-id="q-audio-display-{{ $quiz->id }}"
+												        data-button-area-id="q-audio-button-area-{{ $quiz->id }}"
+												        data-error-area-id="q-audio-error-{{ $quiz->id }}">
+													<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+													<i class="fas fa-microphone-alt"></i> Generate
 												</button>
-												<span class="asset-status ms-2"></span>
-											@endif
+											</div>
+											<div class="asset-generation-error text-danger small mt-1" id="q-audio-error-{{ $quiz->id }}" style="display: none;"></div>
 										</div>
 										
-										{{-- Quiz Answer Audio --}}
+										
+										{{-- Quiz Answer Audio (Single button for all answers) --}}
 										@php
-											$answersNeedAudio = false;
-											if (!empty($quiz->answers) && is_array($quiz->answers) && (empty($quiz->answers[0]['audio_path']) && empty($quiz->answers[0]['audio_url']))) {
-													$answersNeedAudio = true;
+											$answersNeedAudio = true; // Default to needing audio
+											if (!empty($quiz->answers) && is_array($quiz->answers)) {
+													// Check first answer for URL - assumes if one has it, all should
+													if(isset($quiz->answers[0]['answer_audio_url']) && !empty($quiz->answers[0]['answer_audio_url'])) {
+															$answersNeedAudio = false;
+													}
+											} else {
+													$answersNeedAudio = false; // No answers to generate for
 											}
 										@endphp
-										<div class="mb-2" id="a-audio-area-{{ $quiz->id }}">
-											<strong>Answer Audio:</strong>
-											@if(!$answersNeedAudio && !empty($quiz->answers))
-												<span class="text-success ms-2">Generated</span>
-												{{-- Optionally list links or players for each answer audio here if needed --}}
-											@else
-												<button class="btn btn-sm btn-secondary generate-asset-btn ms-2"
-												        data-url="{{ route('quiz.generate.audio.answers', $quiz->id) }}"
-												        data-asset-type="answer-audio"
-												        data-target-area="#a-audio-area-{{ $quiz->id }}">
-													<i class="fas fa-microphone-alt"></i> Generate for All Answers
-												</button>
-												<span class="asset-status ms-2"></span>
-											@endif
+										<div class="asset-container mb-3" id="a-audio-container-{{ $quiz->id }}">
+											<h6><i class="fas fa-comments me-2 text-warning"></i>Answer & Feedback Audio</h6>
+											<div id="a-audio-status-{{ $quiz->id }}">
+												@if(!$answersNeedAudio && !empty($quiz->answers))
+													<span class="text-success"><i class="fas fa-check-circle me-1"></i>Generated</span>
+													{{-- Optionally list links or players for each answer/feedback audio here if needed, using $quiz->getAnswerAudioUrl($index), etc --}}
+												@elseif(empty($quiz->answers))
+													<span class="text-muted">No answers for this quiz.</span>
+												@else
+													<span class="text-muted">Not generated</span>
+												@endif
+											</div>
+											<div id="a-audio-button-area-{{ $quiz->id }}" class="{{ !$answersNeedAudio ? 'd-none' : '' }}">
+												@if(!empty($quiz->answers))
+													<button class="btn btn-sm btn-outline-secondary generate-asset-btn"
+													        data-url="{{ route('quiz.generate.audio.answers', $quiz->id) }}"
+													        data-asset-type="answer-audio"
+													        data-quiz-id="{{ $quiz->id }}"
+													        data-target-area-id="a-audio-status-{{ $quiz->id }}"
+													        data-button-area-id="a-audio-button-area-{{ $quiz->id }}"
+													        data-error-area-id="a-audio-error-{{ $quiz->id }}">
+														<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+														<i class="fas fa-microphone-alt"></i> Generate All
+													</button>
+												@endif
+											</div>
+											<div class="asset-generation-error text-danger small mt-1" id="a-audio-error-{{ $quiz->id }}" style="display: none;"></div>
 										</div>
+										
 										
 										{{-- Quiz Image --}}
-										<div class="mb-2" id="q-image-area-{{ $quiz->id }}">
-											<strong>Image:</strong>
-											@if($quiz->generatedImage && $quiz->generatedImage->image_medium_url)
-												<div class="mt-2">
-													<img src="{{ $quiz->generatedImage->image_medium_url }}"
-													     alt="{{ $quiz->generatedImage->image_alt ?? 'Quiz image' }}" class="img-thumbnail"
-													     style="max-width: 200px; max-height: 200px;">
-													<p><small class="text-muted">Prompt: {{ $quiz->image_prompt_idea ?: 'N/A' }}</small></p>
-												</div>
-											@elseif(!empty($quiz->image_prompt_idea))
-												<p><small class="text-muted">Prompt: {{ $quiz->image_prompt_idea }}</small></p>
-												<button class="btn btn-sm btn-secondary generate-asset-btn ms-2"
-												        data-url="{{ route('quiz.generate.image', $quiz->id) }}"
-												        data-asset-type="quiz-image"
-												        data-target-area="#q-image-area-{{ $quiz->id }}">
-													<i class="fas fa-image"></i> Generate
-												</button>
-												<span class="asset-status ms-2"></span>
-											@else
-												<span class="text-muted ms-2">No image prompt provided.</span>
-											@endif
+										<div class="asset-container mb-3" id="q-image-container-{{ $quiz->id }}">
+											<h6><i class="fas fa-image me-2 text-success"></i>Quiz Image</h6>
+											<div id="q-image-display-{{ $quiz->id }}" class="mb-2">
+												@if($quiz->generatedImage && $quiz->generatedImage->medium_url)
+													<a href="{{ $quiz->generatedImage->original_url }}" target="_blank" title="View full size">
+														<img src="{{ $quiz->generatedImage->medium_url }}" alt="{{ $quiz->generatedImage->image_alt }}" class="img-thumbnail quiz-image-thumb">
+													</a>
+													<p><small class="text-muted d-block mt-1">Prompt: {{ $quiz->image_prompt_idea ?: 'N/A' }}</small></p>
+												@elseif(empty($quiz->image_prompt_idea))
+													<span class="text-muted">No image prompt provided.</span>
+												@else
+													<span class="text-muted">Not generated. Prompt: {{ $quiz->image_prompt_idea }}</span>
+												@endif
+											</div>
+											<div id="q-image-button-area-{{ $quiz->id }}" class="{{ ($quiz->generatedImage || empty($quiz->image_prompt_idea)) ? 'd-none' : '' }}">
+												@if(!empty($quiz->image_prompt_idea))
+													<button class="btn btn-sm btn-outline-secondary generate-asset-btn"
+													        data-url="{{ route('quiz.generate.image', $quiz->id) }}"
+													        data-asset-type="quiz-image"
+													        data-quiz-id="{{ $quiz->id }}"
+													        data-target-area-id="q-image-display-{{ $quiz->id }}"
+													        data-button-area-id="q-image-button-area-{{ $quiz->id }}"
+													        data-error-area-id="q-image-error-{{ $quiz->id }}">
+														<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+														<i class="fas fa-image"></i> Generate
+													</button>
+												@endif
+											</div>
+											<div class="asset-generation-error text-danger small mt-1" id="q-image-error-{{ $quiz->id }}" style="display: none;"></div>
 										</div>
 										
-										{{-- List Answers (Read Only) --}}
-										<ul class="list-unstyled mt-2">
-											@foreach($quiz->answers as $ansIndex => $answer)
-												<li>
-													{{ $ansIndex + 1 }}. {{ $answer['text'] }}
-													@if($answer['is_correct'])
-														<strong class="text-success">(Correct)</strong>
-													@endif
-													<br><small class="text-muted">Feedback: {{ $answer['feedback'] }}</small>
-												</li>
-											@endforeach
-										</ul>
+										
+										{{-- List Answers (Read Only with Audio Previews if available) --}}
+										@if(!empty($quiz->answers))
+											<details class="mt-3">
+												<summary>View Answers & Feedback</summary>
+												<ul class="list-unstyled mt-2 ms-3 answer-list">
+													@foreach($quiz->answers as $ansIndex => $answer)
+														<li>
+															{{ $ansIndex + 1 }}. {{ $answer['text'] }}
+															@if($answer['is_correct']) <strong class="text-success">(Correct)</strong> @endif
+															
+															{{-- Answer Audio Player --}}
+															@if(isset($answer['answer_audio_url']) && $answer['answer_audio_url'])
+																<audio controls controlsList="nodownload noremoteplayback" class="d-block mt-1" style="height: 25px;">
+																	<source src="{{ $answer['answer_audio_url'] }}" type="audio/mpeg">
+																</audio>
+															@elseif(!$answersNeedAudio) {{-- Show missing only if generation was attempted --}}
+															<small class="text-warning d-block mt-1">(Answer audio missing)</small>
+															@endif
+															
+															<br>
+															<small class="text-muted">Feedback: {{ $answer['feedback'] }}</small>
+															
+															{{-- Feedback Audio Player --}}
+															@if(isset($answer['feedback_audio_url']) && $answer['feedback_audio_url'])
+																<audio controls controlsList="nodownload noremoteplayback" class="d-block mt-1" style="height: 25px;">
+																	<source src="{{ $answer['feedback_audio_url'] }}" type="audio/mpeg">
+																</audio>
+															@elseif(!$answersNeedAudio) {{-- Show missing only if generation was attempted --}}
+															<small class="text-warning d-block mt-1">(Feedback audio missing)</small>
+															@endif
+														</li>
+													@endforeach
+												</ul>
+											</details>
+										@endif
 									
 									</div> {{-- /.quiz-item --}}
 								@endforeach
@@ -231,9 +353,8 @@
 			</div> {{-- /.content-card --}}
 		@endforeach
 	@else
-		<p class="text-danger">Lesson part data is missing or invalid.</p>
+		<div class="alert alert-warning">Lesson part data is missing or invalid for this subject. Cannot display edit options.</div>
 	@endif
-
 @endsection
 
 @push('scripts')
@@ -244,6 +365,7 @@
 			
 			// --- Helper Functions ---
 			function showSpinner(button, show = true) {
+				if (!button) return;
 				const spinner = button.querySelector('.spinner-border');
 				if (spinner) {
 					spinner.classList.toggle('d-none', !show);
@@ -267,75 +389,105 @@
 				}
 			}
 			
-			function createVideoElement(url, targetElementId) {
-				const placeholder = document.getElementById(targetElementId);
-				if (!placeholder) return;
+			// --- Asset Display Updaters ---
+			function updateVideoDisplay(partIndex, videoUrl, videoPath) {
+				const placeholder = document.getElementById(`video-placeholder-${partIndex}`);
+				const displayArea = document.getElementById(`video-display-${partIndex}`);
+				const buttonArea = document.getElementById(`video-button-area-${partIndex}`);
 				
-				placeholder.innerHTML = ''; // Clear placeholder
+				if (!displayArea) return;
+				displayArea.innerHTML = ''; // Clear previous content
 				
 				const video = document.createElement('video');
-				video.src = url;
+				video.src = videoUrl; // Use the direct URL from response
 				video.controls = true;
 				video.preload = 'metadata';
-				video.classList.add('rounded', 'generated-video', 'mb-2');
+				video.classList.add('generated-video');
 				
-				placeholder.appendChild(video);
-				placeholder.style.display = 'block'; // Show the placeholder div
+				const pathText = document.createElement('p');
+				pathText.innerHTML = `<small class="text-muted d-block mt-1">Video generated. Path: ${videoPath || 'N/A'}</small>`;
+				
+				displayArea.appendChild(video);
+				displayArea.appendChild(pathText);
+				displayArea.style.display = 'block';
+				
+				if (placeholder) placeholder.style.display = 'none'; // Hide placeholder
+				if (buttonArea) buttonArea.style.display = 'none'; // Hide generate button
+				
 			}
 			
-			function createAudioPlayer(url, targetElementId) {
-				const placeholder = document.getElementById(targetElementId);
-				if (!placeholder) return;
-				placeholder.innerHTML = ''; // Clear if regenerating
+			function updateQuestionAudioDisplay(quizId, audioUrl) {
+				const displayArea = document.getElementById(`q-audio-display-${quizId}`);
+				const buttonArea = document.getElementById(`q-audio-button-area-${quizId}`);
+				if (!displayArea) return;
 				
+				displayArea.innerHTML = ''; // Clear 'Not generated' text
 				const audio = document.createElement('audio');
-				audio.src = url;
+				audio.src = audioUrl;
 				audio.controls = true;
 				audio.controlsList = "nodownload noremoteplayback";
-				audio.preload = "none";
-				audio.style.height = "25px";
+				displayArea.appendChild(audio);
 				
-				placeholder.appendChild(audio);
-				placeholder.style.display = 'inline-block'; // Adjust display
+				if (buttonArea) buttonArea.style.display = 'none'; // Hide button
 			}
 			
-			function createImageElement(smallUrl, originalUrl, targetElementId) {
-				const placeholder = document.getElementById(targetElementId);
-				if (!placeholder) return;
-				placeholder.innerHTML = ''; // Clear if regenerating
+			function updateAnswerAudioStatus(quizId, success = true) {
+				const statusArea = document.getElementById(`a-audio-status-${quizId}`);
+				const buttonArea = document.getElementById(`a-audio-button-area-${quizId}`);
+				if (!statusArea) return;
+				
+				if (success) {
+					statusArea.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Generated</span>';
+					// We might need to reload the page or make another AJAX call
+					// to get the individual audio URLs for the answer list <details> section
+					// For now, just show success status. Consider adding a "refresh answers" link.
+					// statusArea.innerHTML += ' <a href="javascript:location.reload();">(Refresh to view players)</a>';
+					// Or better: Trigger a specific AJAX reload for the answers section if needed.
+					
+				} else {
+					statusArea.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Failed</span>';
+				}
+				
+				if (buttonArea && success) buttonArea.style.display = 'none'; // Hide button on success
+			}
+			
+			
+			function updateQuizImageDisplay(quizId, imageUrls, prompt) {
+				const displayArea = document.getElementById(`q-image-display-${quizId}`);
+				const buttonArea = document.getElementById(`q-image-button-area-${quizId}`);
+				if (!displayArea) return;
+				
+				displayArea.innerHTML = ''; // Clear previous content
 				
 				const link = document.createElement('a');
-				link.href = originalUrl;
+				link.href = imageUrls.original || '#';
 				link.target = '_blank';
+				link.title = 'View full size';
 				
 				const img = document.createElement('img');
-				img.src = smallUrl;
-				img.alt = 'Generated Quiz Image';
-				img.classList.add('img-thumbnail', 'quiz-image-thumb', 'mb-1');
-				
+				img.src = imageUrls.medium || imageUrls.small || imageUrls.original; // Fallback size
+				img.alt = `Generated image for prompt: ${prompt || 'Quiz Image'}`;
+				img.classList.add('img-thumbnail', 'quiz-image-thumb');
 				link.appendChild(img);
-				placeholder.appendChild(link);
 				
-				// Add checkmark icon
-				const icon = document.createElement('i');
-				icon.classList.add('fas', 'fa-check-circle', 'asset-generated', 'asset-status-icon', 'd-block', 'mx-auto');
-				icon.title = 'Image Generated';
-				placeholder.appendChild(icon);
+				const promptText = document.createElement('p');
+				promptText.innerHTML = `<small class="text-muted d-block mt-1">Prompt: ${prompt || 'N/A'}</small>`;
 				
-				placeholder.style.display = 'block';
+				displayArea.appendChild(link);
+				displayArea.appendChild(promptText);
+				
+				if (buttonArea) buttonArea.style.display = 'none'; // Hide button
 			}
-			
 			
 			// --- Event Listeners ---
 			
-			// Generate Video for Specific Part Button
+			// 1. Generate Video for Specific Part Button
 			document.querySelectorAll('.generate-part-video-btn').forEach(button => {
 				button.addEventListener('click', async (event) => {
 					const btn = event.currentTarget;
 					const partIndex = btn.dataset.partIndex;
 					const url = btn.dataset.generateUrl;
 					const errorElId = `video-error-${partIndex}`;
-					const placeholderId = `video-placeholder-${partIndex}`;
 					
 					hideError(errorElId);
 					showSpinner(btn, true);
@@ -352,32 +504,47 @@
 						const result = await response.json();
 						
 						if (!response.ok || !result.success) {
-							throw new Error(result.message || `HTTP error ${response.status}`);
+							// Handle potential 409 Conflict (already exists) gracefully
+							if (response.status === 409 || result.message?.includes('already exists')) {
+								console.warn(`Video for part ${partIndex} already exists or generation triggered elsewhere.`);
+								// Optionally update UI if necessary, maybe fetch the existing URL again
+								if(result.video_url) {
+									updateVideoDisplay(partIndex, result.video_url, result.video_path);
+								} else {
+									// Maybe just hide button?
+									btn.closest('.video-button-area').style.display = 'none';
+								}
+								
+							} else {
+								throw new Error(result.message || `HTTP error ${response.status}`);
+							}
+						} else {
+							// Success
+							updateVideoDisplay(partIndex, result.video_url, result.video_path);
 						}
-						
-						// Success
-						createVideoElement(result.video_url, placeholderId);
-						btn.style.display = 'none'; // Hide button after success
 						
 					} catch (error) {
 						console.error(`Error generating video for part ${partIndex}:`, error);
 						showError(errorElId, `Failed: ${error.message}`);
-						showSpinner(btn, false); // Re-enable button on error
+					} finally {
+						showSpinner(btn, false); // Ensure spinner is hidden and button enabled on error
+						// We don't re-enable button on success as it should be hidden
 					}
 				});
 			});
 			
-			// Generate Quiz Audio (Question or Answers) Button
-			document.querySelectorAll('.generate-quiz-audio-btn').forEach(button => {
+			// 2. Generate Quiz Assets (Audio/Image) Button (Common Listener)
+			document.querySelectorAll('.generate-asset-btn').forEach(button => {
 				button.addEventListener('click', async (event) => {
 					const btn = event.currentTarget;
-					const quizId = btn.dataset.quizId;
-					const type = btn.dataset.type; // 'question' or 'answers'
 					const url = btn.dataset.url;
-					const errorElId = (type === 'question' ? `q-audio-error-${quizId}` : `a-audio-error-${quizId}`);
-					const placeholderId = (type === 'question' ? `q-audio-player-${quizId}` : null); // Only question has a direct player placeholder here
+					const assetType = btn.dataset.assetType;
+					const quizId = btn.dataset.quizId;
+					const targetAreaId = btn.dataset.targetAreaId;
+					const buttonAreaId = btn.dataset.buttonAreaId;
+					const errorAreaId = btn.dataset.errorAreaId;
 					
-					hideError(errorElId);
+					hideError(errorAreaId);
 					showSpinner(btn, true);
 					
 					try {
@@ -392,89 +559,50 @@
 						const result = await response.json();
 						
 						if (!response.ok || !result.success) {
-							throw new Error(result.message || `HTTP error ${response.status}`);
-						}
-						
-						// Success
-						if (type === 'question' && result.audio_url && placeholderId) {
-							createAudioPlayer(result.audio_url, placeholderId);
-							// Update status icon
-							const icon = btn.closest('li').querySelector(`i.asset-pending[title*='Audio Pending']`); // More specific selector if needed
-							if (icon) {
-								icon.classList.remove('fa-clock', 'asset-pending');
-								icon.classList.add('fa-check-circle', 'asset-generated');
-								icon.title = 'Audio Generated';
+							// Handle conflicts (already exists)
+							if (response.status === 409 || result.message?.includes('already exists')) {
+								console.warn(`${assetType} for quiz ${quizId} already exists.`);
+								// Update UI based on type if URL/data is returned
+								if (assetType === 'question-audio' && result.audio_url) {
+									updateQuestionAudioDisplay(quizId, result.audio_url);
+								} else if (assetType === 'answer-audio') {
+									updateAnswerAudioStatus(quizId, true); // Mark as success
+								} else if (assetType === 'quiz-image' && result.image_urls) {
+									// Need prompt from somewhere if not returned - maybe fetch quiz data again?
+									// For now, just use a generic alt text if prompt isn't handy
+									const prompt = document.querySelector(`#q-image-container-${quizId} small`)?.textContent.replace('Prompt: ','') || 'Quiz Image';
+									updateQuizImageDisplay(quizId, result.image_urls, prompt);
+								} else {
+									// Just hide button if data not available
+									const buttonArea = document.getElementById(buttonAreaId);
+									if(buttonArea) buttonArea.style.display = 'none';
+								}
+								
+							} else {
+								throw new Error(result.message || `HTTP error ${response.status}`);
 							}
-							btn.style.display = 'none'; // Hide button
-						} else if (type === 'answers') {
-							// Update status icon for answers audio
-							const icon = btn.closest('li').querySelector(`i.asset-pending[title*='Answer Audio Pending']`);
-							if (icon) {
-								icon.classList.remove('fa-clock', 'asset-pending');
-								icon.classList.add('fa-check-circle', 'asset-generated');
-								icon.title = 'Answer Audio Generated';
-								// Optionally add the "Audio generated" text
-								const smallText = document.createElement('small');
-								smallText.classList.add('ms-2');
-								smallText.textContent = '(Audio generated for answers/feedback)';
-								icon.parentNode.appendChild(smallText); // Append after the icon
-							}
-							btn.style.display = 'none'; // Hide button
-						}
-						
-					} catch (error) {
-						console.error(`Error generating ${type} audio for quiz ${quizId}:`, error);
-						showError(errorElId, `Failed: ${error.message}`);
-						showSpinner(btn, false); // Re-enable on error
-					}
-				});
-			});
-			
-			
-			// Generate Quiz Image Button
-			document.querySelectorAll('.generate-quiz-image-btn').forEach(button => {
-				button.addEventListener('click', async (event) => {
-					const btn = event.currentTarget;
-					const quizId = btn.dataset.quizId;
-					const url = btn.dataset.url;
-					const errorElId = `image-error-${quizId}`;
-					const placeholderId = `image-placeholder-${quizId}`;
-					
-					hideError(errorElId);
-					showSpinner(btn, true);
-					
-					try {
-						const response = await fetch(url, {
-							method: 'POST',
-							headers: {
-								'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-								'Accept': 'application/json',
-							}
-						});
-						
-						const result = await response.json();
-						
-						if (!response.ok || !result.success) {
-							throw new Error(result.message || `HTTP error ${response.status}`);
-						}
-						
-						// Success
-						if (result.image_urls && result.image_urls.small && result.image_urls.original) {
-							createImageElement(result.image_urls.small, result.image_urls.original, placeholderId);
-							// Hide the original pending icon if it exists
-							const icon = btn.closest('div').querySelector('i.asset-missing');
-							if(icon) icon.style.display = 'none';
-							btn.style.display = 'none'; // Hide button
 						} else {
-							throw new Error("Image URLs missing in response.");
+							// --- Success ---
+							if (assetType === 'question-audio' && result.audio_url) {
+								updateQuestionAudioDisplay(quizId, result.audio_url);
+							} else if (assetType === 'answer-audio') {
+								updateAnswerAudioStatus(quizId, true);
+								// Consider reloading the answer list details here if players are needed immediately
+								// For simplicity, we currently don't. User might need to refresh.
+							} else if (assetType === 'quiz-image' && result.image_urls) {
+								const prompt = document.querySelector(`#q-image-container-${quizId} small`)?.textContent.replace('Prompt: ','') || 'Quiz Image';
+								updateQuizImageDisplay(quizId, result.image_urls, prompt);
+							}
 						}
 						
 					} catch (error) {
-						console.error(`Error generating image for quiz ${quizId}:`, error);
-						showError(errorElId, `Failed: ${error.message}`);
-						showSpinner(btn, false); // Re-enable on error
+						console.error(`Error generating ${assetType} for quiz ${quizId}:`, error);
+						showError(errorAreaId, `Failed: ${error.message}`);
+						showSpinner(btn, false); // Re-enable button on error
+					} finally {
+						// Spinner is hidden within the success/error branches for button hiding logic
+						// showSpinner(btn, false); // Might re-enable button wrongly if it was hidden on success
 					}
-					
 				});
 			});
 			
