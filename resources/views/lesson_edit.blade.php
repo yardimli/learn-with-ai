@@ -44,7 +44,7 @@
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
-		<a href="{{ route('content.show', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i
+		<a href="{{ route('quiz.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i
 				class="fas fa-eye"></i> View Live Lesson</a>
 	</div>
 	

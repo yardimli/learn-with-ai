@@ -69,7 +69,7 @@
 						<p class="mb-1"><small class="text-muted">Subject: {{ $subject->name }} | Created: {{ $subject->created_at->format('M d, Y H:i') }}</small></p>
 					</div>
 					<div>
-						<a href="{{ route('content.show', ['subject' => $subject->session_id]) }}" class="btn btn-sm btn-outline-success me-2" title="View Lesson">
+						<a href="{{ route('quiz.interface', ['subject' => $subject->session_id]) }}" class="btn btn-sm btn-outline-success me-2" title="View Lesson">
 							<i class="fas fa-eye"></i> View
 						</a>
 						<a href="{{ route('lesson.edit', ['subject' => $subject->session_id]) }}" class="btn btn-sm btn-outline-primary" title="Edit Assets">

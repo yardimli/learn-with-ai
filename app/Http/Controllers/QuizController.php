@@ -10,45 +10,290 @@
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Session;
+	use Illuminate\Support\Facades\Storage;
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
 
 	class QuizController extends Controller
 	{
-		public function show($sessionId)
+
+		/**
+		 * Get the video URL for a specific lesson part.
+		 */
+		private function getPartVideoUrl(Subject $subject, int $partIndex): ?string
 		{
-			$subject = Subject::where('session_id', $sessionId)->first();
-
-			// Check if subject exists
-			if (!$subject) {
-				Log::warning("Subject not found for session ID: {$sessionId}");
-				return redirect()->route('home')->with('error', 'Content not found or session expired.');
+			$lessonParts = is_array($subject->lesson_parts) ? $subject->lesson_parts : json_decode($subject->lesson_parts, true);
+			if (isset($lessonParts[$partIndex]['video_path']) && $lessonParts[$partIndex]['video_path']) {
+				// Check if path starts with 'public/', remove if so for Storage::url
+				$path = $lessonParts[$partIndex]['video_path'];
+				if (Str::startsWith($path, 'public/')) {
+					$path = Str::substr($path, 7);
+				}
+				return Storage::disk('public')->url($path);
 			}
-
-			$subject_id = $subject->id;
-
-			// Find the LATEST quiz associated with this subject
-			$quiz = Quiz::where('subject_id', $subject_id)
-				->orderBy('created_at', 'desc')
-				->first();
-
-			if (!$quiz) {
-				Log::warning("No quiz found for subject ID {$subject_id} and session {$sessionId}. Redirecting to content.");
-				return redirect()->route('content.show', $subject_id)->with('info', 'Generate the quiz first.');
-			}
-
-			$isAlreadyAnsweredCorrectly = UserAnswer::where('quiz_id', $quiz->id)
-				->where('subject_id', $subject_id) // Check within the same session
-				->where('was_correct', true)
-				->exists();
-
-			$subject->load('generatedImage');
-
-			// dd($quiz, $subject); // For debugging if needed
-
-			return view('quiz_display', compact('subject', 'quiz', 'isAlreadyAnsweredCorrectly'));
+			return null;
 		}
 
+		/**
+		 * Get the text content for a specific lesson part.
+		 */
+		private function getPartText(Subject $subject, int $partIndex): ?string
+		{
+			$lessonParts = is_array($subject->lesson_parts) ? $subject->lesson_parts : json_decode($subject->lesson_parts, true);
+			return $lessonParts[$partIndex]['text'] ?? null;
+		}
+
+
+		/**
+		 * Displays the main interactive quiz interface.
+		 * Determines the starting state based on user progress.
+		 *
+		 * @param Subject $subject Route model binding via session_id
+		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+		 */
+		public function showQuizInterface(Subject $subject)
+		{
+			Log::info("Loading quiz interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+
+			// Ensure assets are generated (can be slow, consider background job or on-demand)
+			// This might be better placed elsewhere or triggered differently
+			// SubjectController::generateLessonAssets($subject);
+
+			// 1. Determine Current State (Part Index, Difficulty, Correct Counts)
+			$state = $this->calculateCurrentState($subject->id);
+
+			// 2. Get the First/Next Quiz Based on State
+			$quiz = $this->fetchQuizBasedOnState($subject->id, $state);
+
+			if (!$quiz && $state['status'] !== 'completed') {
+				Log::error("Could not fetch starting quiz for Subject ID {$subject->id} in state: ", $state);
+				return redirect()->route('quiz.interface', $subject->session_id)
+					->with('error', 'Could not load the quiz. Please try again later or contact support.');
+			}
+
+			// 3. Prepare Initial Data for the View
+			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
+
+			// Add intro text/video for the starting part
+			$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
+			$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
+
+			// Load image relation if quiz exists
+			$quiz?->load('generatedImage');
+
+
+			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
+			Log::info("Initial Quiz ID for Subject ID {$subject->id}: " . ($quiz->id ?? 'None/Completed'));
+
+			return view('quiz_interface', compact('subject', 'quiz', 'state', 'totalParts'));
+		}
+
+		/**
+		 * Calculates the user's current progress state within a lesson.
+		 *
+		 * @param int $subjectId
+		 * @return array [partIndex, difficulty, correctCounts, status]
+		 */
+		private function calculateCurrentState(int $subjectId): array
+		{
+			$difficulties = ['easy', 'medium', 'hard'];
+			$requiredCorrect = 2; // Configurable: Number of correct answers needed per difficulty
+			$totalParts = Subject::find($subjectId)->lesson_parts ? count(Subject::find($subjectId)->lesson_parts) : 0; // Assuming 3 parts
+
+
+			for ($part = 0; $part < $totalParts; $part++) {
+				$correctCounts = ['easy' => 0, 'medium' => 0, 'hard' => 0];
+				foreach ($difficulties as $difficulty) {
+					// Count distinct correctly answered quizzes for this part & difficulty
+					$count = UserAnswer::where('subject_id', $subjectId)
+						->where('was_correct', true)
+						->whereHas('quiz', function ($query) use ($part, $difficulty) {
+							$query->where('lesson_part_index', $part)
+								->where('difficulty_level', $difficulty);
+						})
+						->distinct('quiz_id') // Count distinct quizzes answered correctly
+						->count('quiz_id');
+
+					$correctCounts[$difficulty] = $count;
+
+					if ($count < $requiredCorrect) {
+						// Found the current level the user is working on
+						return [
+							'partIndex' => $part,
+							'difficulty' => $difficulty,
+							'correctCounts' => $correctCounts, // Counts for the *current* part
+							'status' => 'inprogress',
+							'requiredCorrect' => $requiredCorrect,
+						];
+					}
+				}
+				// If loop completes for this part, the part is finished
+			}
+
+			// If all parts and difficulties are completed
+			return [
+				'partIndex' => $totalParts - 1, // Landed on the last part
+				'difficulty' => 'hard', // Last completed difficulty
+				'correctCounts' => ['easy' => $requiredCorrect, 'medium' => $requiredCorrect, 'hard' => $requiredCorrect], // Show all as complete
+				'status' => 'completed',
+				'requiredCorrect' => $requiredCorrect,
+			];
+		}
+
+
+		/**
+		 * Fetches the next appropriate quiz based on the current state.
+		 * Prioritizes unanswered questions within the current difficulty/part.
+		 *
+		 * @param int $subjectId
+		 * @param array $state The current state [partIndex, difficulty, correctCounts]
+		 * @return Quiz|null The next Quiz model or null if completed or error.
+		 */
+		private function fetchQuizBasedOnState(int $subjectId, array $state): ?Quiz
+		{
+			if ($state['status'] === 'completed') {
+				return null;
+			}
+
+			$partIndex = $state['partIndex'];
+			$difficulty = $state['difficulty'];
+
+			// Find quizzes for the current part and difficulty
+			$potentialQuizzesQuery = Quiz::where('subject_id', $subjectId)
+				->where('lesson_part_index', $partIndex)
+				->where('difficulty_level', $difficulty);
+
+			// Get IDs of quizzes already answered *correctly* by the user in this session/subject
+			$correctlyAnsweredQuizIds = UserAnswer::where('subject_id', $subjectId)
+				->where('was_correct', true)
+				->whereHas('quiz', function($q) use ($partIndex, $difficulty) {
+					$q->where('lesson_part_index', $partIndex)
+						->where('difficulty_level', $difficulty);
+				})
+				->pluck('quiz_id')
+				->unique()
+				->toArray();
+
+			// Try to find a quiz NOT answered correctly yet
+			$nextQuiz = (clone $potentialQuizzesQuery) // Clone because we modify the query
+			->whereNotIn('id', $correctlyAnsweredQuizIds)
+				->orderBy('order') // Or orderBy('id') or random? Let's use order first.
+				->first();
+
+
+			if ($nextQuiz) {
+				Log::debug("Found next quiz (not yet correct): ID {$nextQuiz->id} for Subject {$subjectId}, Part {$partIndex}, Difficulty {$difficulty}");
+				return $nextQuiz;
+			}
+
+			// If all quizzes in this level HAVE been answered correctly at least once,
+			// but the count ($state['correctCounts'][$difficulty]) is still less than requiredCorrect,
+			// it means the user needs to re-answer one they previously got right (or there's a logic mismatch).
+			// Let's just pick the first one in the level again in this case.
+			// This handles the case where they got Q1 right, Q2 wrong, Q3 right - count is 2, level passed.
+			// But if they got Q1 right, Q2 wrong, Q3 wrong - count is 1. Next time, they might get Q2 right. Count becomes 2.
+			// If they got Q1 right, then Q1 wrong, then Q1 right again... the distinct count should still only be 1 for Q1.
+			// The calculateCurrentState distinct count handles this. Fetching needs to find *any* quiz not in the *currently* correct list.
+			// If we reach here, it implies all available quizzes for this difficulty *have* been marked correct at some point.
+			// This should only happen if state calculation determined they *haven't* met the threshold (e.g., need 2 distinct correct, but only 1 distinct quiz was ever marked correct).
+			// In this scenario, maybe re-present the one they *did* get correct? Or is there an issue?
+			// Let's re-fetch ANY quiz from this level, excluding those *currently* meting the correct threshold if needed - simpler: just get the first one again.
+			Log::warning("No quiz found that wasn't previously answered correctly for Subject {$subjectId}, Part {$partIndex}, Difficulty {$difficulty}. Re-fetching the first quiz.");
+			$nextQuiz = $potentialQuizzesQuery->orderBy('order')->first(); // Get the first one overall
+
+			if(!$nextQuiz) {
+				Log::error("CRITICAL: No quizzes found at all for Subject {$subjectId}, Part {$partIndex}, Difficulty {$difficulty}. Check DB data.");
+			}
+
+			return $nextQuiz;
+
+		}
+
+
+		/**
+		 * AJAX endpoint to get the next question data.
+		 * Calculates the state AFTER the last question was (presumably) answered.
+		 *
+		 * @param Request $request
+		 * @param Subject $subject Route model binding via session_id
+		 * @return \Illuminate\Http\JsonResponse
+		 */
+		public function getNextQuestionAjax(Request $request, Subject $subject)
+		{
+			Log::info("AJAX request for next question for Subject Session: {$subject->session_id}");
+
+			// 1. Recalculate the current state based on latest UserAnswers
+			$state = $this->calculateCurrentState($subject->id);
+
+			// 2. Fetch the appropriate quiz for this new state
+			$quiz = $this->fetchQuizBasedOnState($subject->id, $state);
+
+			// 3. Prepare response data
+			if ($state['status'] === 'completed') {
+				return response()->json([
+					'success' => true,
+					'status' => 'completed',
+					'message' => 'Congratulations! You have completed all parts of this lesson.',
+					'state' => $state, // Send final state
+				]);
+			}
+
+			if (!$quiz) {
+				Log::error("getNextQuestionAjax: Failed to fetch next quiz for Subject ID {$subject->id} in state", $state);
+				return response()->json([
+					'success' => false,
+					'message' => 'Could not determine the next question. Please refresh or contact support.'
+				], 500);
+			}
+
+			// Load necessary data for the quiz
+			$quiz->load('generatedImage');
+			// Ensure answers have audio URLs pre-processed or generate them here if needed
+			// Assuming processAnswersWithTTS happened during creation or asset generation
+			$processedAnswers = $quiz->answers; // Get potentially processed answers
+			if ($processedAnswers && is_array($processedAnswers)) {
+				foreach ($processedAnswers as $index => &$answer) {
+					// Ensure URLs are present, using accessors as fallback
+					$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
+					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index); // Assuming this exists now
+				}
+				unset($answer);
+			}
+
+
+			// Add intro text/video URL for the current part if state changed partIndex
+			// Check if partIndex changed compared to previous state (if tracked) - simpler: always include it
+			$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
+			$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
+
+
+			Log::info("Next quiz fetched: ID {$quiz->id}. State: ", $state);
+
+
+			return response()->json([
+				'success' => true,
+				'status' => $state['status'], // 'inprogress'
+				'quiz' => [
+					'id' => $quiz->id,
+					'question_text' => $quiz->question_text,
+					'question_audio_url' => $quiz->question_audio_url, // Accessor provides URL
+					'image_url' => $quiz->generatedImage?->mediumUrl, // Use relationship + accessor
+					'answers' => $processedAnswers, // Pass processed answers with URLs
+					'difficulty_level' => $quiz->difficulty_level,
+					'lesson_part_index' => $quiz->lesson_part_index,
+				],
+				'state' => $state, // Send the new state back to the client
+			]);
+		}
+
+		/**
+		 * Handles submitting a user's answer to a quiz.
+		 * Modified to return state change info.
+		 *
+		 * @param Request $request
+		 * @param Quiz $quiz Route model binding
+		 * @return \Illuminate\Http\JsonResponse
+		 */
 		public function submitAnswer(Request $request, Quiz $quiz)
 		{
 			$validator = Validator::make($request->all(), [
@@ -56,57 +301,57 @@
 			]);
 
 			if ($validator->fails()) {
-				return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+				return response()->json(['success' => false, 'message' => 'Invalid answer selection.', 'errors' => $validator->errors()], 422);
 			}
 
-			$subject_id = $quiz->subject_id; // Get session ID from the quiz
-
+			$subject_id = $quiz->subject_id;
 			$selectedIndex = $request->input('selected_index');
 
-			$alreadyAnsweredCorrectly = UserAnswer::where('quiz_id', $quiz->id)
-				->where('subject_id', $subject_id)
-				->where('was_correct', true) // Only prevent re-answering if *correct*
-				->exists();
-
-			if ($alreadyAnsweredCorrectly) {
-				Log::warning("Attempt to re-answer already correctly answered Quiz ID {$quiz->id} by Subject ID {$subject_id}");
-				// If already correct, maybe return the existing correct result?
-				return response()->json(['success' => false, 'message' => 'Quiz already answered correctly in this session.'], 409); // Conflict
-			}
-
+			// --- Check if this specific question was already correctly answered in THIS attempt session ---
+			// We still allow re-answering if they are trying to meet the threshold (e.g. need 2 correct)
+			// The core logic prevents re-answering *if the threshold for the difficulty level is already met*.
+			// Let's rely on the getNextQuestion logic to not serve questions from completed levels.
+			// We *do* need to record the attempt.
 
 			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}");
 
-			// Retrieve answers WITH audio URLs/paths from the Quiz model's processing
 			$answers = $quiz->answers; // Model casts to array
 			if (!isset($answers[$selectedIndex])) {
+				Log::error("Invalid answer index {$selectedIndex} submitted for Quiz ID {$quiz->id}. Answers:", $answers);
 				return response()->json(['success' => false, 'message' => 'Invalid answer index provided.'], 400);
 			}
 
-			$selectedAnswer = $answers[$selectedIndex];
-
-			// Determine correctness and find the correct index
-			$wasCorrect = $selectedAnswer['is_correct'] === true;
+			// Process answer data - Ensure audio URLs are present using accessors
+			$processedAnswers = $quiz->answers;
 			$correctIndex = -1;
-			foreach ($answers as $index => $answer) {
-				if ($answer['is_correct'] === true) {
-					$correctIndex = $index;
-					break;
+			if ($processedAnswers && is_array($processedAnswers)) {
+				foreach ($processedAnswers as $index => &$answer) {
+					$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
+					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index); // Assuming this exists now
+					if ($answer['is_correct'] === true) {
+						$correctIndex = $index;
+					}
 				}
+				unset($answer);
+			} else {
+				Log::error("Answers data is missing or invalid when processing submit for Quiz ID: {$quiz->id}");
+				return response()->json(['success' => false, 'message' => 'Error processing quiz answers.'], 500);
 			}
 
-			// Feedback text and audio URL from the processed answer data
+
+			$selectedAnswer = $processedAnswers[$selectedIndex];
+			$wasCorrect = $selectedAnswer['is_correct'] === true;
+			// Correct index found in loop above
+
 			$feedbackText = $selectedAnswer['feedback'];
-			// Use the URL stored in the 'answers' array (added by processAnswersWithTTS)
 			$feedbackAudioUrl = $selectedAnswer['feedback_audio_url'] ?? null;
 
-			// Save User Answer - handle potential retries
-			// Find previous attempt for THIS quiz in THIS session
+			// --- Save User Answer ---
+			// Find previous attempt for THIS quiz in THIS subject session
 			$previousAttempt = UserAnswer::where('quiz_id', $quiz->id)
 				->where('subject_id', $subject_id)
 				->orderBy('attempt_number', 'desc')
 				->first();
-
 			$attemptNumber = $previousAttempt ? ($previousAttempt->attempt_number + 1) : 1;
 
 			UserAnswer::create([
@@ -114,238 +359,32 @@
 				'subject_id' => $subject_id,
 				'selected_answer_index' => $selectedIndex,
 				'was_correct' => $wasCorrect,
-				'attempt_number' => $attemptNumber, // Track attempts
+				'attempt_number' => $attemptNumber,
 			]);
 
 			Log::info("User answer saved for Quiz ID {$quiz->id}. Attempt: {$attemptNumber}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
 
-			// Return feedback to frontend via JSON
+			// --- Calculate State AFTER this answer ---
+			$newState = $this->calculateCurrentState($subject_id);
+
+			// Determine if this answer caused a level up or part completion
+			// We can know this if the newState's part/difficulty is different from the current quiz's part/difficulty
+			$levelOrPartChanged = ($newState['partIndex'] !== $quiz->lesson_part_index || $newState['difficulty'] !== $quiz->difficulty_level);
+			// Or if the state is now completed
+			$isNowCompleted = $newState['status'] === 'completed';
+
+
+			// Return feedback and the *new* state
 			return response()->json([
 				'success' => true,
 				'was_correct' => $wasCorrect,
 				'correct_index' => $correctIndex,
 				'feedback_text' => $feedbackText,
-				'feedback_audio_url' => $feedbackAudioUrl, // Send URL from processed answer
+				'feedback_audio_url' => $feedbackAudioUrl,
+				'newState' => $newState, // Send the state *after* this answer
+				'level_advanced' => ($levelOrPartChanged || $isNowCompleted) && $wasCorrect, // Flag if progress moved forward due to this correct answer
+				'lesson_completed' => $isNowCompleted,
 			]);
 		}
 
-		public function generateNextQuiz(Request $request, $sessionId)
-		{
-			$subject = Subject::where('session_id', $sessionId)->first();
-			$llm = $request->input('llm', env('DEFAULT_LLM')); // Allow LLM override from request?
-
-			if (!$subject) {
-				Log::warning("Subject not found for session ID: {$sessionId}");
-				return redirect()->route('home')->with('error', 'Content not found or session expired.');
-			}
-
-			// Find the last quiz created specifically for THIS subject
-			$lastQuiz = Quiz::where('subject_id', $subject->id)
-				->orderBy('created_at', 'desc')
-				->first();
-
-			if (!$lastQuiz) {
-				Log::error("Could not find the last Quiz model for Subject {$subject->id}.");
-				return response()->json(['success' => false, 'message' => 'Error retrieving previous quiz context.'], 500);
-			}
-
-			// --- Incorporate History & Difficulty ---
-			// Get the MOST RECENT answer for this subject/session to determine the last outcome
-			$hasUserAnswer = UserAnswer::where('subject_id', $subject->id)
-				->where('quiz_id', $lastQuiz->id)
-				->orderBy('created_at', 'desc')
-				->first();
-
-			if (!$hasUserAnswer) {
-				Log::error("generateNextQuiz called for Subject {$subject->id} but no previous answers found.");
-				return response()->json(['success' => false, 'message' => 'Cannot generate next quiz without previous history.'], 500);
-			}
-
-
-			Log::info("Generating next quiz question for Subject ID: {$subject->id}, Session: {$sessionId}");
-
-			// Check if there is a wrong answer for this quiz in th user_answers
-			$lastQuizHadIncorrectAnswer = UserAnswer::where('quiz_id', $lastQuiz->id)
-				->where('subject_id', $subject->id)
-				->where('was_correct', false)
-				->exists();
-
-			$lastAnswerCorrect = !$lastQuizHadIncorrectAnswer;
-
-			// --- Determine Difficulty ---
-			$questionHistory = [];
-			$difficultyInstruction = "Generate a new multiple-choice question about the subject: '{$subject->name}'.";
-			$currentDifficultyLevel = $lastQuiz->difficulty_level ?? 1; // Start from last quiz's level
-
-			if ($lastAnswerCorrect) {
-				$difficultyInstruction .= " The user answered the previous question correctly. Generate a question of SLIGHTLY HIGHER difficulty (level " . ($currentDifficultyLevel + 1) . ").";
-				$currentDifficultyLevel++; // Target next level
-			} else {
-				$difficultyInstruction .= " The user answered the previous question INCORRECTLY. Generate a SIMPLER question (level " . max(1, $currentDifficultyLevel - 1) . ") focusing on the basics. Avoid similar pitfalls or clarify the concept related to that wrong answer.";
-
-				$currentDifficultyLevel = max(1, $currentDifficultyLevel - 1); // Target lower level, min 1
-			}
-
-
-			// --- Add History Context ---
-			$historyLimit = 2; // Limit history size
-			$previousAnswersForHistory = UserAnswer::where('subject_id', $subject->id)
-				->orderBy('created_at', 'desc')
-				->with('quiz:id,question_text,answers')
-				->take($historyLimit + 1)
-				->get();
-
-
-			// Exclude the very last answer itself from the history prompt context if needed
-			// For simplicity, we include it for now. Adjust if needed.
-			foreach ($previousAnswersForHistory->take($historyLimit) as $answer) {
-				if ($answer->quiz) { // Check if quiz relation loaded
-					$correctness = $answer->was_correct ? 'Correct' : 'Incorrect';
-					$qTextShort = Str::limit($answer->quiz->question_text, 75);
-					$qAnswerText = $answer->quiz->answers[$answer->selected_answer_index]['text'] ?? 'Unknown';
-					$questionHistory[] = "[{$correctness}] Q: {$qTextShort} A: $qAnswerText (Attempt: {$answer->attempt_number})";
-				}
-			}
-
-			if (!empty($questionHistory)) {
-				$difficultyInstruction .= "\nPrevious interaction summary (most recent first):\n" . implode("\n", $questionHistory);
-			}
-
-
-			// --- LLM Prompt for Quiz Generation (Same structure as first quiz) ---
-			$systemPromptQuizGen = <<<PROMPT
-You are an AI quiz master creating educational multiple-choice questions based on a given subject and context.
-The user is learning about: '{$subject->name}'.
-The introductory text provided was: '{$subject->main_text}'
-
-{$difficultyInstruction}
-
-Your output MUST be a valid JSON object with the following structure:
-{
-  "question": "The text of the multiple-choice question?",
-  "image_prompt_idea": "Short visual description related ONLY to the question itself (max 15 words).",
-  "answers": [
-    { "text": "Answer option 1", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
-    { "text": "Answer option 2", "is_correct": true,  "feedback": "Brief explanation why this answer is correct." },
-    { "text": "Answer option 3", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." },
-    { "text": "Answer option 4", "is_correct": false, "feedback": "Brief explanation why this answer is wrong." }
-  ]
-}
-
-RULES:
-- The Question must be something explained in the introductory text.
-- There must be exactly 4 answer options.
-- Exactly ONE answer must have "is_correct": true.
-- Keep question and answer text concise.
-- Provide a relevant image_prompt_idea for the question (max 15 words).
-- Feedback should be helpful and educational (1-2 sentences).
-- Ensure the entire output is ONLY the JSON object, nothing before or after.
-PROMPT;
-
-			$chatHistoryQuizGen = [];
-			$quizResult = MyHelper::llm_no_tool_call($llm, $systemPromptQuizGen, $chatHistoryQuizGen, true);
-
-			// --- Validate LLM Response ---
-			if (!MyHelper::isValidQuizResponse($quizResult)) { // Use helper
-				$errorMsg = $quizResult['error'] ?? 'LLM did not return a valid quiz structure.';
-				Log::error("LLM Next Quiz Gen Error: " . $errorMsg);
-				return response()->json(['success' => false, 'message' => 'Failed to generate next quiz question. ' . $errorMsg], 500);
-			}
-
-			Log::info("Next quiz question generated successfully.");
-			$quizData = $quizResult;
-
-			// --- Generate Image for the NEW Question ---
-			$imagePromptIdea = $quizData['image_prompt_idea'];
-			$nextIdentifier = 'next_' . Str::random(4); // Unique identifier for TTS/Image
-			$questionImageId = 0;
-			$questionImageUrl = null; // Store URL for response
-
-			if (!empty($imagePromptIdea)) {
-				Log::info("Generating image for next quiz question ({$nextIdentifier}) with prompt: '{$imagePromptIdea}'");
-				$imageResult = MyHelper::makeImage( $imagePromptIdea, env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell'),  'landscape_16_9');
-
-				if ($imageResult['success'] && isset($imageResult['image_guid'])) {
-					Log::info("Next quiz question image generated successfully. GUID: " . $imageResult['image_guid']);
-					$questionImageModel = GeneratedImage::where('image_guid', $imageResult['image_guid'])->first();
-					if ($questionImageModel) {
-						$questionImageId = $questionImageModel->id;
-						$questionImageUrl = $questionImageModel->mediumUrl; // Get URL for response
-					}
-				} else {
-					Log::error("Next quiz question image generation failed: " . ($imageResult['message'] ?? 'Unknown error'));
-				}
-			} else {
-				Log::warning("LLM did not provide an image_prompt_idea for the next quiz question ({$nextIdentifier}).");
-			}
-
-
-			// --- Generate TTS for the NEW Question ---
-			$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
-			$ttsVoice = ($ttsEngine === 'openai')
-				? env('OPENAI_TTS_VOICE', 'alloy')
-				: env('DEFAULT_TTS_VOICE', 'en-US-Wavenet-A');
-			$ttsLanguageCode = 'en-US'; // Primarily for Google
-
-			$questionAudioUrl = null; // Store URL
-			$nextIdentifier = 'next_' . Str::random(4); // Unique identifier
-			$questionTtsResult = MyHelper::text2speech(
-				$quizData['question'],
-				$ttsVoice,           // Use determined voice
-				$ttsLanguageCode,    // Pass language code
-				'question_' . $subject->id . '_' . $nextIdentifier . '_' . Str::slug(Str::limit($quizData['question'], 20)),
-				$ttsEngine           // Pass determined engine
-			);
-
-			if ($questionTtsResult && isset($questionTtsResult['fileUrl'])) {
-				$questionAudioUrl = $questionTtsResult['fileUrl']; // Store the URL
-				Log::info("Generated TTS for next question {$nextIdentifier}: {$questionAudioUrl}");
-			} else {
-				Log::warning("Failed to generate TTS for next question {$nextIdentifier}");
-			}
-
-			// --- Process Answers (Generate TTS for feedback & answers) ---
-			$processedAnswers = Quiz::processAnswersWithTTS(
-				$quizData['answers'],
-				$subject->id,
-				$nextIdentifier,
-				$ttsEngine,         // Pass engine
-				$ttsVoice,          // Pass voice
-				$ttsLanguageCode    // Pass lang code
-			);
-
-			// --- Save NEW Quiz to Database ---
-			$newQuiz = Quiz::create([
-				'subject_id' => $subject->id,
-				'generated_image_id' => $questionImageId,
-				'question_text' => $quizData['question'],
-				'question_audio_path' => $questionAudioUrl, // Store URL
-				'answers' => $processedAnswers, // Store answers with TTS paths/urls
-				'difficulty_level' => $currentDifficultyLevel, // Store calculated difficulty
-			]);
-
-			Log::info("Next Quiz record created with ID: {$newQuiz->id}");
-
-			// --- Return NEW quiz data to frontend ---
-			// We need to re-fetch or build the answer structure expected by the frontend JS
-			$frontendAnswers = [];
-			foreach ($processedAnswers as $index => $pa) {
-				// The Quiz model's getAnswerAudioUrl accessor can generate URLs if needed,
-				// but processAnswersWithTTS now adds 'answer_audio_url' directly.
-				$frontendAnswers[] = [
-					'text' => $pa['text'] ?? '',
-					'answer_audio_url' => $pa['answer_audio_url'] ?? null, // Send URL
-				];
-			}
-
-			return response()->json([
-				'success' => true,
-				'message' => 'Next quiz question generated.',
-				'quiz_id' => $newQuiz->id,
-				'question_text' => $newQuiz->question_text,
-				'question_audio_url' => $questionAudioUrl, // Send question audio URL
-				'question_image_url' => $questionImageUrl, // Send question image URL
-				'answers' => $frontendAnswers,
-			]);
-		}
 	}

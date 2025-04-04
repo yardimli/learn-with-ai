@@ -475,7 +475,7 @@ PROMPT;
 			return response()->json([
 				'success' => true,
 				'message' => 'Lesson structure saved! Generating assets may take a moment on the next page.', // Inform user
-				'redirectUrl' => route('content.show', ['subject' => $sessionId])
+				'redirectUrl' => route('quiz.interface', ['subject' => $sessionId])
 			]);
 		}
 

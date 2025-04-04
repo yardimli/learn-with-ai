@@ -1317,28 +1317,5 @@
 			}
 		}
 
-
-		public static function isValidQuizResponse($data, $requireImagePrompt = false): bool
-		{
-			if (!is_array($data)) return false;
-			if (!isset($data['question']) || !is_string($data['question'])) return false;
-			if ($requireImagePrompt && (!isset($data['image_prompt_idea']) || !is_string($data['image_prompt_idea']))) return false; // Check added
-			if (!isset($data['answers']) || !is_array($data['answers']) || count($data['answers']) !== 4) return false;
-
-
-			$correctCount = 0;
-			foreach ($data['answers'] as $answer) {
-				if (!is_array($answer)) return false;
-				if (!isset($answer['text']) || !is_string($answer['text'])) return false;
-				if (!isset($answer['is_correct']) || !is_bool($answer['is_correct'])) return false;
-				if (!isset($answer['feedback']) || !is_string($answer['feedback'])) return false;
-				if ($answer['is_correct'] === true) {
-					$correctCount++;
-				}
-			}
-
-			return $correctCount === 1; // Exactly one correct answer
-		}
-
 		// --- End of MyHelper class ---
 	}

@@ -484,3 +484,148 @@ body {
 .dark-mode .modal-header .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
+
+
+
+/* --- ===== Quiz Interactivity Enhancements ===== --- */
+
+/* Progress Bar */
+.progress-container {
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    background-color: var(--bs-tertiary-bg);
+    border-radius: 0.375rem; /* Match Bootstrap's default */
+}
+.progress {
+    height: 25px; /* Make progress bar thicker */
+    font-size: 0.85rem; /* Adjust font size inside */
+}
+.progress-bar {
+    transition: width 0.6s ease; /* Smooth transition */
+}
+.part-indicator {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+}
+.part-label {
+    text-align: center;
+    flex: 1; /* Distribute space */
+    cursor: default; /* No clicking for now */
+    padding: 0.2rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.3s ease;
+}
+.part-label.active {
+    font-weight: bold;
+    background-color: rgba(var(--bs-primary-rgb), 0.2); /* Highlight active part */
+}
+.part-label.completed {
+    color: var(--bs-secondary-color); /* Use Bootstrap var for muted text */
+    /* text-decoration: line-through; */ /* Optional: strike-through */
+}
+
+
+/* Part Intro Area */
+#partIntroArea {
+    background-color: var(--bs-tertiary-bg); /* Light gray default */
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 0.375rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease-out; /* Add transform */
+    opacity: 1;
+    transform: translateY(0);
+}
+#partIntroArea.d-none { /* Ensure smooth fade out */
+    opacity: 0;
+    transform: translateY(-10px); /* Slight upward move on hide */
+    pointer-events: none; /* Prevent interaction when hidden */
+    /* We still need d-none for layout shifting, but opacity helps transition */
+}
+#partIntroVideo {
+    max-width: 100%;
+    max-height: 300px; /* Limit video height */
+    border-radius: 0.25rem;
+    background-color: #000; /* Black bg for video */
+}
+
+/* Quiz Area */
+#quizArea {
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease-out;
+    opacity: 1;
+    transform: translateY(0);
+}
+#quizArea.d-none {
+    opacity: 0;
+    transform: translateY(10px); /* Slight downward move on hide */
+    pointer-events: none;
+}
+
+#quizQuestionContainer {
+    min-height: 150px; /* Prevent collapsing */
+}
+
+/* Completion Message */
+#completionMessage {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--bs-success-bg-subtle);
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: 0.5rem;
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+#completionMessage.d-none {
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+/* Ensure answer buttons fill width */
+#quizAnswersContainer .answer-btn {
+    width: 100%;
+}
+
+/* Refine feedback section */
+.feedback-section {
+    border-left: 4px solid var(--bs-info); /* Use info color for feedback border */
+    padding-left: 15px;
+    margin-top: 15px;
+}
+
+/* --- Dark Mode Adjustments --- */
+.dark-mode .progress-container {
+    background-color: var(--bs-secondary-bg); /* Darker bg */
+}
+.dark-mode .part-label.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.3); /* Darker highlight */
+}
+.dark-mode .part-label.completed {
+    color: var(--bs-secondary-color); /* Ensure muted color works */
+}
+
+.dark-mode #partIntroArea {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+
+.dark-mode #completionMessage {
+    background-color: #143625; /* Darker success */
+    border-color: #198754;
+    color: var(--bs-success-text-emphasis);
+}
+
+.dark-mode .feedback-section {
+    border-left-color: var(--bs-info-border-subtle);
+}
+
+/* Ensure reading highlight looks ok in dark mode */
+.dark-mode .reading-highlight {
+    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
+    color: #c0dfff; /* Lighter text for highlight */
+    border-radius: 3px;
+    padding: 0.1em 0.2em;
+    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
+}
