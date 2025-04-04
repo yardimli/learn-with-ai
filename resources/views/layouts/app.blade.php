@@ -94,6 +94,25 @@
 	
 	<!-- Hidden audio element (Maybe move to quiz page only if not needed globally) -->
 	<audio id="feedbackAudioPlayer" style="display: none;"></audio>
+	
+	<!-- Hidden audio element for JS control -->
+	<audio id="sharedAudioPlayer" style="display: none;"></audio>
+	
+	<!-- Generic Image Modal -->
+	<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-xl modal-dialog-centered"> {{-- Extra large and centered --}}
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body text-center"> {{-- Center the image --}}
+					<img src="" id="imageModalDisplay" alt="Image Preview" class="img-fluid" style="max-height: 80vh;"> {{-- Responsive, limit height --}}
+				</div>
+			</div>
+		</div>
+	</div>
+
 
 </div> <!-- End Container -->
 

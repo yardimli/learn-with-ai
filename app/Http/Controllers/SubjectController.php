@@ -877,38 +877,66 @@ PROMPT;
 		 * @param Quiz $quiz Route model binding
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function generateQuizImageAjax(Quiz $quiz)
+		public function generateQuizImageAjax(Request $request, Quiz $quiz) // <<< Add Request $request
 		{
-			Log::info("AJAX request to generate image for Quiz ID: {$quiz->id}");
+			$newPrompt = $request->input('new_prompt'); // Get potential new prompt from request body
 
-			if (!empty($quiz->generated_image_id)) {
-				Log::warning("Image already exists for Quiz ID: {$quiz->id}. Image ID: {$quiz->generated_image_id}");
-				// Find existing image to return URLs
-				$existingImage = GeneratedImage::find($quiz->generated_image_id);
-				return response()->json([
-					'success' => true, // Indicate no action taken, but success state
-					'message' => 'Image already exists for this quiz.',
-					'image_id' => $quiz->generated_image_id,
-					'image_urls' => $existingImage ? [
-						'small' => $existingImage->small_url,
-						'medium' => $existingImage->medium_url,
-						'large' => $existingImage->large_url,
-						'original' => $existingImage->original_url,
-					] : null,
-				], 200);
+			if ($newPrompt) {
+				Log::info("AJAX request to *regenerate* image for Quiz ID: {$quiz->id} with new prompt.");
+				// --- Regeneration Logic ---
+				$validator = Validator::make(['new_prompt' => $newPrompt], [
+					'new_prompt' => 'required|string|max:500' // Add validation for the prompt
+				]);
+
+				if ($validator->fails()) {
+					Log::error("Invalid prompt provided for image regeneration. Quiz ID: {$quiz->id}", ['errors' => $validator->errors()]);
+					return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+				}
+
+				// Update the quiz's prompt *before* generating
+				$quiz->image_prompt_idea = $newPrompt;
+				// We don't necessarily need to nullify the old image ID here,
+				// makeImage will create a new one, and we'll just update the foreign key.
+				// Old image *could* be orphaned, consider a cleanup job later.
+				// $quiz->generated_image_id = null;
+				$quiz->save(); // Save the updated prompt first
+
+			} else {
+				Log::info("AJAX request to generate image for Quiz ID: {$quiz->id}");
+				// --- Standard Generation Logic ---
+				if (!empty($quiz->generated_image_id)) {
+					Log::warning("Image already exists for Quiz ID: {$quiz->id}. Image ID: {$quiz->generated_image_id}");
+					$existingImage = GeneratedImage::find($quiz->generated_image_id);
+					return response()->json([
+						'success' => true,
+						'message' => 'Image already exists for this quiz.',
+						'image_id' => $quiz->generated_image_id,
+						'image_urls' => $existingImage ? [
+							'small' => $existingImage->small_url,
+							'medium' => $existingImage->medium_url,
+							'large' => $existingImage->large_url,
+							'original' => $existingImage->original_url,
+						] : null,
+					], 200); // 200 OK as it exists, though maybe 409 is technically more correct
+				}
+
+				if (empty($quiz->image_prompt_idea)) {
+					Log::error("Cannot generate image for Quiz ID {$quiz->id}: Image prompt is empty.");
+					return response()->json(['success' => false, 'message' => 'Image prompt is empty.'], 400);
+				}
 			}
 
-			if (empty($quiz->image_prompt_idea)) {
-				Log::error("Cannot generate image for Quiz ID {$quiz->id}: Image prompt is empty.");
-				return response()->json(['success' => false, 'message' => 'Image prompt is empty.'], 400);
-			}
-
+			// --- Common Generation Call ---
 			try {
-				$imageModel = env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell');
-				$imageSize = 'square_hd'; // Or get from request/config
+				$promptToUse = $newPrompt ?: $quiz->image_prompt_idea; // Use new prompt if provided
+				if (empty($promptToUse)) { // Double check after potential update
+					throw new \Exception('Image prompt is still empty after update check.');
+				}
 
+				$imageModel = env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell');
+				$imageSize = 'square_hd';
 				$imageResult = MyHelper::makeImage(
-					$quiz->image_prompt_idea,
+					$promptToUse,
 					$imageModel,
 					$imageSize
 				);
@@ -916,30 +944,32 @@ PROMPT;
 				if ($imageResult['success'] && isset($imageResult['image_guid'], $imageResult['image_id'])) {
 					// Link the generated image to the quiz
 					$quiz->generated_image_id = $imageResult['image_id'];
-					$quiz->save();
+					$quiz->save(); // Save the quiz with the new image ID (and potentially updated prompt from above)
 
-					Log::info("Image generated and linked for Quiz ID: {$quiz->id}. Image ID: {$imageResult['image_id']}");
+					Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked for Quiz ID: {$quiz->id}. Image ID: {$imageResult['image_id']}");
+
 					return response()->json([
 						'success' => true,
-						'message' => 'Image generated successfully!',
+						'message' => 'Image ' . ($newPrompt ? "regenerated" : "generated") . ' successfully!',
 						'image_id' => $imageResult['image_id'],
 						'image_guid' => $imageResult['image_guid'],
-						'image_urls' => $imageResult['image_urls'], // Pass URLs from helper
+						'image_urls' => $imageResult['image_urls'],
 					]);
+
 				} else {
-					// Check if image was created but linking failed (e.g., helper didn't return ID)
+					// Handle potential case where image was created but ID not returned or linking failed
 					if ($imageResult['success'] && isset($imageResult['image_guid'])) {
 						$imageModel = GeneratedImage::where('image_guid', $imageResult['image_guid'])->first();
 						if ($imageModel) {
 							$quiz->generated_image_id = $imageModel->id;
 							$quiz->save();
-							Log::info("Image generated and linked (fallback lookup) for Quiz ID: {$quiz->id}. Image ID: {$imageModel->id}");
+							Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked (fallback lookup) for Quiz ID: {$quiz->id}. Image ID: {$imageModel->id}");
 							return response()->json([
 								'success' => true,
-								'message' => 'Image generated successfully!',
+								'message' => 'Image ' . ($newPrompt ? "regenerated" : "generated") . ' successfully!',
 								'image_id' => $imageModel->id,
 								'image_guid' => $imageResult['image_guid'],
-								'image_urls' => [ // Reconstruct URLs
+								'image_urls' => [
 									'small' => $imageModel->small_url,
 									'medium' => $imageModel->medium_url,
 									'large' => $imageModel->large_url,
@@ -952,7 +982,7 @@ PROMPT;
 					throw new \Exception($imageResult['message'] ?? 'Image generation failed');
 				}
 			} catch (\Exception $e) {
-				Log::error("Exception during image generation for Quiz ID {$quiz->id}: " . $e->getMessage());
+				Log::error("Exception during image generation/regeneration for Quiz ID {$quiz->id}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Server error during image generation: ' . $e->getMessage()], 500);
 			}
 		}
