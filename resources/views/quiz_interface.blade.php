@@ -4,66 +4,6 @@
 
 @push('styles')
 	<style>
-      /* Progress Bar */
-      .progress-container {
-          margin-bottom: 1.5rem;
-          padding: 0.5rem;
-          background-color: var(--bs-tertiary-bg);
-          border-radius: 0.375rem; /* Match Bootstrap's default */
-      }
-      .progress {
-          height: 25px; /* Make progress bar thicker */
-          font-size: 0.85rem; /* Adjust font size inside */
-      }
-      .progress-bar {
-          transition: width 0.6s ease; /* Smooth transition */
-      }
-      .part-indicator {
-          display: flex;
-          justify-content: space-around;
-          margin-top: 0.5rem;
-          font-size: 0.9em;
-      }
-      .part-label {
-          text-align: center;
-          flex: 1; /* Distribute space */
-          cursor: default; /* No clicking for now */
-          padding: 0.2rem;
-          border-radius: 0.25rem;
-          transition: background-color 0.3s ease;
-      }
-      .part-label.active {
-          font-weight: bold;
-          background-color: rgba(var(--bs-primary-rgb), 0.2); /* Highlight active part */
-      }
-      .part-label.completed {
-          color: var(--bs-secondary); /* Gray out completed */
-          text-decoration: line-through;
-      }
-
-
-      /* Part Intro Area */
-      #partIntroArea {
-          background-color: var(--bs-light);
-          border: 1px solid var(--bs-border-color);
-          border-radius: 0.375rem;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          transition: opacity 0.5s ease-in-out;
-      }
-      .dark-mode #partIntroArea {
-          background-color: var(--bs-secondary-bg);
-          border-color: var(--bs-border-color);
-      }
-      #partIntroArea.d-none { /* Ensure smooth fade out */
-          opacity: 0;
-      }
-      #partIntroVideo {
-          max-width: 100%;
-          max-height: 300px; /* Limit video height */
-          border-radius: 0.25rem;
-      }
-
       /* Quiz Area */
       #quizQuestionContainer {
           min-height: 150px; /* Prevent collapsing */
@@ -77,6 +17,11 @@
           border: 1px solid var(--bs-success-border-subtle);
           border-radius: 0.5rem;
       }
+
+      #playFeedbackModalButton {
+          margin-top: 0.5rem;
+      }
+
       .dark-mode #completionMessage {
           background-color: #143625; /* Darker success */
           border-color: #198754;
@@ -93,6 +38,7 @@
           padding-left: 15px;
           margin-top: 15px;
       }
+
       .dark-mode .feedback-section {
           border-left-color: var(--bs-info-border-subtle);
       }
@@ -112,40 +58,8 @@
 	<div class="quiz-card"> {{-- Main container --}}
 		<h2 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h2>
 		
-		{{-- 1. Progress Bar and Part Indicators --}}
-		<div class="progress-container shadow-sm">
-			<div class="progress" role="progressbar" aria-label="Lesson Progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-				<div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%">0%</div>
-			</div>
-			<div class="part-indicator" id="partIndicatorContainer">
-				@for ($i = 0; $i < $totalParts; $i++)
-					<span class="part-label" id="partLabel_{{ $i }}">Part {{ $i + 1 }}</span>
-				@endfor
-			</div>
-		</div>
+		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
 		
-		{{-- 2. Part Introduction Area (Video & Text) - Initially hidden/shown by JS --}}
-		<div id="partIntroArea" class="d-none">
-			<h4 id="partIntroTitle" class="mb-3"></h4>
-			<div class="row align-items-center">
-				<div class="col-md-5 text-center mb-3 mb-md-0">
-					<video id="partIntroVideo" controls preload="metadata" class="d-none">
-						Your browser does not support the video tag.
-					</video>
-					<p id="partIntroVideoPlaceholder" class="text-muted d-none">(No video for this part)</p>
-				</div>
-				<div class="col-md-7">
-					<p id="partIntroText"></p>
-				</div>
-			</div>
-			<hr>
-			<div class="text-center">
-				<button id="startPartQuizButton" class="btn btn-primary">Start Part {{-- Number added by JS --}} Quiz</button>
-			</div>
-		</div>
-		
-		
-		{{-- 3. Quiz Question/Answer Area - Shown when intro is hidden --}}
 		<div id="quizArea" class="d-none">
 			<div class="row">
 				<!-- Left Column: Question Text & Image -->
@@ -155,7 +69,8 @@
 						<p id="questionTextElement" class="quiz-question-text fs-5 mb-4">Loading question...</p>
 						{{-- Question Image Display --}}
 						<div class="mb-3 text-center">
-							<img id="questionImageElement" src="{{ asset('images/placeholder_q.png') }}" class="img-fluid rounded mb-2 d-none" style="max-height: 300px;" alt="Visual aid for the question">
+							<img id="questionImageElement" src="{{ asset('images/placeholder_q.png') }}"
+							     class="img-fluid rounded mb-2 d-none" style="max-height: 300px;" alt="Visual aid for the question">
 							<p id="noImagePlaceholder" class="text-muted d-none">(No image for this question)</p>
 						</div>
 						{{-- Review Button could go here if needed --}}
@@ -167,30 +82,6 @@
 					<!-- Answer Buttons -->
 					<div id="quizAnswersContainer" class="d-grid gap-3 mb-4">
 						{{-- Buttons loaded by JS --}}
-					</div>
-					
-					<!-- Feedback Section -->
-					<div id="feedbackSection" class="mt-4 feedback-section d-none">
-						<h4 id="feedbackHeading" class=""></h4>
-						<p id="feedbackText"></p>
-						<button id="playFeedbackButton" class="btn btn-sm btn-secondary d-none">
-							<i class="fas fa-volume-up me-1"></i> Play Feedback
-						</button>
-						<hr>
-						{{-- Messages for Next button state --}}
-						<p id="feedbackIncorrectMessage" class="text-muted small mt-2 d-none">
-							Please select the correct answer to proceed, or try another answer.
-						</p>
-						<p id="feedbackThresholdMessage" class="text-muted small mt-2 d-none">
-							Keep going! Need <span id="remainingCorrectCount"></span> more correct answer(s) for this level.
-						</p>
-						<p id="feedbackListenMessage" class="text-muted small mt-2 d-none">
-							Listen to the feedback.
-						</p>
-						<button id="nextQuestionButton" class="btn btn-info w-100 d-none">
-							<span id="nextQuestionSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-							Next Question
-						</button>
 					</div>
 				</div> <!-- End Right Column -->
 			</div> <!-- End Row -->
@@ -205,6 +96,30 @@
 		</div>
 	
 	</div> {{-- End Quiz Card --}}
+	
+	
+	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop, no keyboard close --}}
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="feedbackModalLabel">Feedback</h5>
+					{{-- No close button on header, force using footer buttons --}}
+					{{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
+				</div>
+				<div class="modal-body">
+					<p id="feedbackModalText">Your feedback text here.</p>
+					<button id="playFeedbackModalButton" class="btn btn-sm btn-secondary d-none">
+						<i class="fas fa-volume-up me-1"></i> Play Feedback Audio
+					</button>
+					<span id="feedbackAudioError" class="text-danger small ms-2 d-none">Audio error</span>
+				</div>
+				<div class="modal-footer">
+					<button type="button" id="modalTryAgainButton" class="btn btn-warning d-none">Try Again</button>
+					<button type="button" id="modalNextButton" class="btn btn-primary d-none">Next Question</button>
+				</div>
+			</div>
+		</div>
+	</div>
 
 @endsection
 
@@ -213,6 +128,133 @@
 	<script>
 		window.quizInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
+		
+		// --- DOM Element References ---
+		let quizArea = null;
+		let questionDifficulty = null;
+		let questionTextElement = null;
+		let questionImageElement = null;
+		let noImagePlaceholder = null;
+		let quizAnswersContainer = null;
+		
+		let feedbackSection = null;
+		let feedbackHeading = null;
+		let feedbackTextEl = null;
+		let feedbackIncorrectMessage = null;
+		let feedbackThresholdMessage = null;
+		let remainingCorrectCount = null;
+		let feedbackListenMessage = null;
+		let nextQuestionButton = null;
+		let completionMessage = null;
+		
+		// --- State Variables ---
+		let subjectSessionId = null;
+		let subjectId = null;
+		let totalParts = window.totalLessonParts || 0;
+		let difficulties = ['easy', 'medium', 'hard'];
+		
+		let currentState = window.quizInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+		let currentPartQuizzes = [];
+		let currentQuizIndex = -1;
+		let currentQuiz = null;
+		
+		let selectedIndex = null;
+		let feedbackData = null; // { was_correct, correct_index, feedback_text, feedback_audio_url, level_advanced, lesson_completed }
+		let isLoading = false;
+		let interactionsDisabled = false;
+		
+		// TTS Playback State
+		let playbackQueue = [];
+		let currentPlaybackIndex = -1;
+		let isAutoPlaying = false;
+		let currentHighlightElement = null;
+		let playFeedbackButton = null;
+		let ttsAudioPlayer = null;
+		let feedbackAudioPlayer = null;
+		
+		// Progress and Intro
+		let progressBar = null;
+		let partIndicatorContainer = null;
+		let partIntroArea = null;
+		let partIntroTitle = null;
+		let partIntroVideo = null;
+		let partIntroVideoPlaceholder = null;
+		let partIntroText = null;
+		let startPartQuizButton = null;
+		
+		let hasIntroVideoPlayed = false; // Track if intro video played (per part)
+		let isPartIntroVisible = false; // Track if intro or quiz area is shown
+		
+		let loadingOverlay = null;
+		let loadingMessageEl = null;
+		let errorMessageArea = null;
+		let errorMessageText = null;
+		let closeErrorButton = null;
+		let nextQuestionSpinner = null;
+		
+		
+		document.addEventListener('DOMContentLoaded', () => {
+			loadingOverlay = document.getElementById('loadingOverlay');
+			loadingMessageEl = document.getElementById('loadingMessage');
+			errorMessageArea = document.getElementById('errorMessageArea');
+			errorMessageText = document.getElementById('errorMessageText');
+			closeErrorButton = document.getElementById('closeErrorButton');
+			nextQuestionSpinner = document.getElementById('nextQuestionSpinner');
+			
+			// --- State Variables ---
+			subjectSessionId = document.getElementById('subjectSessionId')?.value;
+			subjectId = document.getElementById('subjectId')?.value;
+			
+			currentState = window.quizInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+			currentPartQuizzes = [];
+			currentQuizIndex = -1;
+			currentQuiz = null;
+			
+			selectedIndex = null;
+			feedbackData = null; // { was_correct, correct_index, feedback_text, feedback_audio_url, level_advanced, lesson_completed }
+			isLoading = false;
+			interactionsDisabled = false;
+			
+			progressBar = document.getElementById('progressBar');
+			partIndicatorContainer = document.getElementById('partIndicatorContainer');
+			partIntroArea = document.getElementById('partIntroArea');
+			partIntroTitle = document.getElementById('partIntroTitle');
+			partIntroVideo = document.getElementById('partIntroVideo');
+			partIntroVideoPlaceholder = document.getElementById('partIntroVideoPlaceholder');
+			partIntroText = document.getElementById('partIntroText');
+			startPartQuizButton = document.getElementById('startPartQuizButton');
+			
+			playFeedbackButton = document.getElementById('playFeedbackButton');
+			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
+			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
+			
+			// --- DOM Element References ---
+			quizArea = document.getElementById('quizArea');
+			questionDifficulty = document.getElementById('questionDifficulty');
+			questionTextElement = document.getElementById('questionTextElement');
+			questionImageElement = document.getElementById('questionImageElement');
+			noImagePlaceholder = document.getElementById('noImagePlaceholder');
+			quizAnswersContainer = document.getElementById('quizAnswersContainer');
+			feedbackSection = document.getElementById('feedbackSection');
+			feedbackHeading = document.getElementById('feedbackHeading');
+			feedbackTextEl = document.getElementById('feedbackText');
+			feedbackIncorrectMessage = document.getElementById('feedbackIncorrectMessage');
+			feedbackThresholdMessage = document.getElementById('feedbackThresholdMessage');
+			remainingCorrectCount = document.getElementById('remainingCorrectCount');
+			feedbackListenMessage = document.getElementById('feedbackListenMessage');
+			nextQuestionButton = document.getElementById('nextQuestionButton');
+			completionMessage = document.getElementById('completionMessage');
+			
+			console.log('Interactive Quiz JS Loaded');
+			setupIntroEventListeners();
+			setupAudioEventListeners();
+			initQuizInterface();
+			
+		});
+	
 	</script>
-	<script src="{{ asset('js/quiz_interface.js') }}"></script> {{-- Load the new JS file --}}
+	<script src="{{ asset('js/quiz_helper_functions.js') }}"></script>
+	<script src="{{ asset('js/lesson_audio_functions.js') }}"></script>
+	<script src="{{ asset('js/lesson_progress_intro.js') }}"></script>
+	<script src="{{ asset('js/quiz_interface.js') }}"></script>
 @endpush

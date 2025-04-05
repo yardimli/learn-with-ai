@@ -121,11 +121,6 @@ body {
     }
 }
 
-.reading-highlight {
-    font-weight: bold;
-    color: #0d6efd; /* Highlight color */
-}
-
 /* Utility class to hide elements (already in Bootstrap, but keep if you use it explicitly) */
 .d-none {
     display: none !important;
@@ -134,20 +129,11 @@ body {
 
 .reading-highlight {
     font-weight: bold;
-    color: #0d6efd; /* Bootstrap primary blue */
-    /* Add a subtle background or border */
-    background-color: #e7f1ff; /* Light blue background */
-    padding: 0.2em 0.4em; /* Add some padding */
-    border-radius: 0.25rem;
-    transition: background-color 0.3s ease; /* Smooth transition */
-}
-
-/* Ensure buttons look okay when highlighted */
-.answer-btn.reading-highlight {
+    color: #0d6efd;
+    background-color: #e7f1ff;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
     border-color: #0d6efd;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); /* Add focus ring effect */
-    /* Override default background if needed, or keep outline style */
-    /* background-color: #cfe2ff; */ /* Example: If using solid background */
 }
 
 .question-container {
@@ -286,13 +272,6 @@ body {
 
 .dark-mode .loading-overlay {
     background-color: rgba(30, 30, 30, 0.8); /* Darker overlay */
-}
-
-.dark-mode .reading-highlight {
-    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
-    border-radius: 3px;
-    padding: 0.1em 0.2em;
-    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
 }
 
 .dark-mode .answer-btn.selected {
@@ -623,9 +602,10 @@ body {
 
 /* Ensure reading highlight looks ok in dark mode */
 .dark-mode .reading-highlight {
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    border-color: #0d6efd;
     background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
     color: #c0dfff; /* Lighter text for highlight */
-    border-radius: 3px;
-    padding: 0.1em 0.2em;
     box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
 }
