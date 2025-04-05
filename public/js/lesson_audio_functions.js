@@ -6,18 +6,25 @@ function buildPlaybackQueue(quizData) {
 	if (!quizData) return;
 	
 	if (quizData.question_audio_url && questionTextElement) {
-		playbackQueue.push({ element: questionTextElement, url: quizData.question_audio_url });
+		playbackQueue.push({element: questionTextElement, url: quizData.question_audio_url});
 	}
 	quizData.answers?.forEach((answer, index) => {
 		const answerButton = document.getElementById(`answerBtn_${index}`);
 		if (answer.answer_audio_url && answerButton) {
-			playbackQueue.push({ element: answerButton, url: answer.answer_audio_url });
+			playbackQueue.push({element: answerButton, url: answer.answer_audio_url});
 		}
 	});
 	// console.log("Playback queue built:", playbackQueue);
 }
 
 function startPlaybackSequence() {
+	if (!isAutoPlayEnabled) {
+		console.log("Auto-play disabled. Skipping audio sequence.");
+		setInteractionsDisabled(false); // Ensure interactions are enabled immediately
+		return;
+	}
+	
+	
 	if (playbackQueue.length === 0) {
 		console.log("Playback queue empty, enabling interactions.");
 		setInteractionsDisabled(false);
@@ -119,22 +126,33 @@ function handleFeedbackAudioEnd() {
 }
 
 function setupAudioEventListeners() {
-	if (playFeedbackButton && feedbackAudioPlayer) {
-		playFeedbackButton.addEventListener('click', () => {
-			if (!interactionsDisabled) {
-				setInteractionsDisabled(true); // Disable while playing
-				updateUI(); // Reflect disabled state
-				playFeedbackAudio();
-			}
-		});
-		feedbackAudioPlayer.addEventListener('ended', handleFeedbackAudioEnd);
-		feedbackAudioPlayer.addEventListener('error', handleFeedbackAudioEnd); // Treat error same as end
-	}
-	
 	if (ttsAudioPlayer) {
 		ttsAudioPlayer.addEventListener('ended', handleTtsAudioEnded);
 		ttsAudioPlayer.addEventListener('error', handleTtsAudioError);
 		// Add pause handling if needed
+	}
+	
+	if (feedbackAudioPlayer) {
+		// These events are now primarily used to update the modal's play button state
+		// They no longer trigger checkStateAndTransition
+		feedbackAudioPlayer.addEventListener('ended', () => {
+			console.log('Feedback audio ended.');
+			// Update modal button state if modal is still visible
+			if (isModalVisible && playFeedbackModalButton) {
+				playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+			}
+		});
+		feedbackAudioPlayer.addEventListener('error', (e) => {
+			console.error('Feedback audio player error:', e);
+			if (isModalVisible && playFeedbackModalButton) {
+				playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+				// Optionally show error in modal body near button
+				if (feedbackAudioError) {
+					feedbackAudioError.textContent = 'Audio playback error.';
+					toggleElement(feedbackAudioError, true);
+				}
+			}
+		});
 	}
 	
 }

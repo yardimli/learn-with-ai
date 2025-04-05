@@ -56,7 +56,7 @@
 	<audio id="feedbackAudioPlayer" style="display: none;" preload="auto"></audio>
 	
 	<div class="quiz-card"> {{-- Main container --}}
-		<h2 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h2>
+		<h3 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h3>
 		
 		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
 		
@@ -94,11 +94,22 @@
 			<a href="{{ route('home') }}" class="btn btn-primary">Choose Another Subject</a>
 			{{-- Optionally add a link to review the lesson or see stats --}}
 		</div>
+		
+		{{-- Auto-Play Audio Switch --}}
+		<div class="auto-play-switch-container mb-3">
+			<div class="form-check form-switch">
+				<input class="form-check-input" type="checkbox" role="switch" id="autoPlayAudioSwitch"
+				       checked> {{-- Default to checked --}}
+				<label class="form-check-label small" for="autoPlayAudioSwitch">Auto-play Audio</label>
+			</div>
+		</div>
+	
 	
 	</div> {{-- End Quiz Card --}}
 	
 	
-	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop, no keyboard close --}}
+	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true"
+	     data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop, no keyboard close --}}
 		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -128,6 +139,7 @@
 	<script>
 		window.quizInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
+		window.allPartIntros = @json($allPartIntros);
 		
 		// --- DOM Element References ---
 		let quizArea = null;
@@ -136,20 +148,23 @@
 		let questionImageElement = null;
 		let noImagePlaceholder = null;
 		let quizAnswersContainer = null;
-		
-		let feedbackSection = null;
-		let feedbackHeading = null;
-		let feedbackTextEl = null;
-		let feedbackIncorrectMessage = null;
-		let feedbackThresholdMessage = null;
-		let remainingCorrectCount = null;
-		let feedbackListenMessage = null;
-		let nextQuestionButton = null;
 		let completionMessage = null;
+		
+		let feedbackModal = null;
+		let feedbackModalInstance = null; // To store the Bootstrap modal object
+		let feedbackModalLabel = null;
+		let feedbackModalText = null;
+		let playFeedbackModalButton = null;
+		let feedbackAudioError = null;
+		let modalTryAgainButton = null;
+		let modalNextButton = null;
 		
 		// --- State Variables ---
 		let subjectSessionId = null;
 		let subjectId = null;
+		let isAutoPlayEnabled = true;
+		let displayedPartIndex = -1;
+		
 		let totalParts = window.totalLessonParts || 0;
 		let difficulties = ['easy', 'medium', 'hard'];
 		
@@ -159,18 +174,19 @@
 		let currentQuiz = null;
 		
 		let selectedIndex = null;
-		let feedbackData = null; // { was_correct, correct_index, feedback_text, feedback_audio_url, level_advanced, lesson_completed }
 		let isLoading = false;
 		let interactionsDisabled = false;
+		
+		let isModalVisible = false;
 		
 		// TTS Playback State
 		let playbackQueue = [];
 		let currentPlaybackIndex = -1;
 		let isAutoPlaying = false;
 		let currentHighlightElement = null;
-		let playFeedbackButton = null;
 		let ttsAudioPlayer = null;
 		let feedbackAudioPlayer = null;
+		let autoPlayAudioSwitch = null;
 		
 		// Progress and Intro
 		let progressBar = null;
@@ -190,8 +206,6 @@
 		let errorMessageArea = null;
 		let errorMessageText = null;
 		let closeErrorButton = null;
-		let nextQuestionSpinner = null;
-		
 		
 		document.addEventListener('DOMContentLoaded', () => {
 			loadingOverlay = document.getElementById('loadingOverlay');
@@ -199,7 +213,6 @@
 			errorMessageArea = document.getElementById('errorMessageArea');
 			errorMessageText = document.getElementById('errorMessageText');
 			closeErrorButton = document.getElementById('closeErrorButton');
-			nextQuestionSpinner = document.getElementById('nextQuestionSpinner');
 			
 			// --- State Variables ---
 			subjectSessionId = document.getElementById('subjectSessionId')?.value;
@@ -211,7 +224,6 @@
 			currentQuiz = null;
 			
 			selectedIndex = null;
-			feedbackData = null; // { was_correct, correct_index, feedback_text, feedback_audio_url, level_advanced, lesson_completed }
 			isLoading = false;
 			interactionsDisabled = false;
 			
@@ -224,9 +236,9 @@
 			partIntroText = document.getElementById('partIntroText');
 			startPartQuizButton = document.getElementById('startPartQuizButton');
 			
-			playFeedbackButton = document.getElementById('playFeedbackButton');
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
+			autoPlayAudioSwitch = document.getElementById('autoPlayAudioSwitch');
 			
 			// --- DOM Element References ---
 			quizArea = document.getElementById('quizArea');
@@ -235,22 +247,136 @@
 			questionImageElement = document.getElementById('questionImageElement');
 			noImagePlaceholder = document.getElementById('noImagePlaceholder');
 			quizAnswersContainer = document.getElementById('quizAnswersContainer');
-			feedbackSection = document.getElementById('feedbackSection');
-			feedbackHeading = document.getElementById('feedbackHeading');
-			feedbackTextEl = document.getElementById('feedbackText');
-			feedbackIncorrectMessage = document.getElementById('feedbackIncorrectMessage');
-			feedbackThresholdMessage = document.getElementById('feedbackThresholdMessage');
-			remainingCorrectCount = document.getElementById('remainingCorrectCount');
-			feedbackListenMessage = document.getElementById('feedbackListenMessage');
-			nextQuestionButton = document.getElementById('nextQuestionButton');
+			
+			feedbackModal = document.getElementById('feedbackModal');
+			feedbackModalLabel = document.getElementById('feedbackModalLabel');
+			feedbackModalText = document.getElementById('feedbackModalText');
+			playFeedbackModalButton = document.getElementById('playFeedbackModalButton');
+			feedbackAudioError = document.getElementById('feedbackAudioError');
+			modalTryAgainButton = document.getElementById('modalTryAgainButton');
+			modalNextButton = document.getElementById('modalNextButton');
+			
 			completionMessage = document.getElementById('completionMessage');
 			
+			if (feedbackModal) {
+				feedbackModalInstance = new bootstrap.Modal(feedbackModal);
+				
+				// Add listener to stop audio when modal is hidden
+				feedbackModal.addEventListener('hidden.bs.modal', () => {
+					isModalVisible = false;
+					if (feedbackAudioPlayer && !feedbackAudioPlayer.paused) {
+						feedbackAudioPlayer.pause();
+						feedbackAudioPlayer.currentTime = 0;
+					}
+					toggleElement(feedbackAudioError, false); // Hide error on close
+					// Re-enable interactions only if not loading something else
+					if (!isLoading) {
+						setInteractionsDisabled(false);
+					}
+					updateButtonStates(); // Refresh button states after modal closes
+				});
+				feedbackModal.addEventListener('shown.bs.modal', () => {
+					isModalVisible = true;
+					setInteractionsDisabled(true); // Ensure interactions are off while modal is shown
+					updateButtonStates(); // Refresh button states after modal opens
+				});
+			}
+			
 			console.log('Interactive Quiz JS Loaded');
+			
+			// --- Load Auto-Play Preference ---
+			const savedAutoPlayPref = localStorage.getItem('autoPlayAudioEnabled');
+			isAutoPlayEnabled = savedAutoPlayPref !== null ? (savedAutoPlayPref === 'true') : true; // Default true if not set
+			if (autoPlayAudioSwitch) {
+				autoPlayAudioSwitch.checked = isAutoPlayEnabled;
+			}
+			
+			setupAutoPlaySwitchListener();
 			setupIntroEventListeners();
 			setupAudioEventListeners();
+			setupModalEventListeners();
+			setupQuizAnswerEventListeners();
+			setupHelperEventListeners();
 			initQuizInterface();
 			
 		});
+		
+		function setupAutoPlaySwitchListener() {
+			if (autoPlayAudioSwitch) {
+				autoPlayAudioSwitch.addEventListener('change', () => {
+					isAutoPlayEnabled = autoPlayAudioSwitch.checked;
+					localStorage.setItem('autoPlayAudioEnabled', isAutoPlayEnabled);
+					console.log('Auto-play audio:', isAutoPlayEnabled ? 'Enabled' : 'Disabled');
+					// If user disables it *during* playback, stop it.
+					if (!isAutoPlayEnabled && isAutoPlaying) {
+						stopPlaybackSequence(true); // Stop and re-enable interactions
+					}
+				});
+			}
+		}
+		
+		
+		function setupModalEventListeners() {
+			if (modalTryAgainButton) {
+				modalTryAgainButton.addEventListener('click', () => {
+					console.log('Try Again clicked');
+					feedbackModalInstance?.hide();
+					selectedIndex = null; // Clear selection
+					
+					// Reset answer button styles and re-enable them
+					quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(button => {
+						button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
+						button.classList.add('btn-outline-primary');
+						button.disabled = false; // Re-enable
+					});
+					// No state transition, just allow another attempt on the same question.
+					// Interactions should be re-enabled by the 'hidden.bs.modal' listener if not loading.
+				});
+			}
+			
+			if (modalNextButton) {
+				modalNextButton.addEventListener('click', () => {
+					console.log('Next Question clicked');
+					feedbackModalInstance?.hide();
+					// Now trigger the state transition logic
+					checkStateAndTransition();
+				});
+			}
+			
+			if (playFeedbackModalButton && feedbackAudioPlayer) {
+				playFeedbackModalButton.addEventListener('click', () => {
+					const audioUrl = playFeedbackModalButton.dataset.audioUrl;
+					toggleElement(feedbackAudioError, false); // Hide previous error
+					if (audioUrl) {
+						if (!feedbackAudioPlayer.paused) {
+							feedbackAudioPlayer.pause();
+							feedbackAudioPlayer.currentTime = 0;
+						} else {
+							feedbackAudioPlayer.src = audioUrl;
+							feedbackAudioPlayer.play().catch(e => {
+								console.error("Feedback audio playback error:", e);
+								feedbackAudioError.textContent = 'Audio playback error.';
+								toggleElement(feedbackAudioError, true);
+							});
+						}
+					}
+				});
+				
+				// Optional: Update button text/icon during playback
+				feedbackAudioPlayer.onplaying = () => {
+					playFeedbackModalButton.innerHTML = '<i class="fas fa-pause me-1"></i> Pause Feedback';
+				};
+				feedbackAudioPlayer.onpause = () => { // Covers ended and manual pause
+					playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+				};
+				feedbackAudioPlayer.onerror = () => {
+					playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+					feedbackAudioError.textContent = 'Audio playback error.';
+					toggleElement(feedbackAudioError, true);
+				}
+			}
+		}
+	
 	
 	</script>
 	<script src="{{ asset('js/quiz_helper_functions.js') }}"></script>

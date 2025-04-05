@@ -11,9 +11,40 @@ function setupIntroEventListeners() {
 		}
 	});
 	
-	partIntroVideo.addEventListener('play', () => hasIntroVideoPlayed = true);
+	partIndicatorContainer.addEventListener('click', handlePartLabelClick);
+	
+	if (partIntroVideo) {
+		partIntroVideo.addEventListener('play', () => hasIntroVideoPlayed = true);
+	} else {
+		console.warn("Part intro video element not found during event listener setup.");
+		// If there's no video element, assume it's "played" or doesn't matter
+		hasIntroVideoPlayed = true;
+	}
 }
 
+function handlePartLabelClick(event) {
+	const targetLabel = event.target.closest('.part-label');
+	if (!targetLabel || isLoading) { // Don't process if not a label or if loading
+		return;
+	}
+	
+	const targetPartIndex = parseInt(targetLabel.dataset.partIndex, 10);
+	if (isNaN(targetPartIndex)) return; // Invalid index
+	
+	console.log(`Part label clicked: Jumping to Part ${targetPartIndex + 1}`);
+	
+	// --- Prepare for jump ---
+	stopPlaybackSequence(true); // Stop any TTS audio and enable interactions momentarily
+	feedbackModalInstance?.hide(); // Hide feedback modal if open
+	feedbackData = null; // Clear feedback data
+	setErrorState(null); // Clear any errors
+	toggleElement(completionMessage, false); // Hide completion message if shown
+	
+	// --- Load 'easy' questions for the target part ---
+	// Jumping always starts the part fresh at 'easy' difficulty
+	//loadQuestionsForLevel(targetPartIndex, 'easy');
+	showPartIntro(targetPartIndex);
+}
 
 function updateProgressBar() {
 	if (!progressBar || !partIndicatorContainer || !currentState) return;
@@ -60,6 +91,12 @@ function updateProgressBar() {
 
 function showPartIntro(partIndexToShow) {
 	console.log(`Showing intro for part ${partIndexToShow}`);
+	if (partIndexToShow < 0 || partIndexToShow >= totalParts) {
+		console.error("Invalid partIndexToShow:", partIndexToShow);
+		setErrorState("Cannot display intro for invalid part index.");
+		return;
+	}
+	
 	stopPlaybackSequence(true); // Stop quiz audio and enable interactions
 	feedbackData = null; // Clear any lingering feedback
 	isPartIntroVisible = true;
@@ -67,42 +104,48 @@ function showPartIntro(partIndexToShow) {
 	currentPartQuizzes = []; // Clear quizzes from previous part
 	currentQuizIndex = -1;
 	currentQuiz = null;
+	displayedPartIndex = partIndexToShow;
+	currentState.partIndex = partIndexToShow;
+	currentState.difficulty = 'easy'; // Reset difficulty to easy for intro
+	
 	
 	// Hide Quiz Area, Show Intro Area
 	toggleElement(quizArea, false);
 	toggleElement(completionMessage, false);
 	toggleElement(partIntroArea, true);
 	
-	// --- Fetch Intro Content dynamically ---
-	// We need the Subject model's lesson_parts here.
-	// Option 1: Pass full subject data initially (can be large)
-	// Option 2: Make a small AJAX call to get part details (better)
-	// Option 3: Assume `currentState` might hold it (less reliable if state only has counts)
-	// Let's choose Option 2 (or enhance `currentState` structure if preferred).
-	// For simplicity here, we'll assume `currentState` magically gets the text/video URL
-	// from the backend during state calculation/submit response.
-	// If not, an AJAX call here is needed.
-	
-	// Assuming currentState has the data needed (modify backend if needed)
-	const introText = currentState.currentPartIntroText;
-	const introVideoUrl = currentState.currentPartVideoUrl;
+	// Get intro content from pre-loaded data
+	const introData = window.allPartIntros?.[partIndexToShow];
+	const introTitle = introData?.title ?? "Introduction Title Not Available";
+	const introText = introData?.text ?? "Introduction content not available.";
+	const introVideoUrl = introData?.videoUrl ?? null;
 	
 	// Populate Intro Content
 	const partNumber = partIndexToShow + 1;
-	partIntroTitle.textContent = `Part ${partNumber}: Introduction`;
-	partIntroText.textContent = introText || "Loading introduction..."; // Add loading state?
-	startPartQuizButton.textContent = `Start Part ${partNumber} Quiz`;
-	startPartQuizButton.disabled = false; // Should be enabled by default
+	if(partIntroTitle) partIntroTitle.textContent = `Part ${partNumber}: ${introTitle}`;
+	if(partIntroText) partIntroText.textContent = introText;
+	if(startPartQuizButton) {
+		startPartQuizButton.textContent = `Start Part ${partNumber} Quiz`;
+		startPartQuizButton.disabled = false; // Should be enabled by default
+	}
 	
-	// Handle Video
-	if (introVideoUrl) {
-		partIntroVideo.src = introVideoUrl;
-		toggleElement(partIntroVideo, true);
-		toggleElement(partIntroVideoPlaceholder, false);
+	// Handle Video Element Existence and Content
+	if (partIntroVideo) { // Check if the element exists first
+		if (introVideoUrl) {
+			partIntroVideo.src = introVideoUrl;
+			toggleElement(partIntroVideo, true);
+			if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, false);
+		} else {
+			partIntroVideo.src = ''; // Clear src if no video
+			toggleElement(partIntroVideo, false);
+			if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, true);
+			hasIntroVideoPlayed = true; // No video, treat as played
+		}
 	} else {
-		toggleElement(partIntroVideo, false);
-		toggleElement(partIntroVideoPlaceholder, true);
-		hasIntroVideoPlayed = true; // No video, treat as played
+		// Video element doesn't exist, ensure placeholder is shown if it exists
+		if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, true);
+		hasIntroVideoPlayed = true; // No video element, treat as played
+		console.warn("partIntroVideo element not found. Cannot display video.");
 	}
 	
 	updateProgressBar(); // Update progress bar for the new part

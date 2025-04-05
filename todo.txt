@@ -1,0 +1,5 @@
+update progress bar based on user_answers table on each step
+randomize answer buttons order
+if all questions in a section are answered but at least two are not correct on first retry keep asking other questions from the section till the user has anwered two correctly on first try
+auto play part video
+disable start quiz button till video is played

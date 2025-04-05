@@ -1,20 +1,25 @@
 // --- Helper Functions ---
 function setLoadingState(loading, message = 'Loading...') {
+	const wasLoading = isLoading;
 	isLoading = loading;
-	// Also disable interactions when loading, re-enable takes care of isAutoPlaying check
-	setInteractionsDisabled(loading || isAutoPlaying);
+	
+	// Disable interactions when loading starts, re-enable depends on other factors when loading stops
+	if (loading) {
+		setInteractionsDisabled(true);
+	} else if (!isModalVisible && !isAutoPlaying) { // Only re-enable if modal isn't shown and TTS isn't playing
+		setInteractionsDisabled(false);
+	}
+	
+	
 	if (loadingOverlay && loadingMessageEl) {
 		loadingMessageEl.textContent = message;
 		loadingOverlay.classList.toggle('d-none', !loading);
 	}
-	// Disable next button specifically during loading
-	if (nextQuestionButton) nextQuestionButton.disabled = loading || interactionsDisabled;
-	if (nextQuestionSpinner) nextQuestionSpinner.classList.toggle('d-none', !loading);
 	
-	// Disable start part button during loading
 	if (startPartQuizButton) startPartQuizButton.disabled = loading || interactionsDisabled;
 	
-	// No general updateUI call here to prevent flicker, specific updates done where needed
+	// Update button states after loading state changes, as it affects interactionsDisabled
+	if(wasLoading !== isLoading) updateButtonStates();
 }
 
 function setErrorState(message) {
@@ -40,22 +45,6 @@ function updateButtonStates() {
 		// Disable if interactions generally disabled OR feedback is shown
 		button.disabled = interactionsDisabled || feedbackData != null;
 	});
-	
-	// Update Next Question Button state
-	if (nextQuestionButton) {
-		// Show if feedback is visible AND not currently loading
-		const showNextButton = feedbackData != null && !isLoading;
-		toggleElement(nextQuestionButton, showNextButton);
-		// Disable if interactions are off OR loading
-		nextQuestionButton.disabled = interactionsDisabled || isLoading;
-	}
-	
-	// Update Play Feedback Button state
-	if (playFeedbackButton) {
-		toggleElement(playFeedbackButton, !!feedbackData?.feedback_audio_url);
-		// Disable ONLY if interactions are disabled (e.g. audio playing/loading)
-		playFeedbackButton.disabled = interactionsDisabled;
-	}
 	
 	// Update Start Part Button state
 	if (startPartQuizButton) {

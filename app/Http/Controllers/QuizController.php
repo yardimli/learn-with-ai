@@ -44,6 +44,22 @@
 		}
 
 
+		private function getAllPartIntros(Subject $subject): array
+		{
+			$intros = [];
+			$lessonParts = is_array($subject->lesson_parts) ? $subject->lesson_parts : json_decode($subject->lesson_parts, true);
+			$totalParts = is_array($lessonParts) ? count($lessonParts) : 0;
+
+			for ($i = 0; $i < $totalParts; $i++) {
+				$intros[$i] = [
+					'title' => $lessonParts[$i]['title'] ?? null,
+					'text' => $this->getPartText($subject, $i),
+					'videoUrl' => $this->getPartVideoUrl($subject, $i),
+				];
+			}
+			return $intros;
+		}
+
 		/**
 		 * Displays the main interactive quiz interface.
 		 * Determines the starting state based on user progress.
@@ -56,8 +72,9 @@
 			Log::info("Loading quiz interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
 
 			$state = $this->calculateCurrentState($subject->id);
-
 			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
+
+			$allPartIntros = $this->getAllPartIntros($subject);
 
 			// Add intro text/video for the starting part
 			$state['currentPartIntroText'] = null; // Default to null
@@ -70,10 +87,9 @@
 
 			// We pass null for the initial quiz now. JS handles loading.
 			$quiz = null;
-
 			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
 
-			return view('quiz_interface', compact('subject', 'quiz', 'state', 'totalParts'));
+			return view('quiz_interface', compact('subject', 'quiz', 'state', 'totalParts', 'allPartIntros'));
 		}
 
 		/**
