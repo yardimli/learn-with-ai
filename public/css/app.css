@@ -599,13 +599,13 @@ body {
 
 /* --- Dark Mode Adjustments --- */
 .dark-mode .progress-container {
-    background-color: var(--bs-secondary-bg); /* Darker bg */
+    background-color: rgba(255, 255, 255, 0.1); /* Darker background */
 }
 .dark-mode .part-label.active {
-    background-color: rgba(var(--bs-primary-rgb), 0.3); /* Darker highlight */
+    background-color: rgba(255, 255, 255, 0.3); /* Highlight active part */
 }
 .dark-mode .part-label.completed {
-    color: var(--bs-secondary-color); /* Ensure muted color works */
+    color: rgba(255, 255, 255, 0.5); /* Muted text */
 }
 
 .dark-mode #partIntroArea {
