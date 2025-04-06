@@ -23,19 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	let currentPlanData = null; // Store the received plan data
 	
-	const form = document.getElementById("form");
-	const submitter = document.querySelector("button[value=save]");
-
-	
-	
-	// const formData = new FormData(subjectForm, startLearningButton);
-	// const subject = formData.get('subject');
-	// const llm = formData.get('llm');
-	// console.log("Form Data:", formData);
-	// console.log("Subject:", subject);
-	// console.log("LLM:", llm);
-	
-	
 	// --- Utility Functions ---
 	function setLoading(isLoading, message = 'Generating...') {
 		if (!loadingOverlay || !loadingMessageEl) return;
@@ -78,12 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
 		subjectInput.addEventListener('input', () => {
 			startLearningButton.disabled = !subjectInput.value.trim();
 		});
-
+		
 		
 		// Intercept form submission for AJAX preview
 		subjectForm.addEventListener('submit', async (event) => {
 			event.preventDefault(); // Stop normal form submission
-
+			
 			const formData = new FormData(subjectForm);
 			const subject = formData.get('subject');
 			const llm = formData.get('llm');
@@ -100,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						'Accept': 'application/json',
 						'Content-Type': 'application/json' // Send JSON
 					},
-					body: JSON.stringify({ subject, llm }) // Send data as JSON
+					body: JSON.stringify({subject, llm}) // Send data as JSON
 				});
 				
 				setLoading(false); // Hide full page loader once preview response starts
@@ -141,16 +128,20 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Disable modal buttons, show modal spinner
 			confirmPreviewButton.disabled = true;
 			cancelPreviewButton.disabled = true;
+			
+			// Show message in modal footer
+			modalLoadingIndicator.textContent = 'Creating Lesson Structure...';
 			modalLoadingIndicator.classList.remove('d-none');
-			setLoading(true, 'Creating lesson and generating assets...'); // Show full page loader again
+			// No full page loader here, just modal indication
+			// setLoading(true, 'Creating lesson structure...');
 			
 			const subjectName = subjectInput.value; // Get original subject name
-			const llmUsed = llmSelect.value || document.querySelector('#llmSelect option[value=""]').textContent.match(/\((.*)\)/)[1]; // Get selected or default LLM ID
+			const llmUsed = llmSelect.value; // Get selected or default LLM ID
 			
 			
 			try {
 				// Use the new create route
-				const createUrl = document.getElementById('createLessonUrl').value; // Get URL from hidden input
+				const createUrl = document.getElementById('saveStructureUrl').value; // Get URL from hidden input
 				const response = await fetch(createUrl, {
 					method: 'POST',
 					headers: {
@@ -166,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 				
 				const result = await response.json();
-				setLoading(false); // Hide full page loader
 				modalLoadingIndicator.classList.add('d-none');
 				
 				
@@ -194,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				// confirmPreviewButton.disabled = false;
 				// cancelPreviewButton.disabled = false;
 				modalLoadingIndicator.classList.add('d-none');
-				setLoading(false);
 			}
 		});
 		
@@ -220,25 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 		content += `</dl><hr>`;
 		
-		content += `<h6>Quizzes Included:</h6>`;
-		content += `<ul>`;
-		content += `<li>5 Easy Questions</li>`;
-		content += `<li>5 Medium Questions</li>`;
-		content += `<li>5 Hard Questions</li>`;
-		content += `</ul>`;
-		content += `<p><small class="text-muted">(Quiz details will be available after creation)</small></p>`;
 		
-		// Optional: Display first easy question as example?
-		// if (plan.quizzes?.easy?.[0]) {
-		//     const q1 = plan.quizzes.easy[0];
-		//     content += `<hr><h6>Example Easy Question:</h6>`;
-		//     content += `<p><em>${q1.question}</em></p>`;
-		//     content += `<ul>`;
-		//     q1.answers.forEach(a => {
-		//         content += `<li>${a.text} ${a.is_correct ? '<strong class="text-success">(Correct)</strong>' : ''}</li>`;
-		//     });
-		//     content += `</ul>`;
-		// }
 		
 		previewModalBody.innerHTML = content;
 	}

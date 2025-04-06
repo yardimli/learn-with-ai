@@ -9,6 +9,7 @@
 	use Carbon\Carbon;
 	use GuzzleHttp\Client;
 	use Illuminate\Http\Request;
+	use Illuminate\Http\UploadedFile;
 	use Illuminate\Support\Facades\Auth;
 
 	use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@
 	use Google\Cloud\TextToSpeech\V1\TextToSpeechClient;
 	use Google\Cloud\TextToSpeech\V1\VoiceSelectionParams;
 	use Exception;
+	use Intervention\Image\ImageManager;
 
 
 	class MyHelper
@@ -1316,6 +1318,86 @@
 				];
 			}
 		}
+
+		/**
+		 * Helper to process an uploaded or downloaded image file.
+		 * Saves original and resized versions, returns relative paths.
+		 *
+		 * @param UploadedFile|string $file Input file (UploadedFile or path to temp downloaded file)
+		 * @param string $baseDir Base directory within 'public' disk (e.g., 'uploads/quiz_images')
+		 * @param string $baseName Base filename without extension
+		 * @return array|null Array of paths [original_path, large_path, medium_path, small_path] or null on failure
+		 */
+		public static function handleImageProcessing($file, string $baseDir, string $baseName): ?array
+		{
+			$disk = Storage::disk('public');
+			$paths = [];
+
+			try {
+				// Ensure base directory exists
+				if (!$disk->exists($baseDir)) {
+					$disk->makeDirectory($baseDir);
+				}
+
+				// Determine extension (handle both UploadedFile and path string)
+				$extension = '';
+				if ($file instanceof UploadedFile) {
+					$extension = $file->getClientOriginalExtension();
+				} elseif (is_string($file)) {
+					$extension = pathinfo($file, PATHINFO_EXTENSION);
+				}
+				$extension = strtolower($extension ?: 'jpg'); // Default to jpg if unknown
+
+				// 1. Store Original
+				$originalFilename = $baseName . '_original.' . $extension;
+				$originalPath = $baseDir . '/' . $originalFilename;
+				if ($file instanceof UploadedFile) {
+					$disk->putFileAs($baseDir, $file, $originalFilename);
+				} elseif (is_string($file)) {
+					// If it's a path, we need to read and write it
+					$disk->put($originalPath, file_get_contents($file));
+				} else {
+					throw new Exception('Invalid file type for processing.');
+				}
+				$paths['original_path'] = $originalPath;
+
+				// Get full path for Intervention Image
+				$fullOriginalPath = $disk->path($originalPath);
+
+				$manager = new ImageManager(
+					new \Intervention\Image\Drivers\Gd\Driver()
+				);
+
+// open an image file
+				$image = $manager->read($fullOriginalPath);
+
+				// Large (e.g., 1024px wide)
+				$largeFilename = $baseName . '_large.' . $extension;
+				$largePath = $baseDir . '/' . $largeFilename;
+				$image->scale(1024)->save($disk->path($largePath), 80); // Save with quality 80
+				$paths['large_path'] = $largePath;
+
+				// Medium (e.g., 512px wide)
+				$mediumFilename = $baseName . '_medium.' . $extension;
+				$mediumPath = $baseDir . '/' . $mediumFilename;
+				$image->scale(512)->save($disk->path($mediumPath), 80);
+				$paths['medium_path'] = $mediumPath;
+
+				// Small (e.g., 256px wide)
+				$smallFilename = $baseName . '_small.' . $extension;
+				$smallPath = $baseDir . '/' . $smallFilename;
+				$image->scale(256)->save($disk->path($smallPath), 75);
+				$paths['small_path'] = $smallPath;
+
+				return $paths;
+
+			} catch (Exception $e) {
+				Log::error("Image processing failed: " . $e->getMessage(), ['baseDir' => $baseDir, 'baseName' => $baseName]);
+				// Clean up any partially created files? Maybe not essential here.
+				return null;
+			}
+		}
+
 
 		// --- End of MyHelper class ---
 	}

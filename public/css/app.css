@@ -632,3 +632,36 @@ body {
     color: #c0dfff; /* Lighter text for highlight */
     box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
 }
+
+
+
+/* --- Freepik Search Modal --- */
+#freepikSearchResults .card {
+    overflow: hidden; /* Prevent image overflow */
+}
+
+#freepikSearchResults .freepik-result-image {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: 2px solid transparent;
+}
+
+#freepikSearchResults .freepik-result-image:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    border-color: var(--bs-secondary);
+}
+
+#freepikSearchResults .freepik-result-image.border-primary {
+    box-shadow: 0 0 15px rgba(var(--bs-primary-rgb), 0.6);
+    border-color: var(--bs-primary);
+}
+
+#freepikSearchLoading .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Ensure pagination links are clickable */
+#freepikPagination .page-link {
+    cursor: pointer;
+}

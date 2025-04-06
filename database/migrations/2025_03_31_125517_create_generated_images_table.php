@@ -19,6 +19,7 @@ return new class extends Migration
 	        $table->text('prompt')->nullable(); // Original user prompt for image
 	        $table->string('image_model')->nullable(); // e.g., fal-ai/flux/schnell
 	        $table->string('image_size_setting')->nullable(); // e.g., square_hd
+	        $table->string('source')->nullable(); // e.g., freepik, custom
 	        $table->string('image_original_path')->nullable(); // Relative path in storage/app/public
 	        $table->string('image_large_path')->nullable();
 	        $table->string('image_medium_path')->nullable();

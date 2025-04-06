@@ -7,10 +7,10 @@
 	
 	<div class="content-card">
 		{{-- Point form action to the preview route --}}
-		<form id="subjectForm" action="{{ route('plan.preview') }}" method="POST">
+		<form id="subjectForm" action="{{ route('lesson.generate.structure') }}" method="POST">
 			@csrf
 			{{-- Add hidden input for the actual create URL for JS --}}
-			<input type="hidden" id="createLessonUrl" value="{{ route('lesson.create') }}">
+			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}">
 			
 			<div class="mb-3">
 				<label for="subjectInput" class="form-label fs-5">Enter a Subject:</label>
@@ -27,13 +27,13 @@
 						if ($defaultLlmId && !empty($llms)) {
 								foreach ($llms as $llm) {
 										if ($llm['id'] === $defaultLlmId) {
-												$defaultLlmName = $llm['name'] . " ({$defaultLlmId})"; // Include ID for clarity if needed
+												$defaultLlmName = $llm['name'];
 												break;
 										}
 								}
 						 }
 					@endphp
-					<option value="">Use Default ({{ $defaultLlmName }})</option>
+					<option value="{{$defaultLlmId}}">Use Default - {{ $defaultLlmName }}</option>
 					@foreach ($llms ?? [] as $llm)
 						{{-- Filter out the default if already shown, or handle duplicates --}}
 						@if($llm['id'] !== $defaultLlmId)
@@ -58,7 +58,7 @@
 	<hr>
 	<h2 class="text-center my-4">Existing Lessons</h2>
 	
-	@if($subjects->isEmpty())
+	@if(!isset($subjects) || $subjects->isEmpty())
 		<p class="text-center text-muted">No lessons created yet.</p>
 	@else
 		<div class="list-group">

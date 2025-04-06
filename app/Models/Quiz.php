@@ -30,6 +30,7 @@
 		protected $casts = [
 			'answers' => 'array', // Automatically encode/decode JSON
 			'generated_image_id' => 'integer',
+			'order' => 'integer',
 		];
 
 		public function subject()
@@ -47,7 +48,8 @@
 			return $this->belongsTo(GeneratedImage::class, 'generated_image_id');
 		}
 
-		public function getQuestionAudioUrlAttribute(): ?string {
+		public function getQuestionAudioUrlAttribute(): ?string
+		{
 			if ($this->question_audio_path && Storage::disk('public')->exists($this->question_audio_path)) {
 				return Storage::disk('public')->url($this->question_audio_path);
 			}
@@ -61,20 +63,22 @@
 			if ($path && Storage::disk('public')->exists($path)) {
 				return Storage::disk('public')->url($path);
 			}
+			// Check for URL directly (if stored by processAnswersWithTTS)
+			if (isset($this->answers[$index]['feedback_audio_url']) && !empty($this->answers[$index]['feedback_audio_url'])) {
+				return $this->answers[$index]['feedback_audio_url'];
+			}
 			return null;
 		}
 
 		public function getAnswerAudioUrl(int $index): ?string
 		{
-			// Access the URL directly if stored, otherwise generate from path
-			if (isset($this->answers[$index]['answer_audio_url'])) {
-				return $this->answers[$index]['answer_audio_url']; // Return pre-generated URL
-			}
-
-			// Fallback: Generate URL from path if only path is stored (less ideal)
 			$path = $this->answers[$index]['answer_audio_path'] ?? null;
 			if ($path && Storage::disk('public')->exists($path)) {
 				return Storage::disk('public')->url($path);
+			}
+			// Check for URL directly
+			if (isset($this->answers[$index]['answer_audio_url']) && !empty($this->answers[$index]['answer_audio_url'])) {
+				return $this->answers[$index]['answer_audio_url'];
 			}
 			return null;
 		}
@@ -83,64 +87,66 @@
 		 * Process answers array, generating TTS for text and feedback using the specified engine.
 		 *
 		 * @param array $answers The original answers array from LLM.
-		 * @param int $subjectId Subject ID for filename uniqueness.
-		 * @param string $identifier Unique identifier (e.g., 'initial', 'next_xyz').
+		 * @param int $quizId The ID of the quiz for logging/uniqueness.
+		 * @param string $filenamePrefix Prefix including path segments (e.g., 'audio/quiz_sX_pY_qZ').
 		 * @param string $ttsEngine The TTS engine ('google' or 'openai').
 		 * @param string $ttsVoice The voice name specific to the chosen engine.
 		 * @param string $languageCode Language code (primarily for Google).
 		 * @return array The processed answers array with audio paths/URLs.
 		 */
 		public static function processAnswersWithTTS(
-			array $answers,
-			int $subjectId,
-			string $identifier,
-			string $ttsEngine, // Add engine
-			string $ttsVoice,   // Add voice
-			string $languageCode = 'en-US' // Keep for Google
-		): array {
-			$processedAnswers = $answers; // Start with the original array
-			foreach ($processedAnswers as $index => &$answer) { // Use reference
-				$baseFilename = Str::slug(Str::limit($answer['text'], 20)); // Create safer filename base
+			array  $answers,
+			int    $quizId, // Keep quizId for logging
+			string $filenamePrefix, // Use this as the base for filenames
+			string $ttsEngine,
+			string $ttsVoice,
+			string $languageCode = 'en-US'
+		): array
+		{
+			$processedAnswers = $answers;
+			foreach ($processedAnswers as $index => &$answer) {
+				$baseFilename = Str::slug(Str::limit($answer['text'], 20)) . '_' . $index; // Base on answer text + index
 
-				// Generate TTS for ANSWER TEXT
+				// --- Generate TTS for ANSWER TEXT ---
+				$answerFilename = $filenamePrefix . '_ans_' . $baseFilename; // e.g., audio/quiz_sX_pY_qZ_ans_answer-text_0
 				$answerTtsResult = MyHelper::text2speech(
-					$answer['text'] ?? '', // Ensure text exists
-					$ttsVoice,            // Pass the correct voice
-					$languageCode,        // Pass language code
-					'answer_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index,
-					$ttsEngine            // Pass the engine
+					$answer['text'] ?? '',
+					$ttsVoice,
+					$languageCode,
+					$answerFilename, // Unique filename
+					$ttsEngine
 				);
-
 				if ($answerTtsResult && isset($answerTtsResult['storage_path'], $answerTtsResult['fileUrl'])) {
 					$answer['answer_audio_path'] = $answerTtsResult['storage_path'];
-					$answer['answer_audio_url'] = $answerTtsResult['fileUrl'];
-					Log::info("Generated TTS for answer {$identifier}_{$index}: " . $answerTtsResult['storage_path']);
+					$answer['answer_audio_url'] = $answerTtsResult['fileUrl']; // Store URL directly
+					Log::info("Generated TTS for Quiz {$quizId} Answer {$index}: " . $answerTtsResult['storage_path']);
 				} else {
-					Log::warning("Failed to generate TTS for answer {$identifier}_{$index}");
+					Log::warning("Failed to generate TTS for Quiz {$quizId} Answer {$index}");
 					$answer['answer_audio_path'] = null;
 					$answer['answer_audio_url'] = null;
 				}
 
-				// Generate TTS for FEEDBACK TEXT (existing logic)
+				// --- Generate TTS for FEEDBACK TEXT ---
+				$feedbackFilename = $filenamePrefix . '_fb_' . $baseFilename; // e.g., audio/quiz_sX_pY_qZ_fb_answer-text_0
 				$feedbackTtsResult = MyHelper::text2speech(
-					$answer['feedback'] ?? '', // Ensure feedback exists
-					$ttsVoice,               // Pass the correct voice
-					$languageCode,           // Pass language code
-					'feedback_' . $subjectId . '_' . $identifier . '_' . $baseFilename . '_' . $index,
-					$ttsEngine               // Pass the engine
+					$answer['feedback'] ?? '',
+					$ttsVoice,
+					$languageCode,
+					$feedbackFilename, // Unique filename
+					$ttsEngine
 				);
-
 				if ($feedbackTtsResult && isset($feedbackTtsResult['storage_path'], $feedbackTtsResult['fileUrl'])) {
 					$answer['feedback_audio_path'] = $feedbackTtsResult['storage_path'];
-					$answer['feedback_audio_url'] = $feedbackTtsResult['fileUrl']; // Add URL directly
-					Log::info("Generated TTS for feedback {$identifier}_{$index}: " . $feedbackTtsResult['storage_path']);
+					$answer['feedback_audio_url'] = $feedbackTtsResult['fileUrl']; // Store URL directly
+					Log::info("Generated TTS for Quiz {$quizId} Feedback {$index}: " . $feedbackTtsResult['storage_path']);
 				} else {
-					Log::warning("Failed to generate TTS for feedback {$identifier}_{$index}");
+					Log::warning("Failed to generate TTS for Quiz {$quizId} Feedback {$index}");
 					$answer['feedback_audio_path'] = null;
 					$answer['feedback_audio_url'] = null;
 				}
 			}
-			unset($answer); // Unset reference after loop
+			unset($answer);
 			return $processedAnswers;
 		}
+
 	}

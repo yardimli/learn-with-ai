@@ -20,6 +20,7 @@
 			'prompt',
 			'image_model',
 			'image_size_setting',
+			'source',
 			'image_original_path',
 			'image_large_path',
 			'image_medium_path',
@@ -42,17 +43,56 @@
 			return $this->belongsTo(Quiz::class);
 		}
 
-		// Accessors for URLs
-		public function getOriginalUrlAttribute() {
-			return $this->image_original_path ? Storage::disk('public')->url($this->image_original_path) : null;
+		// --- Accessors for URLs ---
+		public function getOriginalUrlAttribute(): ?string {
+			return $this->generateUrl($this->image_original_path);
 		}
-		public function getLargeUrlAttribute() {
-			return $this->image_large_path ? Storage::disk('public')->url($this->image_large_path) : null;
+		public function getLargeUrlAttribute(): ?string {
+			return $this->generateUrl($this->image_large_path);
 		}
-		public function getMediumUrlAttribute() {
-			return $this->image_medium_path ? Storage::disk('public')->url($this->image_medium_path) : null;
+		public function getMediumUrlAttribute(): ?string {
+			return $this->generateUrl($this->image_medium_path);
 		}
-		public function getSmallUrlAttribute() {
-			return $this->image_small_path ? Storage::disk('public')->url($this->image_small_path) : null;
+		public function getSmallUrlAttribute(): ?string {
+			return $this->generateUrl($this->image_small_path);
+		}
+
+		// --- Helper for URL generation ---
+		private function generateUrl(?string $path): ?string {
+			// Ensure the path exists before generating URL
+			if ($path && Storage::disk('public')->exists($path)) {
+				return Storage::disk('public')->url($path);
+			}
+			return null;
+		}
+
+		// --- Accessors for Paths (Useful for deletion) ---
+		public function getOriginalStoragePathAttribute(): ?string {
+			return $this->image_original_path;
+		}
+		public function getLargeStoragePathAttribute(): ?string {
+			return $this->image_large_path;
+		}
+		public function getMediumStoragePathAttribute(): ?string {
+			return $this->image_medium_path;
+		}
+		public function getSmallStoragePathAttribute(): ?string {
+			return $this->image_small_path;
+		}
+
+		// Helper to delete associated storage files
+		public function deleteStorageFiles(): void {
+			$disk = Storage::disk('public');
+			$pathsToDelete = [
+				$this->original_storage_path,
+				$this->large_storage_path,
+				$this->medium_storage_path,
+				$this->small_storage_path,
+			];
+			foreach ($pathsToDelete as $path) {
+				if ($path && $disk->exists($path)) {
+					$disk->delete($path);
+				}
+			}
 		}
 	}
