@@ -100,47 +100,56 @@
 		 */
 		private function calculateCurrentState(int $subjectId): array
 		{
-			$difficulties = ['easy', 'medium', 'hard'];
-			$requiredCorrect = 2; // Configurable: Number of correct answers needed per difficulty
-			$totalParts = Subject::find($subjectId)->lesson_parts ? count(Subject::find($subjectId)->lesson_parts) : 0; // Assuming 3 parts
-
+			$totalParts = Subject::find($subjectId)->lesson_parts ? count(Subject::find($subjectId)->lesson_parts) : 0;
 
 			for ($part = 0; $part < $totalParts; $part++) {
-				$correctCounts = ['easy' => 0, 'medium' => 0, 'hard' => 0];
-				foreach ($difficulties as $difficulty) {
-					// Count distinct correctly answered quizzes for this part & difficulty
-					$count = UserAnswer::where('subject_id', $subjectId)
-						->where('was_correct', true)
-						->whereHas('quiz', function ($query) use ($part, $difficulty) {
-							$query->where('lesson_part_index', $part)
-								->where('difficulty_level', $difficulty);
-						})
-						->distinct('quiz_id') // Count distinct quizzes answered correctly
-						->count('quiz_id');
+				// Get all quizzes for this part
+				$totalQuestions = Quiz::where('subject_id', $subjectId)
+					->where('lesson_part_index', $part)
+					->count();
 
-					$correctCounts[$difficulty] = $count;
-
-					if ($count < $requiredCorrect) {
-						// Found the current level the user is working on
-						return [
-							'partIndex' => $part,
-							'difficulty' => $difficulty,
-							'correctCounts' => $correctCounts, // Counts for the *current* part
-							'status' => 'inprogress',
-							'requiredCorrect' => $requiredCorrect,
-						];
-					}
+				if ($totalQuestions === 0) {
+					continue; // Skip empty parts
 				}
-				// If loop completes for this part, the part is finished
+
+				// Get completed quizzes (any correct answer)
+				$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
+					->where('was_correct', true)
+					->whereHas('quiz', function ($query) use ($part) {
+						$query->where('lesson_part_index', $part);
+					})
+					->distinct('quiz_id')
+					->count('quiz_id');
+
+				// Get first-attempt correct answers (for progress calculation)
+				$firstAttemptCorrectCount = UserAnswer::where('subject_id', $subjectId)
+					->where('was_correct', true)
+					->where('attempt_number', 1)
+					->whereHas('quiz', function ($query) use ($part) {
+						$query->where('lesson_part_index', $part);
+					})
+					->distinct('quiz_id')
+					->count('quiz_id');
+
+				// If not all questions correctly answered, this is the current part
+				if ($correctlyAnsweredCount < $totalQuestions) {
+					return [
+						'partIndex' => $part,
+						'totalQuestions' => $totalQuestions,
+						'correctCount' => $correctlyAnsweredCount,
+						'firstAttemptCorrectCount' => $firstAttemptCorrectCount,
+						'status' => 'inprogress',
+					];
+				}
 			}
 
-			// If all parts and difficulties are completed
+			// If all parts are complete
 			return [
-				'partIndex' => $totalParts - 1, // Landed on the last part
-				'difficulty' => 'hard', // Last completed difficulty
-				'correctCounts' => ['easy' => $requiredCorrect, 'medium' => $requiredCorrect, 'hard' => $requiredCorrect], // Show all as complete
+				'partIndex' => $totalParts - 1,
+				'totalQuestions' => 0,
+				'correctCount' => 0,
+				'firstAttemptCorrectCount' => 0,
 				'status' => 'completed',
-				'requiredCorrect' => $requiredCorrect,
 			];
 		}
 
@@ -156,29 +165,25 @@
 		{
 			$validator = Validator::make($request->all(), [
 				'partIndex' => 'required|integer|min:0',
-				'difficulty' => 'required|string|in:easy,medium,hard',
 			]);
 
 			if ($validator->fails()) {
-				return response()->json(['success' => false, 'message' => 'Invalid part or difficulty.', 'errors' => $validator->errors()], 422);
+				return response()->json(['success' => false, 'message' => 'Invalid part index.', 'errors' => $validator->errors()], 422);
 			}
 
 			$partIndex = $request->input('partIndex');
-			$difficulty = $request->input('difficulty');
 
-			Log::info("AJAX request for ALL questions for Subject Session: {$subject->session_id}, Part: {$partIndex}, Difficulty: {$difficulty}");
+			Log::info("AJAX request for ALL questions for Subject Session: {$subject->session_id}, Part: {$partIndex}");
 
 			try {
+				// Get all quizzes for this part (regardless of difficulty)
 				$quizzes = Quiz::where('subject_id', $subject->id)
 					->where('lesson_part_index', $partIndex)
-					->where('difficulty_level', $difficulty)
-					->with('generatedImage') // Eager load image
-					->orderBy('order') // Or 'id'
+					->with('generatedImage')
 					->get();
 
 				if ($quizzes->isEmpty()) {
-					Log::warning("No quizzes found for Subject {$subject->id}, Part {$partIndex}, Difficulty {$difficulty}.");
-					// Return success true but empty array, JS should handle this
+					Log::warning("No quizzes found for Subject {$subject->id}, Part {$partIndex}.");
 					return response()->json([
 						'success' => true,
 						'quizzes' => [],
@@ -186,9 +191,38 @@
 					]);
 				}
 
-				// Process each quiz to include necessary URLs
-				$processedQuizzes = $quizzes->map(function ($quiz) {
-					$processedAnswers = $quiz->answers; // Assume cast to array
+				// Process each quiz with attempt information
+				$processedQuizzes = $quizzes->map(function ($quiz) use ($subject) {
+					// Get latest attempt info for this quiz
+					$lastAttempt = UserAnswer::where('quiz_id', $quiz->id)
+						->where('subject_id', $subject->id)
+						->orderBy('attempt_number', 'desc')
+						->first();
+
+					$nextAttemptNumber = $lastAttempt ? $lastAttempt->attempt_number + 1 : 1;
+
+					// Check if last attempt was correct with no wrong answers in the same attempt
+					$wasCorrectLastAttempt = false;
+					$hadNoWrongAnswers = true;
+
+					if ($lastAttempt) {
+						$wasCorrectLastAttempt = $lastAttempt->was_correct;
+
+						// Check if there were any wrong answers in this attempt
+						$wrongAnswersInLastAttempt = UserAnswer::where('quiz_id', $quiz->id)
+							->where('subject_id', $subject->id)
+							->where('attempt_number', $lastAttempt->attempt_number)
+							->where('was_correct', false)
+							->exists();
+
+						$hadNoWrongAnswers = !$wrongAnswersInLastAttempt;
+					}
+
+					// Should this question be skipped?
+					$shouldSkip = $wasCorrectLastAttempt && $hadNoWrongAnswers;
+
+					// Process answer audio URLs
+					$processedAnswers = $quiz->answers;
 					if ($processedAnswers && is_array($processedAnswers)) {
 						foreach ($processedAnswers as $index => &$answer) {
 							$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
@@ -196,26 +230,28 @@
 						}
 						unset($answer);
 					}
+
 					return [
 						'id' => $quiz->id,
 						'question_text' => $quiz->question_text,
-						'question_audio_url' => $quiz->question_audio_url, // Accessor
-						'image_url' => $quiz->generatedImage?->mediumUrl, // Relationship + Accessor
+						'question_audio_url' => $quiz->question_audio_url,
+						'image_url' => $quiz->generatedImage?->mediumUrl,
 						'answers' => $processedAnswers,
 						'difficulty_level' => $quiz->difficulty_level,
 						'lesson_part_index' => $quiz->lesson_part_index,
+						'next_attempt_number' => $nextAttemptNumber,
+						'should_skip' => $shouldSkip,
 					];
 				});
 
-				Log::info("Found {$processedQuizzes->count()} quizzes for Part {$partIndex}, Difficulty {$difficulty}.");
+				Log::info("Found {$processedQuizzes->count()} quizzes for Part {$partIndex}.");
 
 				return response()->json([
 					'success' => true,
 					'quizzes' => $processedQuizzes,
 				]);
-
 			} catch (\Exception $e) {
-				Log::error("Error fetching part questions for Subject ID {$subject->id}, Part {$partIndex}, Difficulty {$difficulty}: " . $e->getMessage());
+				Log::error("Error fetching part questions for Subject ID {$subject->id}, Part {$partIndex}: " . $e->getMessage());
 				return response()->json([
 					'success' => false,
 					'message' => 'An error occurred while loading questions. Please try again.'
@@ -235,7 +271,8 @@
 		public function submitAnswer(Request $request, Quiz $quiz)
 		{
 			$validator = Validator::make($request->all(), [
-				'selected_index' => 'required|integer|min:0|max:3', // Assuming 4 answers (0-3)
+				'selected_index' => 'required|integer|min:0|max:3',
+				'attempt_number' => 'required|integer|min:1', // Added to validate the attempt number
 			]);
 
 			if ($validator->fails()) {
@@ -244,28 +281,24 @@
 
 			$subject_id = $quiz->subject_id;
 			$selectedIndex = $request->input('selected_index');
+			$attemptNumber = $request->input('attempt_number');  // Get from request
 
-			// --- Check if this specific question was already correctly answered in THIS attempt session ---
-			// We still allow re-answering if they are trying to meet the threshold (e.g. need 2 correct)
-			// The core logic prevents re-answering *if the threshold for the difficulty level is already met*.
-			// Let's rely on the getNextQuestion logic to not serve questions from completed levels.
-			// We *do* need to record the attempt.
+			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}, Attempt: {$attemptNumber}");
 
-			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}");
-
-			$answers = $quiz->answers; // Model casts to array
+			$answers = $quiz->answers;
 			if (!isset($answers[$selectedIndex])) {
 				Log::error("Invalid answer index {$selectedIndex} submitted for Quiz ID {$quiz->id}. Answers:", $answers);
 				return response()->json(['success' => false, 'message' => 'Invalid answer index provided.'], 400);
 			}
 
-			// Process answer data - Ensure audio URLs are present using accessors
+			// Process answer data
 			$processedAnswers = $quiz->answers;
 			$correctIndex = -1;
+
 			if ($processedAnswers && is_array($processedAnswers)) {
 				foreach ($processedAnswers as $index => &$answer) {
 					$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
-					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index); // Assuming this exists now
+					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index);
 					if ($answer['is_correct'] === true) {
 						$correctIndex = $index;
 					}
@@ -276,22 +309,12 @@
 				return response()->json(['success' => false, 'message' => 'Error processing quiz answers.'], 500);
 			}
 
-
 			$selectedAnswer = $processedAnswers[$selectedIndex];
 			$wasCorrect = $selectedAnswer['is_correct'] === true;
-			// Correct index found in loop above
-
 			$feedbackText = $selectedAnswer['feedback'];
 			$feedbackAudioUrl = $selectedAnswer['feedback_audio_url'] ?? null;
 
-			// --- Save User Answer ---
-			// Find previous attempt for THIS quiz in THIS subject session
-			$previousAttempt = UserAnswer::where('quiz_id', $quiz->id)
-				->where('subject_id', $subject_id)
-				->orderBy('attempt_number', 'desc')
-				->first();
-			$attemptNumber = $previousAttempt ? ($previousAttempt->attempt_number + 1) : 1;
-
+			// Save user answer with specified attempt number
 			UserAnswer::create([
 				'quiz_id' => $quiz->id,
 				'subject_id' => $subject_id,
@@ -302,27 +325,42 @@
 
 			Log::info("User answer saved for Quiz ID {$quiz->id}. Attempt: {$attemptNumber}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
 
-			// --- Calculate State AFTER this answer ---
+			// Calculate part completion
 			$newState = $this->calculateCurrentState($subject_id);
+			$partCompleted = $this->isPartCompleted($subject_id, $quiz->lesson_part_index);
 
-			// Determine if this answer caused a level up or part completion
-			// We can know this if the newState's part/difficulty is different from the current quiz's part/difficulty
-			$levelOrPartChanged = ($newState['partIndex'] !== $quiz->lesson_part_index || $newState['difficulty'] !== $quiz->difficulty_level);
-			// Or if the state is now completed
-			$isNowCompleted = $newState['status'] === 'completed';
-
-
-			// Return feedback and the *new* state
 			return response()->json([
 				'success' => true,
 				'was_correct' => $wasCorrect,
 				'correct_index' => $correctIndex,
 				'feedback_text' => $feedbackText,
 				'feedback_audio_url' => $feedbackAudioUrl,
-				'newState' => $newState, // Send the state *after* this answer
-				'level_advanced' => ($levelOrPartChanged || $isNowCompleted) && $wasCorrect, // Flag if progress moved forward due to this correct answer
-				'lesson_completed' => $isNowCompleted,
+				'newState' => $newState,
+				'part_completed' => $partCompleted,
+				'lesson_completed' => $newState['status'] === 'completed',
 			]);
+		}
+
+// Helper method to check if a part is completed
+		private function isPartCompleted(int $subjectId, int $partIndex): bool
+		{
+			$totalQuestions = Quiz::where('subject_id', $subjectId)
+				->where('lesson_part_index', $partIndex)
+				->count();
+
+			if ($totalQuestions === 0) {
+				return true; // No questions means part is "complete"
+			}
+
+			$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
+				->where('was_correct', true)
+				->whereHas('quiz', function ($query) use ($partIndex) {
+					$query->where('lesson_part_index', $partIndex);
+				})
+				->distinct('quiz_id')
+				->count('quiz_id');
+
+			return $correctlyAnsweredCount >= $totalQuestions;
 		}
 
 	}

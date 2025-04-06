@@ -19,7 +19,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.2);
     display: flex; /* Use flex to center */
     justify-content: center;
     align-items: center;
@@ -294,7 +294,7 @@ body {
 }
 
 .dark-mode .loading-overlay {
-    background-color: rgba(30, 30, 30, 0.8); /* Darker overlay */
+    background-color: rgba(30, 30, 30, 0.2); /* Darker overlay */
 }
 
 .dark-mode .answer-btn.selected {
@@ -496,6 +496,7 @@ body {
     margin-bottom: 1.5rem;
     padding: 0.5rem;
     background-color: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 0.375rem; /* Match Bootstrap's default */
 }
 .progress {
@@ -599,10 +600,12 @@ body {
 
 /* --- Dark Mode Adjustments --- */
 .dark-mode .progress-container {
-    background-color: rgba(255, 255, 255, 0.1); /* Darker background */
+    background-color: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
 }
+
 .dark-mode .part-label.active {
-    background-color: rgba(255, 255, 255, 0.3); /* Highlight active part */
+    background-color: rgba(255, 255, 255, 0.1); /* Highlight active part */
 }
 .dark-mode .part-label.completed {
     color: rgba(255, 255, 255, 0.5); /* Muted text */

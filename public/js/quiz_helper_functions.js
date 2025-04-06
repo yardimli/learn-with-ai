@@ -41,9 +41,10 @@ function setInteractionsDisabled(disabled) {
 
 function updateButtonStates() {
 	// Update Answer Buttons enabled/disabled state
-	quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(button => {
-		// Disable if interactions generally disabled OR feedback is shown
-		button.disabled = interactionsDisabled || feedbackData != null;
+	console.log("Updating button states... state:", interactionsDisabled);
+	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+		button.disabled = interactionsDisabled;
+		//console.log(`Button ${button.textContent} disabled: ${button.disabled}`);
 	});
 	
 	// Update Start Part Button state

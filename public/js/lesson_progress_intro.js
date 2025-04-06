@@ -35,7 +35,7 @@ function handlePartLabelClick(event) {
 	
 	// --- Prepare for jump ---
 	stopPlaybackSequence(true); // Stop any TTS audio and enable interactions momentarily
-	feedbackModalInstance?.hide(); // Hide feedback modal if open
+	feedbackModalInstance.hide(); // Hide feedback modal if open
 	feedbackData = null; // Clear feedback data
 	setErrorState(null); // Clear any errors
 	toggleElement(completionMessage, false); // Hide completion message if shown
@@ -48,42 +48,36 @@ function handlePartLabelClick(event) {
 
 function updateProgressBar() {
 	if (!progressBar || !partIndicatorContainer || !currentState) return;
+	
 	const currentPart = currentState.partIndex;
-	const currentDifficulty = currentState.difficulty || 'easy';
-	const currentDifficultyIndex = difficulties.indexOf(currentDifficulty);
-	const correctInCurrentDiff = currentState.correctCounts?.[currentDifficulty] ?? 0;
-	const required = currentState.requiredCorrect ?? 2;
+	let totalProgress = 0;
 	
-	const partsCompleted = currentPart;
-	const difficultiesCompletedInPart = currentDifficultyIndex < 0 ? 0 : currentDifficultyIndex;
-	const progressInCurrentDifficulty = required > 0 ? Math.min(1, correctInCurrentDiff / required) : 1;
-	const totalDifficultySteps = totalParts * difficulties.length;
-	const stepsCompleted = (partsCompleted * difficulties.length) + difficultiesCompletedInPart;
-	
-	let overallProgress = 0;
+	// Calculate progress based on first-attempt correct answers
 	if (currentState.status === 'completed') {
-		overallProgress = 100;
-	} else if (totalDifficultySteps > 0) {
-		overallProgress = Math.round(((stepsCompleted + progressInCurrentDifficulty) / totalDifficultySteps) * 100);
+		totalProgress = 100;
+	} else if (currentState.totalQuestions > 0) {
+		// Use first-attempt correct count for progress percentage
+		totalProgress = Math.round((currentState.firstAttemptCorrectCount / currentState.totalQuestions) * 100);
 	}
-	overallProgress = Math.min(100, Math.max(0, overallProgress));
 	
-	progressBar.style.width = `${overallProgress}%`;
-	progressBar.textContent = `${overallProgress}%`;
-	progressBar.setAttribute('aria-valuenow', overallProgress);
+	totalProgress = Math.min(100, Math.max(0, totalProgress));
 	
+	progressBar.style.width = `${totalProgress}%`;
+	progressBar.textContent = `${totalProgress}%`;
+	progressBar.setAttribute('aria-valuenow', totalProgress);
+	
+	// Update part labels
 	for (let i = 0; i < totalParts; i++) {
 		const label = document.getElementById(`partLabel_${i}`);
 		if (label) {
 			label.classList.remove('active', 'completed');
-			if (i < currentPart) {
-				label.classList.add('completed');
-			} else if (i === currentPart && currentState.status !== 'completed') {
-				label.classList.add('active');
-			}
+			
 			if (currentState.status === 'completed') {
-				label.classList.add('completed'); // Mark all parts complete
-				label.classList.remove('active');
+				label.classList.add('completed');
+			} else if (i < currentPart) {
+				label.classList.add('completed');
+			} else if (i === currentPart) {
+				label.classList.add('active');
 			}
 		}
 	}
@@ -115,10 +109,10 @@ function showPartIntro(partIndexToShow) {
 	toggleElement(partIntroArea, true);
 	
 	// Get intro content from pre-loaded data
-	const introData = window.allPartIntros?.[partIndexToShow];
-	const introTitle = introData?.title ?? "Introduction Title Not Available";
-	const introText = introData?.text ?? "Introduction content not available.";
-	const introVideoUrl = introData?.videoUrl ?? null;
+	const introData = window.allPartIntros[partIndexToShow];
+	const introTitle = introData.title ?? "Introduction Title Not Available";
+	const introText = introData.text ?? "Introduction content not available.";
+	const introVideoUrl = introData.videoUrl ?? null;
 	
 	// Populate Intro Content
 	const partNumber = partIndexToShow + 1;

@@ -95,6 +95,10 @@
 			{{-- Optionally add a link to review the lesson or see stats --}}
 		</div>
 		
+		<div id="partCompletionMessage" class="d-none mt-4">
+			{{-- Content will be dynamically populated by JS --}}
+		</div>
+		
 		{{-- Auto-Play Audio Switch --}}
 		<div class="auto-play-switch-container mb-3">
 			<div class="form-check form-switch">
@@ -207,6 +211,10 @@
 		let errorMessageText = null;
 		let closeErrorButton = null;
 		
+		let currentAttemptNumber = 1; // Track current attempt number
+		let partCompletionMessage = null; // Reference to part completion element
+		
+		
 		document.addEventListener('DOMContentLoaded', () => {
 			loadingOverlay = document.getElementById('loadingOverlay');
 			loadingMessageEl = document.getElementById('loadingMessage');
@@ -215,8 +223,8 @@
 			closeErrorButton = document.getElementById('closeErrorButton');
 			
 			// --- State Variables ---
-			subjectSessionId = document.getElementById('subjectSessionId')?.value;
-			subjectId = document.getElementById('subjectId')?.value;
+			subjectSessionId = document.getElementById('subjectSessionId').value;
+			subjectId = document.getElementById('subjectId').value;
 			
 			currentState = window.quizInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
 			currentPartQuizzes = [];
@@ -257,30 +265,8 @@
 			modalNextButton = document.getElementById('modalNextButton');
 			
 			completionMessage = document.getElementById('completionMessage');
+			partCompletionMessage = document.getElementById('partCompletionMessage');
 			
-			if (feedbackModal) {
-				feedbackModalInstance = new bootstrap.Modal(feedbackModal);
-				
-				// Add listener to stop audio when modal is hidden
-				feedbackModal.addEventListener('hidden.bs.modal', () => {
-					isModalVisible = false;
-					if (feedbackAudioPlayer && !feedbackAudioPlayer.paused) {
-						feedbackAudioPlayer.pause();
-						feedbackAudioPlayer.currentTime = 0;
-					}
-					toggleElement(feedbackAudioError, false); // Hide error on close
-					// Re-enable interactions only if not loading something else
-					if (!isLoading) {
-						setInteractionsDisabled(false);
-					}
-					updateButtonStates(); // Refresh button states after modal closes
-				});
-				feedbackModal.addEventListener('shown.bs.modal', () => {
-					isModalVisible = true;
-					setInteractionsDisabled(true); // Ensure interactions are off while modal is shown
-					updateButtonStates(); // Refresh button states after modal opens
-				});
-			}
 			
 			console.log('Interactive Quiz JS Loaded');
 			
@@ -301,81 +287,6 @@
 			
 		});
 		
-		function setupAutoPlaySwitchListener() {
-			if (autoPlayAudioSwitch) {
-				autoPlayAudioSwitch.addEventListener('change', () => {
-					isAutoPlayEnabled = autoPlayAudioSwitch.checked;
-					localStorage.setItem('autoPlayAudioEnabled', isAutoPlayEnabled);
-					console.log('Auto-play audio:', isAutoPlayEnabled ? 'Enabled' : 'Disabled');
-					// If user disables it *during* playback, stop it.
-					if (!isAutoPlayEnabled && isAutoPlaying) {
-						stopPlaybackSequence(true); // Stop and re-enable interactions
-					}
-				});
-			}
-		}
-		
-		
-		function setupModalEventListeners() {
-			if (modalTryAgainButton) {
-				modalTryAgainButton.addEventListener('click', () => {
-					console.log('Try Again clicked');
-					feedbackModalInstance?.hide();
-					selectedIndex = null; // Clear selection
-					
-					// Reset answer button styles and re-enable them
-					quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(button => {
-						button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
-						button.classList.add('btn-outline-primary');
-						button.disabled = false; // Re-enable
-					});
-					// No state transition, just allow another attempt on the same question.
-					// Interactions should be re-enabled by the 'hidden.bs.modal' listener if not loading.
-				});
-			}
-			
-			if (modalNextButton) {
-				modalNextButton.addEventListener('click', () => {
-					console.log('Next Question clicked');
-					feedbackModalInstance?.hide();
-					// Now trigger the state transition logic
-					checkStateAndTransition();
-				});
-			}
-			
-			if (playFeedbackModalButton && feedbackAudioPlayer) {
-				playFeedbackModalButton.addEventListener('click', () => {
-					const audioUrl = playFeedbackModalButton.dataset.audioUrl;
-					toggleElement(feedbackAudioError, false); // Hide previous error
-					if (audioUrl) {
-						if (!feedbackAudioPlayer.paused) {
-							feedbackAudioPlayer.pause();
-							feedbackAudioPlayer.currentTime = 0;
-						} else {
-							feedbackAudioPlayer.src = audioUrl;
-							feedbackAudioPlayer.play().catch(e => {
-								console.error("Feedback audio playback error:", e);
-								feedbackAudioError.textContent = 'Audio playback error.';
-								toggleElement(feedbackAudioError, true);
-							});
-						}
-					}
-				});
-				
-				// Optional: Update button text/icon during playback
-				feedbackAudioPlayer.onplaying = () => {
-					playFeedbackModalButton.innerHTML = '<i class="fas fa-pause me-1"></i> Pause Feedback';
-				};
-				feedbackAudioPlayer.onpause = () => { // Covers ended and manual pause
-					playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
-				};
-				feedbackAudioPlayer.onerror = () => {
-					playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
-					feedbackAudioError.textContent = 'Audio playback error.';
-					toggleElement(feedbackAudioError, true);
-				}
-			}
-		}
 	
 	
 	</script>

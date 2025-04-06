@@ -1,11 +1,10 @@
-function loadQuestionsForLevel(partIndex, difficulty) {
+function loadQuestionsForLevel(partIndex) {
 	if (isLoading) return;
-	setLoadingState(true, `Loading ${difficulty} questions for Part ${partIndex + 1}...`);
+	setLoadingState(true, `Loading questions for Part ${partIndex + 1}...`);
 	setErrorState(null);
 	currentPartQuizzes = []; // Clear old quizzes
 	currentQuizIndex = -1;
 	currentQuiz = null;
-	
 	displayedPartIndex = partIndex;
 	updateProgressBar();
 	
@@ -16,7 +15,7 @@ function loadQuestionsForLevel(partIndex, difficulty) {
 			'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 			'Accept': 'application/json',
 		},
-		body: JSON.stringify({partIndex, difficulty})
+		body: JSON.stringify({partIndex}) // No difficulty parameter needed anymore
 	})
 		.then(response => {
 			if (!response.ok) {
@@ -32,36 +31,89 @@ function loadQuestionsForLevel(partIndex, difficulty) {
 			}
 			
 			if (!data.quizzes || data.quizzes.length === 0) {
-				console.warn(`No quizzes returned for Part ${partIndex}, Difficulty ${difficulty}.`);
-				// Don't throw error here, let the user potentially click another part
-				setErrorState(`No ${difficulty} questions found for Part ${partIndex + 1}. You can try another part.`);
-				toggleElement(quizArea, false); // Hide quiz area
-				toggleElement(partIntroArea, false); // Keep intro hidden too
-				setLoadingState(false); // Stop loading
-				// Leave displayedPartIndex as is, let user click elsewhere
-				return; // Stop processing further
+				console.warn(`No quizzes returned for Part ${partIndex}.`);
+				setErrorState(`No questions found for Part ${partIndex + 1}. You can try another part.`);
+				toggleElement(quizArea, false);
+				toggleElement(partIntroArea, false);
+				setLoadingState(false);
+				return;
 			}
 			
-			console.log(`Loaded ${data.quizzes.length} quizzes for Part ${partIndex}, Diff ${difficulty}`);
-			currentPartQuizzes = data.quizzes;
+			console.log(`Loaded ${data.quizzes.length} quizzes for Part ${partIndex}`);
+			
+			// Filter out quizzes that should be skipped (correct in last attempt with no wrong answers)
+			currentPartQuizzes = data.quizzes.filter(quiz => !quiz.should_skip);
+			
+			if (currentPartQuizzes.length === 0) {
+				console.log("All questions in this part were correctly answered!");
+				// Show part completion or move to next part
+				showPartCompletionMessage(partIndex);
+				setLoadingState(false);
+				return;
+			}
+			
 			currentQuizIndex = 0;
-			
-			// Hide intro (if visible), show quiz area
 			showQuizScreen();
-			
-			// Display the first question from the newly loaded set
 			displayQuizAtIndex(currentQuizIndex);
-			
-			setLoadingState(false); // Loading complete
+			setLoadingState(false);
 		})
 		.catch(error => {
 			console.error('Error loading part questions:', error);
 			setErrorState(`Error: ${error.message}`);
 			setLoadingState(false);
-			
 			toggleElement(quizArea, false);
 			toggleElement(partIntroArea, false);
 		});
+}
+
+function showPartCompletionMessage(partIndex) {
+	setErrorState(null);
+	toggleElement(quizArea, false);
+	toggleElement(partIntroArea, false);
+	
+	// If we have completion message element
+	const partCompletionMsg = document.getElementById('partCompletionMessage');
+	if (partCompletionMsg) {
+		partCompletionMsg.innerHTML = `
+            <div class="alert alert-success" role="alert">
+                <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Part ${partIndex + 1} Complete!</h4>
+                <p>You've successfully answered all questions in this part.</p>
+                <hr>
+                <div class="d-flex justify-content-center">
+                    ${partIndex < totalParts - 1 ?
+			`<button id="continueToNextPartBtn" class="btn btn-primary me-2">Continue to Part ${partIndex + 2}</button>` :
+			''}
+                    <button id="viewOtherPartsBtn" class="btn btn-outline-secondary">View All Parts</button>
+                </div>
+            </div>
+        `;
+		toggleElement(partCompletionMsg, true);
+		
+		// Add event listeners
+		const continueBtn = document.getElementById('continueToNextPartBtn');
+		if (continueBtn && partIndex < totalParts - 1) {
+			continueBtn.addEventListener('click', () => {
+				toggleElement(partCompletionMsg, false);
+				showPartIntro(partIndex + 1);
+			});
+		}
+		
+		const viewPartsBtn = document.getElementById('viewOtherPartsBtn');
+		if (viewPartsBtn) {
+			viewPartsBtn.addEventListener('click', () => {
+				toggleElement(partCompletionMsg, false);
+				toggleElement(partIntroArea, false);
+				updateProgressBar(); // Shows overview
+			});
+		}
+	} else {
+		// Fallback if no dedicated element
+		if (partIndex < totalParts - 1) {
+			showPartIntro(partIndex + 1);
+		} else {
+			showCompletionScreen();
+		}
+	}
 }
 
 function displayQuizAtIndex(index) {
@@ -75,15 +127,22 @@ function displayQuizAtIndex(index) {
 	currentQuiz = currentPartQuizzes[index];
 	selectedIndex = null;
 	
-	console.log(`Displaying quiz index ${index} (ID: ${currentQuiz.id})`);
+	// Store the current attempt number for this quiz
+	currentAttemptNumber = currentQuiz.next_attempt_number || 1;
+	
+	console.log(`Displaying quiz index ${index} (ID: ${currentQuiz.id}, Attempt: ${currentAttemptNumber})`);
+	
+	// Randomize answer order before displaying (while preserving correct answer)
+	if (currentQuiz.answers && Array.isArray(currentQuiz.answers)) {
+		//shuffleAnswers();
+	}
 	
 	updateUIForQuiz();
 	
 	// Reset button styles from previous feedback
-	quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(button => {
+	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 		button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
 		button.classList.add('btn-outline-primary');
-		// Disabled state will be handled by updateButtonStates or setInteractionsDisabled
 	});
 	
 	setInteractionsDisabled(true);
@@ -117,88 +176,108 @@ function updateUIForQuiz() {
 	}
 	
 	// Answer Buttons
+	console.log("Setting up answer buttons");
 	quizAnswersContainer.innerHTML = ''; // Clear old buttons
-	currentQuiz.answers?.forEach((answer, idx) => {
+
+// Create buttons and store them temporarily
+	const buttons = []; // Array to hold the button elements
+	currentQuiz.answers.forEach((answer, idx) => {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.id = `answerBtn_${idx}`;
 		button.classList.add('btn', 'btn-outline-primary', 'btn-lg', 'answer-btn', 'w-100', 'mb-2');
-		button.dataset.index = idx;
+		button.dataset.index = idx; // Store the ORIGINAL index before shuffling
 		button.textContent = answer.text;
 		button.disabled = interactionsDisabled; // Initial state based on current interaction status
+		buttons.push(button); // Add the created button to our array
+	});
+
+// --- Shuffle the buttons array ---
+// Fisher-Yates (aka Knuth) Shuffle Algorithm
+	for (let i = buttons.length - 1; i > 0; i--) {
+		// Pick a random index from 0 to i
+		const j = Math.floor(Math.random() * (i + 1));
+		// Swap elements buttons[i] and buttons[j]
+		[buttons[i], buttons[j]] = [buttons[j], buttons[i]];
+	}
+// --- End Shuffle ---
+
+// Append the shuffled buttons to the container
+	buttons.forEach(button => {
 		quizAnswersContainer.appendChild(button);
 	});
+	
+	console.log("Answer buttons created and shuffled.");
+	
 	
 	updateButtonStates();
 }
 
 function checkStateAndTransition() {
-	console.log("Checking state and transitioning (called after modal 'Next' click). Current State:", currentState);
+	console.log("Checking state and transitioning after feedback");
 	
-	// This function runs AFTER user clicked "Next Question" in the modal.
-	// The feedback modal is already hidden.
+	const wasCorrect = feedbackData.was_correct || false;
+	const partCompleted = feedbackData.part_completed || false;
+	const lessonCompleted = feedbackData.lesson_completed || false;
 	
-	const newState = currentState; // Use the state updated by submitAnswer response
-	const previousQuizLevelPart = currentQuiz?.lesson_part_index ?? -1; // Get part from the question just answered
-	// const previousQuizLevelDiff = currentQuiz?.difficulty_level ?? null; // Get diff from the question just answered
-	
-	const isCompleted = newState.status === 'completed';
-	// Check if the *state* now points to a different part index than the question we just answered
-	const partChangedInState = (newState.partIndex !== previousQuizLevelPart);
-	// Check if the *state* points to a different difficulty OR part (covers level up)
-	const levelOrPartChangedInState = (newState.partIndex !== previousQuizLevelPart || newState.difficulty !== currentQuiz?.difficulty_level);
-	
-	
-	console.log(`CheckState: Completed: ${isCompleted}, Part Changed: ${partChangedInState}, PrevPart: ${previousQuizLevelPart}, NewPart: ${newState.partIndex}, PrevDiff: ${currentQuiz?.difficulty_level}, NewDiff: ${newState.difficulty}`);
-	
-	if (isCompleted) {
+	if (lessonCompleted) {
 		console.log("Transition: Lesson Completed");
 		showCompletionScreen();
 		setInteractionsDisabled(false);
-	} else if (levelOrPartChangedInState) {
-		console.log("Transition: State indicates level/part change");
-		if (partChangedInState && previousQuizLevelPart !== -1) {
-			// Moving to a new part requires showing the intro screen
-			console.log(`Transition: Moving to Part ${newState.partIndex} Intro`);
-			showPartIntro(newState.partIndex); // This shows intro, user clicks 'Start Part Quiz'
+		return;
+	}
+	
+	if (wasCorrect) {
+		// If this was the last question in the current batch
+		if (currentQuizIndex >= currentPartQuizzes.length - 1) {
+			console.log("Last question in current batch answered correctly");
+			
+			if (partCompleted) {
+				console.log(`Part ${currentQuiz.lesson_part_index} completed!`);
+				showPartCompletionMessage(currentQuiz.lesson_part_index);
+			} else {
+				console.log(`Part ${currentQuiz.lesson_part_index} not fully completed. Reloading questions.`);
+				// Reload questions for the same part to get any remaining ones
+				loadQuestionsForLevel(currentQuiz.lesson_part_index);
+			}
 		} else {
-			// Only difficulty changed within the same part, load the new questions directly
-			console.log(`Transition: Loading next difficulty '${newState.difficulty}' for Part ${newState.partIndex}`);
-			loadQuestionsForLevel(newState.partIndex, newState.difficulty); // This loads & displays first question
+			// Move to next question in the current batch
+			console.log(`Moving to next question (index ${currentQuizIndex + 1})`);
+			displayQuizAtIndex(currentQuizIndex + 1);
 		}
 	} else {
-		// State didn't change (e.g. correct answer but threshold not met), AND we came from clicking "Next"
-		// This implies there SHOULD be a next question in the *current* local list.
-		const nextIndex = currentQuizIndex + 1;
-		if (nextIndex < currentPartQuizzes.length) {
-			console.log(`Transition: Moving to next question in local list (Index: ${nextIndex})`);
-			displayQuizAtIndex(nextIndex);
-			// Interactions will be enabled after TTS playback finishes for the new question
-		} else {
-			console.warn("Transition: 'Next' clicked, state unchanged, but no more local quizzes. Re-fetching state's target level.");
-			// As a fallback, try loading the level indicated by the current state again.
-			loadQuestionsForLevel(newState.partIndex, newState.difficulty);
-		}
+		// Wrong answer - stay on the same question for another attempt
+		console.log("Wrong answer. Allowing another attempt on the same question.");
+		// Reset the buttons for another attempt
+		quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+			button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger');
+			button.classList.add('btn-outline-primary');
+			button.disabled = false;
+		});
+		setInteractionsDisabled(false);
 	}
-	updateProgressBar(); // Always update progress bar after a transition decision
+	
+	updateProgressBar();
 }
 
 function submitAnswer(index) {
-	if (isLoading || interactionsDisabled || feedbackData != null) {
+	if (isLoading || interactionsDisabled) {
 		return;
 	}
+	
 	stopPlaybackSequence(true); // Stop TTS, allow interaction temporarily
 	selectedIndex = index;
 	setLoadingState(true, 'Checking answer...');
 	setErrorState(null);
 	
-	// Update button visually immediately (optional, but good UX)
-	quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(btn => {
+	// Update button visually immediately
+	console.log(`Submitting answer index ${index} for quiz ID ${currentQuiz.id} and disabling buttons`);
+	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
 		btn.classList.remove('selected');
 		if (parseInt(btn.dataset.index) === index) {
 			btn.classList.add('selected');
 		}
-		btn.disabled = true; // Disable all buttons after selection
+		btn.disabled = true;
 	});
 	
 	fetch(`/quiz/${currentQuiz.id}/submit`, {
@@ -208,14 +287,17 @@ function submitAnswer(index) {
 			'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 			'Accept': 'application/json',
 		},
-		body: JSON.stringify({selected_index: index})
+		body: JSON.stringify({
+			selected_index: index,
+			attempt_number: currentAttemptNumber // Include the attempt number
+		})
 	})
 		.then(response => {
 			const status = response.status;
 			return response.json().then(data => ({status, data}));
 		})
 		.then(({status, data}) => {
-			setLoadingState(false); // Stop loading indicator *before* feedback audio
+			setLoadingState(false);
 			
 			if (!data.success) {
 				let errorMsg = data.message || `HTTP error! status: ${status}`;
@@ -224,6 +306,7 @@ function submitAnswer(index) {
 			
 			console.log('Answer feedback received:', data);
 			currentState = data.newState;
+			feedbackData = data; // Store feedback data including part_completed status
 			showFeedbackModal(data);
 		})
 		.catch(error => {
@@ -231,13 +314,13 @@ function submitAnswer(index) {
 			setErrorState(`Failed to submit answer: ${error.message}`);
 			selectedIndex = null;
 			feedbackData = null;
-			// Re-enable buttons if submit failed?
-			quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(btn => {
+			
+			quizAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
 				btn.disabled = false;
 				btn.classList.remove('selected');
 			});
+			
 			setLoadingState(false);
-			showFeedbackModal(data);
 		});
 }
 
@@ -255,7 +338,8 @@ function showFeedbackModal(feedbackResult) {
 	feedbackModalText.textContent = feedbackResult.feedback_text || (isCorrect ? 'Well done!' : 'Please try again.');
 	
 	// Update answer button styles based on feedback BEFORE showing modal
-	quizAnswersContainer?.querySelectorAll('.answer-btn').forEach(button => {
+	console.log("Updating answer button styles based on feedback, and disabling them");
+	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 		const btnIndex = parseInt(button.dataset.index);
 		button.classList.remove('selected', 'correct', 'incorrect', 'btn-outline-primary', 'btn-primary', 'btn-outline-secondary');
 		button.disabled = true; // Keep disabled
@@ -395,4 +479,108 @@ function initQuizInterface() {
 	
 	setLoadingState(false); // Done initializing
 	console.log("Interactive Quiz Initialized.");
+}
+
+
+function setupAutoPlaySwitchListener() {
+	if (autoPlayAudioSwitch) {
+		autoPlayAudioSwitch.addEventListener('change', () => {
+			isAutoPlayEnabled = autoPlayAudioSwitch.checked;
+			localStorage.setItem('autoPlayAudioEnabled', isAutoPlayEnabled);
+			console.log('Auto-play audio:', isAutoPlayEnabled ? 'Enabled' : 'Disabled');
+			// If user disables it *during* playback, stop it.
+			if (!isAutoPlayEnabled && isAutoPlaying) {
+				stopPlaybackSequence(true); // Stop and re-enable interactions
+			}
+		});
+	}
+}
+
+
+function setupModalEventListeners() {
+	if (modalTryAgainButton) {
+		modalTryAgainButton.addEventListener('click', () => {
+			console.log('Try Again clicked');
+			feedbackModalInstance.hide();
+			selectedIndex = null; // Clear selection
+			
+			// Reset answer button styles and re-enable them
+			console.log("Resetting answer button styles for another attempt, enabling them");
+			quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+				button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
+				button.classList.add('btn-outline-primary');
+				button.disabled = false; // Re-enable
+			});
+			// No state transition, just allow another attempt on the same question.
+			// Interactions should be re-enabled by the 'hidden.bs.modal' listener if not loading.
+		});
+	}
+	
+	if (feedbackModal) {
+		feedbackModalInstance = new bootstrap.Modal(feedbackModal);
+		
+		// Add listener to stop audio when modal is hidden
+		feedbackModal.addEventListener('hidden.bs.modal', () => {
+			isModalVisible = false;
+			if (feedbackAudioPlayer && !feedbackAudioPlayer.paused) {
+				feedbackAudioPlayer.pause();
+				feedbackAudioPlayer.currentTime = 0;
+			}
+			toggleElement(feedbackAudioError, false); // Hide error on close
+			// Re-enable interactions only if not loading something else
+			if (!isLoading) {
+				console.log('Modal closed, re-enabling interactions');
+				setInteractionsDisabled(false);
+			}
+			console.log('Modal closed, refreshing button states');
+			updateButtonStates(); // Refresh button states after modal closes
+		});
+		feedbackModal.addEventListener('shown.bs.modal', () => {
+			isModalVisible = true;
+			setInteractionsDisabled(true); // Ensure interactions are off while modal is shown
+			updateButtonStates(); // Refresh button states after modal opens
+		});
+	}
+	
+	if (modalNextButton) {
+		modalNextButton.addEventListener('click', () => {
+			console.log('Next Question clicked');
+			feedbackModalInstance.hide();
+			// Now trigger the state transition logic
+			checkStateAndTransition();
+		});
+	}
+	
+	if (playFeedbackModalButton && feedbackAudioPlayer) {
+		playFeedbackModalButton.addEventListener('click', () => {
+			const audioUrl = playFeedbackModalButton.dataset.audioUrl;
+			toggleElement(feedbackAudioError, false); // Hide previous error
+			if (audioUrl) {
+				if (!feedbackAudioPlayer.paused) {
+					feedbackAudioPlayer.pause();
+					feedbackAudioPlayer.currentTime = 0;
+				} else {
+					feedbackAudioPlayer.src = audioUrl;
+					feedbackAudioPlayer.play().catch(e => {
+						console.error("Feedback audio playback error:", e);
+						feedbackAudioError.textContent = 'Audio playback error.';
+						toggleElement(feedbackAudioError, true);
+					});
+				}
+			}
+		});
+		
+		// Optional: Update button text/icon during playback
+		feedbackAudioPlayer.onplaying = () => {
+			playFeedbackModalButton.innerHTML = '<i class="fas fa-pause me-1"></i> Pause Feedback';
+		};
+		feedbackAudioPlayer.onpause = () => { // Covers ended and manual pause
+			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+		};
+		feedbackAudioPlayer.onerror = () => {
+			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+			feedbackAudioError.textContent = 'Audio playback error.';
+			toggleElement(feedbackAudioError, true);
+		}
+	}
 }

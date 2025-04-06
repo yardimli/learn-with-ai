@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			});
 			sharedAudioPlayer.addEventListener('error', (e) => {
 				console.error("Audio Player Error:", e);
-				const errorAreaId = currentlyPlayingButton?.dataset?.errorAreaId;
+				const errorAreaId = currentlyPlayingButton.dataset.errorAreaId;
 				if (errorAreaId) showError(errorAreaId, 'Audio playback error.');
 				resetPlayButton(currentlyPlayingButton);
 				currentlyPlayingButton = null;
@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		function updateVideoDisplay(partIndex, videoUrl, videoPath) {
 			const displayArea = document.getElementById(`video-display-${partIndex}`);
 			const buttonArea = document.getElementById(`video-button-area-${partIndex}`);
-			const button = buttonArea?.querySelector('.generate-part-video-btn');
+			const button = buttonArea.querySelector('.generate-part-video-btn');
 			
 			if (!displayArea || !buttonArea || !button) return;
 			
@@ -471,8 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <i class="fas fa-play"></i><i class="fas fa-pause"></i>
             </button>`;
 			// Ensure any associated generate button is removed (might be handled by caller)
-			const genButton = controlsArea.closest('.quiz-item')?.querySelector(`.generate-asset-btn[data-quiz-id="${quizId}"][data-asset-type="question-audio"]`);
-			genButton?.remove();
+			const genButton = controlsArea.closest('.quiz-item').querySelector(`.generate-asset-btn[data-quiz-id="${quizId}"][data-asset-type="question-audio"]`);
+			genButton.remove();
 		}
 		
 		function updateAnswerAudioStatus(quizId, success = true, answersData = null) {
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			if (success) {
 				statusArea.innerHTML = '<span class="text-success small"><i class="fas fa-check-circle me-1"></i>Generated</span>';
-				generateButton?.remove(); // Remove the 'Generate All' button
+				generateButton.remove(); // Remove the 'Generate All' button
 				
 				// Update individual answer/feedback play buttons if data provided
 				if (answersData && Array.isArray(answersData)) {
@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					
 					if (!response.ok || !result.success) {
 						// Handle conflict/already exists specifically
-						if (response.status === 200 && result.message?.includes('already exists')) { // Backend now returns 200 on already exists
+						if (response.status === 200 && result.message.includes('already exists')) { // Backend now returns 200 on already exists
 							console.warn(`Video for part ${partIndex} already exists.`);
 							if (result.video_url && result.video_path) {
 								updateVideoDisplay(partIndex, result.video_url, result.video_path); // Update UI anyway
@@ -659,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					
 					if (!response.ok || !result.success) {
 						// Handle conflict/already exists specifically
-						if (response.status === 200 && result.message?.includes('already exists')) { // Backend returns 200
+						if (response.status === 200 && result.message.includes('already exists')) { // Backend returns 200
 							console.warn(`${assetType} for quiz ${quizId} already exists.`);
 							if (assetType === 'question-audio' && result.audio_url) {
 								updateQuestionAudioDisplay(quizId, result.audio_url); // Update UI to show player
@@ -724,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					
 					if (!response.ok || !result.success) {
 						// Handle conflict/already exists specifically
-						if (response.status === 200 && result.message?.includes('already exists')) { // Backend returns 200
+						if (response.status === 200 && result.message.includes('already exists')) { // Backend returns 200
 							console.warn(`Image for quiz ${quizId} already exists.`);
 							if (result.image_urls && result.prompt) {
 								updateQuizImageDisplay(quizId, result.image_urls, result.prompt); // Update UI anyway
@@ -875,7 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					quizItemElement.remove();
 					
 					// Update count badge
-					const badge = listContainer.closest('.quiz-difficulty-group')?.querySelector('.badge');
+					const badge = listContainer.closest('.quiz-difficulty-group').querySelector('.badge');
 					if (badge) {
 						const currentCount = parseInt(badge.textContent) || 0;
 						const newCount = Math.max(0, currentCount - 1); // Ensure count doesn't go below 0

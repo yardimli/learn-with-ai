@@ -8,7 +8,7 @@ function buildPlaybackQueue(quizData) {
 	if (quizData.question_audio_url && questionTextElement) {
 		playbackQueue.push({element: questionTextElement, url: quizData.question_audio_url});
 	}
-	quizData.answers?.forEach((answer, index) => {
+	quizData.answers.forEach((answer, index) => {
 		const answerButton = document.getElementById(`answerBtn_${index}`);
 		if (answer.answer_audio_url && answerButton) {
 			playbackQueue.push({element: answerButton, url: answer.answer_audio_url});
@@ -40,7 +40,7 @@ function startPlaybackSequence() {
 }
 
 function stopPlaybackSequence(reEnableInteractions = false) {
-	if (!isAutoPlaying && ttsAudioPlayer?.paused) return;
+	if (!isAutoPlaying && ttsAudioPlayer.paused) return;
 	// console.log("Stopping playback sequence.");
 	isAutoPlaying = false;
 	if (ttsAudioPlayer) {
@@ -108,7 +108,7 @@ function handleTtsAudioError(event) {
 // --- Feedback Audio ---
 // ... (Keep playFeedbackAudio, handleFeedbackAudioEnd) ...
 function playFeedbackAudio() {
-	if (!feedbackData?.feedback_audio_url || !feedbackAudioPlayer) {
+	if (!feedbackData.feedback_audio_url || !feedbackAudioPlayer) {
 		checkStateAndTransition(); // No audio, proceed to state check
 		return;
 	}
