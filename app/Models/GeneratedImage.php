@@ -38,9 +38,9 @@
 			return $this->belongsTo(Subject::class);
 		}
 
-		public function quiz()
+		public function question()
 		{
-			return $this->belongsTo(Quiz::class);
+			return $this->belongsTo(Question::class);
 		}
 
 		// --- Accessors for URLs ---

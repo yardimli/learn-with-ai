@@ -5,7 +5,7 @@ body {
 }
 
 
-.content-card, .quiz-card { /* Keep consistent styling */
+.content-card, .question-card { /* Keep consistent styling */
     background-color: #ffffff;
     border-radius: 0.5rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -144,7 +144,7 @@ body {
     margin-bottom: 1.5rem;
 }
 
-.quiz-question-text {
+.question-question-text {
     font-size: 1.25rem; /* Adjust size */
     font-weight: 500; /* Medium weight */
     margin-bottom: 1rem; /* Space below */
@@ -200,7 +200,7 @@ body {
 }
 
 .dark-mode .content-card,
-.dark-mode .quiz-card,
+.dark-mode .question-card,
 .dark-mode .modal-content {
     background-color: #2a2a2e; /* Slightly different card background */
     border: 1px solid var(--bs-border-color);
@@ -346,7 +346,7 @@ body {
 /* --- End Dark Mode Styles --- */
 
 /* Add your other CSS rules here... */
-.content-card, .quiz-card {
+.content-card, .question-card {
     background-color: #fff; /* Default light background */
     padding: 2rem;
     border-radius: 0.5rem;
@@ -355,7 +355,7 @@ body {
     margin-bottom: 1.5rem;
 }
 
-.dark-mode .quiz-question-text {
+.dark-mode .question-question-text {
     color: #e4e4e6; /* Light text for dark mode */
 }
 
@@ -368,19 +368,19 @@ body {
 
 /* === Lesson Edit Page Enhancements === */
 
-.quiz-image-thumb {
+.question-image-thumb {
     max-width: 200px;
     max-height: 200px;
     object-fit: cover;
     margin-right: 0.5rem;
 }
 
-.regenerate-quiz-image-btn {
+.regenerate-question-image-btn {
     white-space: nowrap;
 }
 
-/* Compact Quiz Item */
-.quiz-item {
+/* Compact Question Item */
+.question-item {
     padding: 0.8rem; /* Reduced padding */
     margin-bottom: 0.8rem; /* Reduced margin */
     /* Optional: Adjust borders if needed */
@@ -410,25 +410,25 @@ body {
     display: inline-block; /* Show pause icon when playing */
 }
 
-/* Quiz Image Prompt Input & Regenerate */
-.quiz-image-prompt-group {
+/* Question Image Prompt Input & Regenerate */
+.question-image-prompt-group {
     display: flex;
     align-items: center;
     gap: 0.5rem; /* Space between input and button */
     margin-top: 0.5rem;
 }
 
-.quiz-image-prompt-input {
+.question-image-prompt-input {
     flex-grow: 1; /* Input takes available space */
     font-size: 0.9em;
 }
 
 /* Style for clickable image */
-.quiz-image-clickable {
+.question-image-clickable {
     cursor: pointer;
     transition: opacity 0.2s ease-in-out;
 }
-.quiz-image-clickable:hover {
+.question-image-clickable:hover {
     opacity: 0.8;
 }
 
@@ -440,7 +440,7 @@ body {
 
 /* --- Dark Mode Adjustments --- */
 
-.dark-mode .quiz-item {
+.dark-mode .question-item {
     /* Optional: Adjust dark mode border if modified above */
     /* border: 1px solid var(--bs-border-color); */
 }
@@ -463,13 +463,13 @@ body {
 }
 
 
-.dark-mode .quiz-image-prompt-input {
+.dark-mode .question-image-prompt-input {
     background-color: #3a3a3c;
     color: var(--bs-body-color);
     border-color: #545458;
 }
 
-.dark-mode .quiz-image-prompt-input:focus {
+.dark-mode .question-image-prompt-input:focus {
     border-color: #58a6ff;
     box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
 }
@@ -489,7 +489,7 @@ body {
 
 
 
-/* --- ===== Quiz Interactivity Enhancements ===== --- */
+/* --- ===== Question Interactivity Enhancements ===== --- */
 
 /* Progress Bar */
 .progress-container {
@@ -554,19 +554,19 @@ body {
     background-color: #000; /* Black bg for video */
 }
 
-/* Quiz Area */
-#quizArea {
+/* Question Area */
+#questionArea {
     transition: opacity 0.5s ease-in-out, transform 0.3s ease-out;
     opacity: 1;
     transform: translateY(0);
 }
-#quizArea.d-none {
+#questionArea.d-none {
     opacity: 0;
     transform: translateY(10px); /* Slight downward move on hide */
     pointer-events: none;
 }
 
-#quizQuestionContainer {
+#questionQuestionContainer {
     min-height: 150px; /* Prevent collapsing */
 }
 
@@ -587,7 +587,7 @@ body {
 
 
 /* Ensure answer buttons fill width */
-#quizAnswersContainer .answer-btn {
+#questionAnswersContainer .answer-btn {
     width: 100%;
 }
 
@@ -634,6 +634,22 @@ body {
     background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
     color: #c0dfff; /* Lighter text for highlight */
     box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
+}
+
+.dark-mode .alert {
+    background-color: #5e1e23; /* Darker alert */
+    color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.dark-mode .alert-success {
+    background-color: #192714; /* Darker success */
+    color: #fff;
+    border-color: #0d6efd;
+}
+
+.dark-mode .alert-heading {
+    color: #fff; /* Lighter heading */
 }
 
 

@@ -10,7 +10,7 @@
 		use HasFactory;
 
 		protected $fillable = [
-			'quiz_id',
+			'question_id',
 			'subject_id',
 			'selected_answer_index',
 			'was_correct',
@@ -21,9 +21,9 @@
 			'was_correct' => 'boolean',
 		];
 
-		public function quiz()
+		public function question()
 		{
-			return $this->belongsTo(Quiz::class);
+			return $this->belongsTo(Question::class);
 		}
 
 		public function subject()

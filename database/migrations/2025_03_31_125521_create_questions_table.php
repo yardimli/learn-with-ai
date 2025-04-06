@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('quizzes', function (Blueprint $table) {
+        Schema::create('questions', function (Blueprint $table) {
 	        $table->id();
 	        $table->integer('subject_id')->default(0)->index(); // Track by session
 	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
+	        $table->text('image_search_keywords')->nullable(); // Generated idea for image prompt
 	        $table->integer('generated_image_id')->default(0);
 	        $table->text('question_text');
 	        $table->string('question_audio_path')->nullable();
@@ -31,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('quizzes');
+        Schema::dropIfExists('questions');
     }
 };

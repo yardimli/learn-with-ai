@@ -9,29 +9,29 @@
       .answer-list li:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
       .answer-text-content, .feedback-text-content { display: inline; }
       .asset-container h6 { font-size: 1em; }
-      .quiz-item p strong { display: inline; margin-bottom: 0; font-size: 1.05em; }
-      .quiz-item .question-line { margin-bottom: 0.75rem; }
-      .quiz-difficulty-group { border-left: 3px solid #eee; padding-left: 1rem; margin-top: 1.5rem; }
-      .dark-mode .quiz-difficulty-group { border-left-color: #444; }
-      .quiz-item { border: 1px solid var(--bs-border-color-translucent); border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem; background-color: var(--bs-body-bg); } /* Add background */
-      .quiz-list-container .placeholder-text { color: var(--bs-secondary-color); font-style: italic; margin-bottom: 1rem; } /* Style for empty list text */
-      .btn-delete-quiz { /* Ensure visibility */ }
+      .question-item p strong { display: inline; margin-bottom: 0; font-size: 1.05em; }
+      .question-item .question-line { margin-bottom: 0.75rem; }
+      .question-difficulty-group { border-left: 3px solid #eee; padding-left: 1rem; margin-top: 1.5rem; }
+      .dark-mode .question-difficulty-group { border-left-color: #444; }
+      .question-item { border: 1px solid var(--bs-border-color-translucent); border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem; background-color: var(--bs-body-bg); } /* Add background */
+      .question-list-container .placeholder-text { color: var(--bs-secondary-color); font-style: italic; margin-bottom: 1rem; } /* Style for empty list text */
+      .btn-delete-question { /* Ensure visibility */ }
 	</style>
 @endpush
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
-		<a href="{{ route('quiz.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> View Live Lesson</a>
+		<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> View Live Lesson</a>
 	</div>
 	
 	<div class="content-card mb-4">
 		<h1 class="mb-1">Edit Lesson: {{ $subject->title }}</h1>
 		<p class="text-muted mb-3">Subject: {{ $subject->name }} (ID: {{ $subject->id }}, Session: {{ $subject->session_id }})</p>
-		<p><small>Use the buttons below to generate video, add quizzes, or manage quiz assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete quizzes.</small></p>
+		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
-	{{-- Lesson Parts and Quizzes --}}
+	{{-- Lesson Parts and Questions --}}
 	@if (!empty($subject->lesson_parts))
 		@foreach($subject->lesson_parts as $partIndex => $part)
 			<div class="content-card mb-4">
@@ -68,62 +68,62 @@
 					</div>
 				</div>
 				
-				{{-- Quizzes Section --}}
-				<div class="quizzes-section border-top pt-3 mt-4">
-					<h4 class="mt-0 mb-3">Quizzes for this Part</h4>
+				{{-- Questions Section --}}
+				<div class="questions-section border-top pt-3 mt-4">
+					<h4 class="mt-0 mb-3">Questions for this Part</h4>
 					
-					{{-- Quiz Generation Buttons --}}
+					{{-- Question Generation Buttons --}}
 					<div class="mb-4">
-						<h5 class="mb-2">Generate New Quizzes</h5>
-						<div class="btn-group" role="group" aria-label="Generate Quiz Buttons">
+						<h5 class="mb-2">Generate New Questions</h5>
+						<div class="btn-group" role="group" aria-label="Generate Question Buttons">
 							@foreach(['easy', 'medium', 'hard'] as $difficulty)
-								<button class="btn btn-outline-success add-quiz-batch-btn"
+								<button class="btn btn-outline-success add-question-batch-btn"
 								        data-subject-id="{{ $subject->session_id }}"
 								        data-part-index="{{ $partIndex }}"
 								        data-difficulty="{{ $difficulty }}"
-								        data-generate-url="{{ route('quiz.generate.batch', ['subject' => $subject->session_id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
-								        data-target-list-id="quiz-list-{{ $difficulty }}-{{ $partIndex }}"
-								        data-error-area-id="quiz-gen-error-{{ $difficulty }}-{{ $partIndex }}">
+								        data-generate-url="{{ route('question.generate.batch', ['subject' => $subject->session_id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
+								        data-target-list-id="question-list-{{ $difficulty }}-{{ $partIndex }}"
+								        data-error-area-id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}">
 									<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-									<i class="fas fa-plus-circle me-1"></i> Add 5 {{ ucfirst($difficulty) }}
+									<i class="fas fa-plus-circle me-1"></i> Add 3 {{ ucfirst($difficulty) }}
 								</button>
 							@endforeach
 						</div>
 						{{-- Place for general generation errors --}}
 						@foreach(['easy', 'medium', 'hard'] as $difficulty)
-							<div class="asset-generation-error text-danger small mt-1" id="quiz-gen-error-{{ $difficulty }}-{{ $partIndex }}" style="display: none;"></div>
+							<div class="asset-generation-error text-danger small mt-1" id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}" style="display: none;"></div>
 						@endforeach
 					</div>
 					
-					{{-- Display Existing Quizzes by Difficulty --}}
+					{{-- Display Existing Questions by Difficulty --}}
 					@foreach(['easy', 'medium', 'hard'] as $difficulty)
-						<div class="quiz-difficulty-group">
+						<div class="question-difficulty-group">
 							<h5 class="d-flex justify-content-between align-items-center">
-								<span>{{ ucfirst($difficulty) }} Quizzes</span>
+								<span>{{ ucfirst($difficulty) }} Questions</span>
 								<span class="badge bg-secondary rounded-pill">
-                         {{ count($groupedQuizzes[$partIndex][$difficulty] ?? []) }}
+                         {{ count($groupedQuestions[$partIndex][$difficulty] ?? []) }}
                      </span>
 							</h5>
-							<div class="quiz-list-container mt-2" id="quiz-list-{{ $difficulty }}-{{ $partIndex }}">
-								@php $quizzesForDifficulty = $groupedQuizzes[$partIndex][$difficulty] ?? []; @endphp
-								@forelse($quizzesForDifficulty as $quiz)
-									@include('partials._quiz_edit_item', ['quiz' => $quiz])
+							<div class="question-list-container mt-2" id="question-list-{{ $difficulty }}-{{ $partIndex }}">
+								@php $questionsForDifficulty = $groupedQuestions[$partIndex][$difficulty] ?? []; @endphp
+								@forelse($questionsForDifficulty as $question)
+									@include('partials._question_edit_item', ['question' => $question])
 								@empty
-									<p class="placeholder-text" id="placeholder-{{ $difficulty }}-{{ $partIndex }}">No {{ $difficulty }} quizzes created yet for this part.</p>
+									<p class="placeholder-text" id="placeholder-{{ $difficulty }}-{{ $partIndex }}">No {{ $difficulty }} questions created yet for this part.</p>
 								@endforelse
 							</div>
 						</div>
 					@endforeach
-				</div> {{-- /.quizzes-section --}}
+				</div> {{-- /.questions-section --}}
 			</div> {{-- /.content-card for part --}}
 		@endforeach
 	@else
 		<div class="alert alert-warning">Lesson part data is missing or invalid for this subject. Cannot display edit options.</div>
 	@endif
 	
-	{{-- Include the quiz item partial template for JS --}}
-	<template id="quiz-item-template">
-		@include('partials._quiz_edit_item', ['quiz' => null])
+	{{-- Include the question item partial template for JS --}}
+	<template id="question-item-template">
+		@include('partials._question_edit_item', ['question' => null])
 	</template>
 	
 	
@@ -132,11 +132,11 @@
 		<div class="modal-dialog modal-xl modal-dialog-scrollable"> {{-- Large & Scrollable --}}
 			<div class="modal-content">
 				<div class="modal-header">
-					<h5 class="modal-title" id="freepikSearchModalLabel">Search Freepik for Quiz Image</h5>
+					<h5 class="modal-title" id="freepikSearchModalLabel">Search Freepik for Question Image</h5>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 				<div class="modal-body">
-					<input type="hidden" id="freepikModalQuizId" value="{{$subject->id}}"> {{-- Store target Quiz ID --}}
+					<input type="hidden" id="freepikModalQuestionId" value="{{$subject->id}}"> {{-- Store target Question ID --}}
 					<div class="input-group mb-3">
 						<input type="text" id="freepikSearchQuery" class="form-control" placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
 						<button class="btn btn-primary" type="button" id="freepikSearchExecuteBtn">
@@ -177,12 +177,38 @@
 			</div>
 		</div>
 	</div>
+	
+	{{-- Success Modal for Question Batch Generation --}}
+	<div class="modal fade" id="questionBatchSuccessModal" tabindex="-1" aria-labelledby="questionBatchSuccessModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="questionBatchSuccessModalLabel">
+						<i class="fas fa-check-circle text-success me-2"></i>Success
+					</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<p id="questionBatchSuccessMessage">Questions were generated successfully.</p>
+					<p class="mb-0">The page will reload to show the new questions.</p>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-primary" id="questionBatchSuccessConfirm">
+						<i class="fas fa-sync-alt me-2"></i>Reload Now
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
 
 @endsection
 
 @push('scripts')
-	{{-- Make sure shared audio player is available --}}
-	<script src="{{ asset('js/common.js') }}"></script>
-	{{-- Load the specific JS for this page --}}
+	<script>
+		let sharedAudioPlayer = null;
+		let imageModal = null;
+	
+	</script>
 	<script src="{{ asset('js/lesson_edit.js') }}"></script>
+	<script src="{{ asset('js/freepik_functions.js') }}"></script>
 @endpush

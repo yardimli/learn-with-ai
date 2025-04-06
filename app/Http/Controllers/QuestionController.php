@@ -4,7 +4,7 @@
 
 	use App\Helpers\MyHelper;
 	use App\Models\GeneratedImage;
-	use App\Models\Quiz;
+	use App\Models\Question;
 	use App\Models\Subject;
 	use App\Models\UserAnswer;
 	use Illuminate\Http\Request;
@@ -14,7 +14,7 @@
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
 
-	class QuizController extends Controller
+	class QuestionController extends Controller
 	{
 
 		/**
@@ -61,15 +61,15 @@
 		}
 
 		/**
-		 * Displays the main interactive quiz interface.
+		 * Displays the main interactive question interface.
 		 * Determines the starting state based on user progress.
 		 *
 		 * @param Subject $subject Route model binding via session_id
 		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
 		 */
-		public function showQuizInterface(Subject $subject)
+		public function showQuestionInterface(Subject $subject)
 		{
-			Log::info("Loading quiz interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+			Log::info("Loading question interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
 
 			$state = $this->calculateCurrentState($subject->id);
 			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
@@ -85,11 +85,11 @@
 			}
 
 
-			// We pass null for the initial quiz now. JS handles loading.
-			$quiz = null;
+			// We pass null for the initial question now. JS handles loading.
+			$question = null;
 			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
 
-			return view('quiz_interface', compact('subject', 'quiz', 'state', 'totalParts', 'allPartIntros'));
+			return view('question_interface', compact('subject', 'question', 'state', 'totalParts', 'allPartIntros'));
 		}
 
 		/**
@@ -103,8 +103,8 @@
 			$totalParts = Subject::find($subjectId)->lesson_parts ? count(Subject::find($subjectId)->lesson_parts) : 0;
 
 			for ($part = 0; $part < $totalParts; $part++) {
-				// Get all quizzes for this part
-				$totalQuestions = Quiz::where('subject_id', $subjectId)
+				// Get all questions for this part
+				$totalQuestions = Question::where('subject_id', $subjectId)
 					->where('lesson_part_index', $part)
 					->count();
 
@@ -112,24 +112,24 @@
 					continue; // Skip empty parts
 				}
 
-				// Get completed quizzes (any correct answer)
+				// Get completed questions (any correct answer)
 				$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
 					->where('was_correct', true)
-					->whereHas('quiz', function ($query) use ($part) {
+					->whereHas('question', function ($query) use ($part) {
 						$query->where('lesson_part_index', $part);
 					})
-					->distinct('quiz_id')
-					->count('quiz_id');
+					->distinct('question_id')
+					->count('question_id');
 
 				// Get first-attempt correct answers (for progress calculation)
 				$firstAttemptCorrectCount = UserAnswer::where('subject_id', $subjectId)
 					->where('was_correct', true)
 					->where('attempt_number', 1)
-					->whereHas('quiz', function ($query) use ($part) {
+					->whereHas('question', function ($query) use ($part) {
 						$query->where('lesson_part_index', $part);
 					})
-					->distinct('quiz_id')
-					->count('quiz_id');
+					->distinct('question_id')
+					->count('question_id');
 
 				// If not all questions correctly answered, this is the current part
 				if ($correctlyAnsweredCount < $totalQuestions) {
@@ -176,25 +176,25 @@
 			Log::info("AJAX request for ALL questions for Subject Session: {$subject->session_id}, Part: {$partIndex}");
 
 			try {
-				// Get all quizzes for this part (regardless of difficulty)
-				$quizzes = Quiz::where('subject_id', $subject->id)
+				// Get all questions for this part (regardless of difficulty)
+				$questions = Question::where('subject_id', $subject->id)
 					->where('lesson_part_index', $partIndex)
 					->with('generatedImage')
 					->get();
 
-				if ($quizzes->isEmpty()) {
-					Log::warning("No quizzes found for Subject {$subject->id}, Part {$partIndex}.");
+				if ($questions->isEmpty()) {
+					Log::warning("No questions found for Subject {$subject->id}, Part {$partIndex}.");
 					return response()->json([
 						'success' => true,
-						'quizzes' => [],
+						'questions' => [],
 						'message' => 'No questions found for this section.'
 					]);
 				}
 
-				// Process each quiz with attempt information
-				$processedQuizzes = $quizzes->map(function ($quiz) use ($subject) {
-					// Get latest attempt info for this quiz
-					$lastAttempt = UserAnswer::where('quiz_id', $quiz->id)
+				// Process each question with attempt information
+				$processedQuestions = $questions->map(function ($question) use ($subject) {
+					// Get latest attempt info for this question
+					$lastAttempt = UserAnswer::where('question_id', $question->id)
 						->where('subject_id', $subject->id)
 						->orderBy('attempt_number', 'desc')
 						->first();
@@ -209,7 +209,7 @@
 						$wasCorrectLastAttempt = $lastAttempt->was_correct;
 
 						// Check if there were any wrong answers in this attempt
-						$wrongAnswersInLastAttempt = UserAnswer::where('quiz_id', $quiz->id)
+						$wrongAnswersInLastAttempt = UserAnswer::where('question_id', $question->id)
 							->where('subject_id', $subject->id)
 							->where('attempt_number', $lastAttempt->attempt_number)
 							->where('was_correct', false)
@@ -222,33 +222,33 @@
 					$shouldSkip = $wasCorrectLastAttempt && $hadNoWrongAnswers;
 
 					// Process answer audio URLs
-					$processedAnswers = $quiz->answers;
+					$processedAnswers = $question->answers;
 					if ($processedAnswers && is_array($processedAnswers)) {
 						foreach ($processedAnswers as $index => &$answer) {
-							$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
-							$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index);
+							$answer['answer_audio_url'] = $question->getAnswerAudioUrl($index);
+							$answer['feedback_audio_url'] = $question->getFeedbackAudioUrl($index);
 						}
 						unset($answer);
 					}
 
 					return [
-						'id' => $quiz->id,
-						'question_text' => $quiz->question_text,
-						'question_audio_url' => $quiz->question_audio_url,
-						'image_url' => $quiz->generatedImage?->mediumUrl,
+						'id' => $question->id,
+						'question_text' => $question->question_text,
+						'question_audio_url' => $question->question_audio_url,
+						'image_url' => $question->generatedImage?->mediumUrl,
 						'answers' => $processedAnswers,
-						'difficulty_level' => $quiz->difficulty_level,
-						'lesson_part_index' => $quiz->lesson_part_index,
+						'difficulty_level' => $question->difficulty_level,
+						'lesson_part_index' => $question->lesson_part_index,
 						'next_attempt_number' => $nextAttemptNumber,
 						'should_skip' => $shouldSkip,
 					];
 				});
 
-				Log::info("Found {$processedQuizzes->count()} quizzes for Part {$partIndex}.");
+				Log::info("Found {$processedQuestions->count()} questions for Part {$partIndex}.");
 
 				return response()->json([
 					'success' => true,
-					'quizzes' => $processedQuizzes,
+					'questions' => $processedQuestions,
 				]);
 			} catch (\Exception $e) {
 				Log::error("Error fetching part questions for Subject ID {$subject->id}, Part {$partIndex}: " . $e->getMessage());
@@ -261,14 +261,14 @@
 
 
 		/**
-		 * Handles submitting a user's answer to a quiz.
+		 * Handles submitting a user's answer to a question.
 		 * Modified to return state change info.
 		 *
 		 * @param Request $request
-		 * @param Quiz $quiz Route model binding
+		 * @param Question $question Route model binding
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function submitAnswer(Request $request, Quiz $quiz)
+		public function submitAnswer(Request $request, Question $question)
 		{
 			$validator = Validator::make($request->all(), [
 				'selected_index' => 'required|integer|min:0|max:3',
@@ -279,34 +279,34 @@
 				return response()->json(['success' => false, 'message' => 'Invalid answer selection.', 'errors' => $validator->errors()], 422);
 			}
 
-			$subject_id = $quiz->subject_id;
+			$subject_id = $question->subject_id;
 			$selectedIndex = $request->input('selected_index');
 			$attemptNumber = $request->input('attempt_number');  // Get from request
 
-			Log::info("Submitting answer for Quiz ID: {$quiz->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}, Attempt: {$attemptNumber}");
+			Log::info("Submitting answer for Question ID: {$question->id}, Index: {$selectedIndex}, Subject ID: {$subject_id}, Attempt: {$attemptNumber}");
 
-			$answers = $quiz->answers;
+			$answers = $question->answers;
 			if (!isset($answers[$selectedIndex])) {
-				Log::error("Invalid answer index {$selectedIndex} submitted for Quiz ID {$quiz->id}. Answers:", $answers);
+				Log::error("Invalid answer index {$selectedIndex} submitted for Question ID {$question->id}. Answers:", $answers);
 				return response()->json(['success' => false, 'message' => 'Invalid answer index provided.'], 400);
 			}
 
 			// Process answer data
-			$processedAnswers = $quiz->answers;
+			$processedAnswers = $question->answers;
 			$correctIndex = -1;
 
 			if ($processedAnswers && is_array($processedAnswers)) {
 				foreach ($processedAnswers as $index => &$answer) {
-					$answer['answer_audio_url'] = $quiz->getAnswerAudioUrl($index);
-					$answer['feedback_audio_url'] = $quiz->getFeedbackAudioUrl($index);
+					$answer['answer_audio_url'] = $question->getAnswerAudioUrl($index);
+					$answer['feedback_audio_url'] = $question->getFeedbackAudioUrl($index);
 					if ($answer['is_correct'] === true) {
 						$correctIndex = $index;
 					}
 				}
 				unset($answer);
 			} else {
-				Log::error("Answers data is missing or invalid when processing submit for Quiz ID: {$quiz->id}");
-				return response()->json(['success' => false, 'message' => 'Error processing quiz answers.'], 500);
+				Log::error("Answers data is missing or invalid when processing submit for Question ID: {$question->id}");
+				return response()->json(['success' => false, 'message' => 'Error processing question answers.'], 500);
 			}
 
 			$selectedAnswer = $processedAnswers[$selectedIndex];
@@ -316,18 +316,18 @@
 
 			// Save user answer with specified attempt number
 			UserAnswer::create([
-				'quiz_id' => $quiz->id,
+				'question_id' => $question->id,
 				'subject_id' => $subject_id,
 				'selected_answer_index' => $selectedIndex,
 				'was_correct' => $wasCorrect,
 				'attempt_number' => $attemptNumber,
 			]);
 
-			Log::info("User answer saved for Quiz ID {$quiz->id}. Attempt: {$attemptNumber}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
+			Log::info("User answer saved for Question ID {$question->id}. Attempt: {$attemptNumber}. Correct: " . ($wasCorrect ? 'Yes' : 'No'));
 
 			// Calculate part completion
 			$newState = $this->calculateCurrentState($subject_id);
-			$partCompleted = $this->isPartCompleted($subject_id, $quiz->lesson_part_index);
+			$partCompleted = $this->isPartCompleted($subject_id, $question->lesson_part_index);
 
 			return response()->json([
 				'success' => true,
@@ -344,7 +344,7 @@
 // Helper method to check if a part is completed
 		private function isPartCompleted(int $subjectId, int $partIndex): bool
 		{
-			$totalQuestions = Quiz::where('subject_id', $subjectId)
+			$totalQuestions = Question::where('subject_id', $subjectId)
 				->where('lesson_part_index', $partIndex)
 				->count();
 
@@ -354,11 +354,11 @@
 
 			$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
 				->where('was_correct', true)
-				->whereHas('quiz', function ($query) use ($partIndex) {
+				->whereHas('question', function ($query) use ($partIndex) {
 					$query->where('lesson_part_index', $partIndex);
 				})
-				->distinct('quiz_id')
-				->count('quiz_id');
+				->distinct('question_id')
+				->count('question_id');
 
 			return $correctlyAnsweredCount >= $totalQuestions;
 		}

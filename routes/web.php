@@ -4,7 +4,7 @@
 	use App\Http\Controllers\FreePikController;
 	use Illuminate\Support\Facades\Route;
 	use App\Http\Controllers\SubjectController;
-	use App\Http\Controllers\QuizController;
+	use App\Http\Controllers\QuestionController;
 
 // --- Lesson Creation & Setup ---
 	Route::get('/', [SubjectController::class, 'index'])->name('home');
@@ -19,29 +19,29 @@
 		->where('partIndex', '[0-9]+')
 		->name('lesson.part.generate.video');
 
-// Generate Quiz Batch
-	Route::post('/lesson/{subject}/part/{partIndex}/generate-quizzes/{difficulty}', [SubjectController::class, 'generateQuizBatchAjax'])
+// Generate Question Batch
+	Route::post('/lesson/{subject}/part/{partIndex}/generate-questions/{difficulty}', [SubjectController::class, 'generateQuestionBatchAjax'])
 		->where(['partIndex' => '[0-9]+', 'difficulty' => 'easy|medium|hard'])
-		->name('quiz.generate.batch');
+		->name('question.generate.batch');
 
-// Delete Quiz
-	Route::delete('/quiz/{quiz}', [SubjectController::class, 'deleteQuizAjax'])
-		->name('quiz.delete');
+// Delete Question
+	Route::delete('/question/{question}', [SubjectController::class, 'deleteQuestionAjax'])
+		->name('question.delete');
 
-// Generate Individual Quiz Assets
-	Route::post('/quiz/{quiz}/generate-audio/question', [SubjectController::class, 'generateQuestionAudioAjax'])->name('quiz.generate.audio.question');
-	Route::post('/quiz/{quiz}/generate-audio/answers', [SubjectController::class, 'generateAnswerAudioAjax'])->name('quiz.generate.audio.answers');
-	Route::post('/quiz/{quiz}/generate-image', [SubjectController::class, 'generateQuizImageAjax'])->name('quiz.generate.image'); // For LLM generation/regeneration
+// Generate Individual Question Assets
+	Route::post('/question/{question}/generate-audio/question', [SubjectController::class, 'generateQuestionAudioAjax'])->name('question.generate.audio.question');
+	Route::post('/question/{question}/generate-audio/answers', [SubjectController::class, 'generateAnswerAudioAjax'])->name('question.generate.audio.answers');
+	Route::post('/question/{question}/generate-image', [SubjectController::class, 'generateQuestionImageAjax'])->name('question.generate.image'); // For LLM generation/regeneration
 
-// --- Quiz Image Upload & Freepik ---
-	Route::post('/quiz/{quiz}/upload-image', [SubjectController::class, 'uploadQuizImageAjax'])->name('quiz.image.upload');
-	Route::post('/quiz/{quiz}/search-freepik', [FreePikController::class, 'searchFreepikAjax'])->name('quiz.image.search_freepik');
-	Route::post('/quiz/{quiz}/select-freepik', [FreePikController::class, 'selectFreepikImageAjax'])->name('quiz.image.select_freepik');
+// --- Question Image Upload & Freepik ---
+	Route::post('/question/{question}/upload-image', [SubjectController::class, 'uploadQuestionImageAjax'])->name('question.image.upload');
+	Route::post('/question/{question}/search-freepik', [FreePikController::class, 'searchFreepikAjax'])->name('question.image.search_freepik');
+	Route::post('/question/{question}/select-freepik', [FreePikController::class, 'selectFreepikImageAjax'])->name('question.image.select_freepik');
 
-// --- Lesson Display / Taking Quiz ---
-	Route::get('/lesson/{subject:session_id}/quiz', [QuizController::class, 'showQuizInterface'])
-		->name('quiz.interface');
-	Route::post('/lesson/{subject:session_id}/part-questions', [QuizController::class, 'getPartQuestionsAjax'])
-		->name('quiz.part_questions');
-	Route::post('/quiz/{quiz}/submit', [QuizController::class, 'submitAnswer'])
-		->name('quiz.submit_answer');
+// --- Lesson Display / Taking Question ---
+	Route::get('/lesson/{subject:session_id}/question', [QuestionController::class, 'showQuestionInterface'])
+		->name('question.interface');
+	Route::post('/lesson/{subject:session_id}/part-questions', [QuestionController::class, 'getPartQuestionsAjax'])
+		->name('question.part_questions');
+	Route::post('/question/{question}/submit', [QuestionController::class, 'submitAnswer'])
+		->name('question.submit_answer');

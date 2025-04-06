@@ -38,8 +38,8 @@
 	</div>
 	<hr class="my-4"> {{-- Added margin --}}
 	<div class="text-center">
-		<button id="startPartQuizButton" class="btn btn-primary btn-lg">
-			Start Part Quiz
+		<button id="startPartQuestionButton" class="btn btn-primary btn-lg">
+			Start Part Question
 		</button>
 	</div>
 </div>

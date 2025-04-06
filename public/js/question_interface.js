@@ -2,9 +2,9 @@ function loadQuestionsForLevel(partIndex) {
 	if (isLoading) return;
 	setLoadingState(true, `Loading questions for Part ${partIndex + 1}...`);
 	setErrorState(null);
-	currentPartQuizzes = []; // Clear old quizzes
-	currentQuizIndex = -1;
-	currentQuiz = null;
+	currentPartQuestions = []; // Clear old questions
+	currentQuestionIndex = -1;
+	currentQuestion = null;
 	displayedPartIndex = partIndex;
 	updateProgressBar();
 	
@@ -30,21 +30,21 @@ function loadQuestionsForLevel(partIndex) {
 				throw new Error(data.message || 'Failed to fetch questions for this part.');
 			}
 			
-			if (!data.quizzes || data.quizzes.length === 0) {
-				console.warn(`No quizzes returned for Part ${partIndex}.`);
+			if (!data.questions || data.questions.length === 0) {
+				console.warn(`No questions returned for Part ${partIndex}.`);
 				setErrorState(`No questions found for Part ${partIndex + 1}. You can try another part.`);
-				toggleElement(quizArea, false);
+				toggleElement(questionArea, false);
 				toggleElement(partIntroArea, false);
 				setLoadingState(false);
 				return;
 			}
 			
-			console.log(`Loaded ${data.quizzes.length} quizzes for Part ${partIndex}`);
+			console.log(`Loaded ${data.questions.length} questions for Part ${partIndex}`);
 			
-			// Filter out quizzes that should be skipped (correct in last attempt with no wrong answers)
-			currentPartQuizzes = data.quizzes.filter(quiz => !quiz.should_skip);
+			// Filter out questions that should be skipped (correct in last attempt with no wrong answers)
+			currentPartQuestions = data.questions.filter(question => !question.should_skip);
 			
-			if (currentPartQuizzes.length === 0) {
+			if (currentPartQuestions.length === 0) {
 				console.log("All questions in this part were correctly answered!");
 				// Show part completion or move to next part
 				showPartCompletionMessage(partIndex);
@@ -52,23 +52,23 @@ function loadQuestionsForLevel(partIndex) {
 				return;
 			}
 			
-			currentQuizIndex = 0;
-			showQuizScreen();
-			displayQuizAtIndex(currentQuizIndex);
+			currentQuestionIndex = 0;
+			showQuestionScreen();
+			displayQuestionAtIndex(currentQuestionIndex);
 			setLoadingState(false);
 		})
 		.catch(error => {
 			console.error('Error loading part questions:', error);
 			setErrorState(`Error: ${error.message}`);
 			setLoadingState(false);
-			toggleElement(quizArea, false);
+			toggleElement(questionArea, false);
 			toggleElement(partIntroArea, false);
 		});
 }
 
 function showPartCompletionMessage(partIndex) {
 	setErrorState(null);
-	toggleElement(quizArea, false);
+	toggleElement(questionArea, false);
 	toggleElement(partIntroArea, false);
 	
 	// If we have completion message element
@@ -83,7 +83,6 @@ function showPartCompletionMessage(partIndex) {
                     ${partIndex < totalParts - 1 ?
 			`<button id="continueToNextPartBtn" class="btn btn-primary me-2">Continue to Part ${partIndex + 2}</button>` :
 			''}
-                    <button id="viewOtherPartsBtn" class="btn btn-outline-secondary">View All Parts</button>
                 </div>
             </div>
         `;
@@ -97,15 +96,6 @@ function showPartCompletionMessage(partIndex) {
 				showPartIntro(partIndex + 1);
 			});
 		}
-		
-		const viewPartsBtn = document.getElementById('viewOtherPartsBtn');
-		if (viewPartsBtn) {
-			viewPartsBtn.addEventListener('click', () => {
-				toggleElement(partCompletionMsg, false);
-				toggleElement(partIntroArea, false);
-				updateProgressBar(); // Shows overview
-			});
-		}
 	} else {
 		// Fallback if no dedicated element
 		if (partIndex < totalParts - 1) {
@@ -116,57 +106,57 @@ function showPartCompletionMessage(partIndex) {
 	}
 }
 
-function displayQuizAtIndex(index) {
-	if (index < 0 || index >= currentPartQuizzes.length) {
-		console.error(`Invalid quiz index requested: ${index}`);
+function displayQuestionAtIndex(index) {
+	if (index < 0 || index >= currentPartQuestions.length) {
+		console.error(`Invalid question index requested: ${index}`);
 		checkStateAndTransition();
 		return;
 	}
 	
-	currentQuizIndex = index;
-	currentQuiz = currentPartQuizzes[index];
+	currentQuestionIndex = index;
+	currentQuestion = currentPartQuestions[index];
 	selectedIndex = null;
 	
-	// Store the current attempt number for this quiz
-	currentAttemptNumber = currentQuiz.next_attempt_number || 1;
+	// Store the current attempt number for this question
+	currentAttemptNumber = currentQuestion.next_attempt_number || 1;
 	
-	console.log(`Displaying quiz index ${index} (ID: ${currentQuiz.id}, Attempt: ${currentAttemptNumber})`);
+	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber})`);
 	
 	// Randomize answer order before displaying (while preserving correct answer)
-	if (currentQuiz.answers && Array.isArray(currentQuiz.answers)) {
+	if (currentQuestion.answers && Array.isArray(currentQuestion.answers)) {
 		//shuffleAnswers();
 	}
 	
-	updateUIForQuiz();
+	updateUIForQuestion();
 	
 	// Reset button styles from previous feedback
-	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 		button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
 		button.classList.add('btn-outline-primary');
 	});
 	
 	setInteractionsDisabled(true);
-	buildPlaybackQueue(currentQuiz);
+	buildPlaybackQueue(currentQuestion);
 	startPlaybackSequence();
 }
 
-function updateUIForQuiz() {
-	if (!currentQuiz) {
-		console.error("updateUIForQuiz called but currentQuiz is null");
-		return; // Or hide quiz area
+function updateUIForQuestion() {
+	if (!currentQuestion) {
+		console.error("updateUIForQuestion called but currentQuestion is null");
+		return; // Or hide question area
 	}
 	
 	if (questionDifficulty) {
-		questionDifficulty.textContent = `Part ${currentQuiz.lesson_part_index + 1} - ${capitalizeFirstLetter(currentQuiz.difficulty_level)}`;
+		questionDifficulty.textContent = `Part ${currentQuestion.lesson_part_index + 1} - ${capitalizeFirstLetter(currentQuestion.difficulty_level)}`;
 	}
 	if (questionTextElement) {
-		questionTextElement.textContent = currentQuiz.question_text;
+		questionTextElement.textContent = currentQuestion.question_text;
 	}
 	
 	// Image Display
 	if (questionImageElement && noImagePlaceholder) {
-		if (currentQuiz.image_url) {
-			questionImageElement.src = currentQuiz.image_url;
+		if (currentQuestion.image_url) {
+			questionImageElement.src = currentQuestion.image_url;
 			toggleElement(questionImageElement, true);
 			toggleElement(noImagePlaceholder, false);
 		} else {
@@ -177,11 +167,11 @@ function updateUIForQuiz() {
 	
 	// Answer Buttons
 	console.log("Setting up answer buttons");
-	quizAnswersContainer.innerHTML = ''; // Clear old buttons
+	questionAnswersContainer.innerHTML = ''; // Clear old buttons
 
 // Create buttons and store them temporarily
 	const buttons = []; // Array to hold the button elements
-	currentQuiz.answers.forEach((answer, idx) => {
+	currentQuestion.answers.forEach((answer, idx) => {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.id = `answerBtn_${idx}`;
@@ -204,7 +194,7 @@ function updateUIForQuiz() {
 
 // Append the shuffled buttons to the container
 	buttons.forEach(button => {
-		quizAnswersContainer.appendChild(button);
+		questionAnswersContainer.appendChild(button);
 	});
 	
 	console.log("Answer buttons created and shuffled.");
@@ -229,27 +219,27 @@ function checkStateAndTransition() {
 	
 	if (wasCorrect) {
 		// If this was the last question in the current batch
-		if (currentQuizIndex >= currentPartQuizzes.length - 1) {
+		if (currentQuestionIndex >= currentPartQuestions.length - 1) {
 			console.log("Last question in current batch answered correctly");
 			
 			if (partCompleted) {
-				console.log(`Part ${currentQuiz.lesson_part_index} completed!`);
-				showPartCompletionMessage(currentQuiz.lesson_part_index);
+				console.log(`Part ${currentQuestion.lesson_part_index} completed!`);
+				showPartCompletionMessage(currentQuestion.lesson_part_index);
 			} else {
-				console.log(`Part ${currentQuiz.lesson_part_index} not fully completed. Reloading questions.`);
+				console.log(`Part ${currentQuestion.lesson_part_index} not fully completed. Reloading questions.`);
 				// Reload questions for the same part to get any remaining ones
-				loadQuestionsForLevel(currentQuiz.lesson_part_index);
+				loadQuestionsForLevel(currentQuestion.lesson_part_index);
 			}
 		} else {
 			// Move to next question in the current batch
-			console.log(`Moving to next question (index ${currentQuizIndex + 1})`);
-			displayQuizAtIndex(currentQuizIndex + 1);
+			console.log(`Moving to next question (index ${currentQuestionIndex + 1})`);
+			displayQuestionAtIndex(currentQuestionIndex + 1);
 		}
 	} else {
 		// Wrong answer - stay on the same question for another attempt
 		console.log("Wrong answer. Allowing another attempt on the same question.");
 		// Reset the buttons for another attempt
-		quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+		questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 			button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger');
 			button.classList.add('btn-outline-primary');
 			button.disabled = false;
@@ -271,8 +261,8 @@ function submitAnswer(index) {
 	setErrorState(null);
 	
 	// Update button visually immediately
-	console.log(`Submitting answer index ${index} for quiz ID ${currentQuiz.id} and disabling buttons`);
-	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
+	console.log(`Submitting answer index ${index} for question ID ${currentQuestion.id} and disabling buttons`);
+	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
 		btn.classList.remove('selected');
 		if (parseInt(btn.dataset.index) === index) {
 			btn.classList.add('selected');
@@ -280,7 +270,7 @@ function submitAnswer(index) {
 		btn.disabled = true;
 	});
 	
-	fetch(`/quiz/${currentQuiz.id}/submit`, {
+	fetch(`/question/${currentQuestion.id}/submit`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -315,7 +305,7 @@ function submitAnswer(index) {
 			selectedIndex = null;
 			feedbackData = null;
 			
-			quizAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
+			questionAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
 				btn.disabled = false;
 				btn.classList.remove('selected');
 			});
@@ -339,7 +329,7 @@ function showFeedbackModal(feedbackResult) {
 	
 	// Update answer button styles based on feedback BEFORE showing modal
 	console.log("Updating answer button styles based on feedback, and disabling them");
-	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 		const btnIndex = parseInt(button.dataset.index);
 		button.classList.remove('selected', 'correct', 'incorrect', 'btn-outline-primary', 'btn-primary', 'btn-outline-secondary');
 		button.disabled = true; // Keep disabled
@@ -377,22 +367,22 @@ function showFeedbackModal(feedbackResult) {
 	// Interactions are disabled via the 'shown.bs.modal' event listener
 }
 
-function showQuizScreen() {
+function showQuestionScreen() {
 	isPartIntroVisible = false;
 	feedbackData = null; // Ensure feedback is cleared
 	
-	if (currentQuiz) {
-		displayedPartIndex = currentQuiz.lesson_part_index;
-	} else if (currentPartQuizzes.length > 0) {
-		// Fallback if currentQuiz isn't set yet but we have the list
-		displayedPartIndex = currentPartQuizzes[0].lesson_part_index;
+	if (currentQuestion) {
+		displayedPartIndex = currentQuestion.lesson_part_index;
+	} else if (currentPartQuestions.length > 0) {
+		// Fallback if currentQuestion isn't set yet but we have the list
+		displayedPartIndex = currentPartQuestions[0].lesson_part_index;
 	}
 	
-	// Hide Intro Area, Show Quiz Area
+	// Hide Intro Area, Show Question Area
 	toggleElement(partIntroArea, false);
 	toggleElement(completionMessage, false);
-	toggleElement(quizArea, true);
-	quizArea.dataset.currentPartIndex = currentState.partIndex; // Store current part index
+	toggleElement(questionArea, true);
+	questionArea.dataset.currentPartIndex = currentState.partIndex; // Store current part index
 }
 
 function showCompletionScreen() {
@@ -400,14 +390,14 @@ function showCompletionScreen() {
 	stopPlaybackSequence(true); // Stop any audio
 	isPartIntroVisible = false;
 	feedbackData = null;
-	currentPartQuizzes = [];
-	currentQuizIndex = -1;
-	currentQuiz = null;
+	currentPartQuestions = [];
+	currentQuestionIndex = -1;
+	currentQuestion = null;
 	
 	displayedPartIndex = totalParts - 1;
 	
 	toggleElement(partIntroArea, false);
-	toggleElement(quizArea, false);
+	toggleElement(questionArea, false);
 	toggleElement(completionMessage, true);
 	
 	updateProgressBar(); // Ensure progress bar shows 100%
@@ -430,7 +420,7 @@ function updateUI() {
 		return;
 	}
 	
-	if (quizArea.classList.contains('d-none') || !currentQuiz) {
+	if (questionArea.classList.contains('d-none') || !currentQuestion) {
 		updateButtonStates();
 		return;
 	}
@@ -439,8 +429,8 @@ function updateUI() {
 }
 
 // --- Event Listeners ---
-function setupQuizAnswerEventListeners() {
-	quizAnswersContainer.addEventListener('click', (event) => {
+function setupQuestionAnswerEventListeners() {
+	questionAnswersContainer.addEventListener('click', (event) => {
 		const targetButton = event.target.closest('.answer-btn');
 		if (targetButton && !targetButton.disabled) {
 			submitAnswer(parseInt(targetButton.dataset.index, 10));
@@ -449,15 +439,15 @@ function setupQuizAnswerEventListeners() {
 }
 
 // --- Initialization ---
-function initQuizInterface() {
-	console.log("Initializing Interactive Quiz...");
+function initQuestionInterface() {
+	console.log("Initializing Interactive Question...");
 	console.log("Initial State:", currentState);
 	console.log("Total Parts:", totalParts);
 	
 	setLoadingState(true, 'Initializing...');
 	
 	if (!currentState || !subjectSessionId) {
-		setErrorState("Failed to load initial quiz state. Please try refreshing the page.");
+		setErrorState("Failed to load initial question state. Please try refreshing the page.");
 		setLoadingState(false);
 		return;
 	}
@@ -478,7 +468,7 @@ function initQuizInterface() {
 	}
 	
 	setLoadingState(false); // Done initializing
-	console.log("Interactive Quiz Initialized.");
+	console.log("Interactive Question Initialized.");
 }
 
 
@@ -506,7 +496,7 @@ function setupModalEventListeners() {
 			
 			// Reset answer button styles and re-enable them
 			console.log("Resetting answer button styles for another attempt, enabling them");
-			quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+			questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 				button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
 				button.classList.add('btn-outline-primary');
 				button.disabled = false; // Re-enable

@@ -36,10 +36,10 @@
 			return $this->belongsTo(GeneratedImage::class, 'generated_image_id');
 		}
 
-		public function quizzes()
+		public function questions()
 		{
-			// Order quizzes maybe by difficulty then ID?
-			return $this->hasMany(Quiz::class)->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")->orderBy('id');
+			// Order questions maybe by difficulty then ID?
+			return $this->hasMany(Question::class)->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")->orderBy('id');
 		}
 
 		public function userAnswers()

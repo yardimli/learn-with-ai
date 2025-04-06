@@ -16,7 +16,7 @@ function setLoadingState(loading, message = 'Loading...') {
 		loadingOverlay.classList.toggle('d-none', !loading);
 	}
 	
-	if (startPartQuizButton) startPartQuizButton.disabled = loading || interactionsDisabled;
+	if (startPartQuestionButton) startPartQuestionButton.disabled = loading || interactionsDisabled;
 	
 	// Update button states after loading state changes, as it affects interactionsDisabled
 	if(wasLoading !== isLoading) updateButtonStates();
@@ -42,14 +42,14 @@ function setInteractionsDisabled(disabled) {
 function updateButtonStates() {
 	// Update Answer Buttons enabled/disabled state
 	console.log("Updating button states... state:", interactionsDisabled);
-	quizAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
 		button.disabled = interactionsDisabled;
 		//console.log(`Button ${button.textContent} disabled: ${button.disabled}`);
 	});
 	
 	// Update Start Part Button state
-	if (startPartQuizButton) {
-		startPartQuizButton.disabled = interactionsDisabled || isLoading;
+	if (startPartQuestionButton) {
+		startPartQuestionButton.disabled = interactionsDisabled || isLoading;
 	}
 }
 

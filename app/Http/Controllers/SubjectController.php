@@ -4,7 +4,7 @@
 
 	use App\Helpers\MyHelper;
 	use App\Models\GeneratedImage;
-	use App\Models\Quiz; // Keep Quiz model import
+	use App\Models\Question; // Keep Question model import
 	use App\Models\Subject;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Log;
@@ -29,8 +29,8 @@
 		public function index()
 		{
 			$llms = MyHelper::checkLLMsJson();
-			// Eager load quiz count for potential display (optional)
-			$subjects = Subject::withCount('quizzes')->orderBy('created_at', 'desc')->get();
+			// Eager load question count for potential display (optional)
+			$subjects = Subject::withCount('questions')->orderBy('created_at', 'desc')->get();
 			return view('subject_input', compact('llms', 'subjects'));
 		}
 
@@ -67,22 +67,23 @@ Constraints:
 - Generate content suitable for a general audience learning about the subject for the first time.
 PROMPT;
 
-		// --- MODIFIED: Prompt for generating 5 Quizzes for a SINGLE lesson part and difficulty ---
+		// --- MODIFIED: Prompt for generating 3 Questions for a SINGLE lesson part and difficulty ---
 		private const SYSTEM_PROMPT_QUIZ_GENERATION = <<<PROMPT
-You are an AI assistant specialized in creating integrated quizzes for educational micro-lessons.
+You are an AI assistant specialized in creating integrated questions for educational micro-lessons.
 The user will provide:
 1. The title and text content for ONE specific lesson part.
 2. The target difficulty level ('easy', 'medium', or 'hard').
-3. A list of quiz questions already generated for OTHER parts/difficulties of the lesson.
+3. A list of question questions already generated for OTHER parts/difficulties of the lesson.
 
-You MUST generate a JSON array containing exactly 5 quiz questions ONLY for the CURRENT lesson part's content and the SPECIFIED difficulty.
+You MUST generate a JSON array containing exactly 3 question questions ONLY for the CURRENT lesson part's content and the SPECIFIED difficulty.
 
-The JSON output MUST be ONLY an array of 5 objects, like this:
+The JSON output MUST be ONLY an array of 3 objects, like this:
 {
 	"questions" : [
 	  { // Question 1 (matching target difficulty)
 	    "question": "Question 1 text based ONLY on the provided lesson part content and targeted difficulty.",
-	    "image_prompt_idea": "Optional: very short visual cue for this specific question (max 10 words)",
+	    "image_prompt_idea": "Very short visual cue for this specific question (max 10 words)",
+	    "image_search_keywords": "Keywords for image search (max 3 words)",
 	    "answers": [
 	      {"text": "Answer 1 (Correct)", "is_correct": true, "feedback": "Correct! Explanation..."},
 	      {"text": "Answer 2 (Incorrect)", "is_correct": false, "feedback": "Incorrect. Explanation..."},
@@ -90,23 +91,24 @@ The JSON output MUST be ONLY an array of 5 objects, like this:
 	      {"text": "Answer 4 (Incorrect)", "is_correct": false, "feedback": "Incorrect. Explanation..."}
 	    ]
 	  },
-	  // ... 4 more question objects (total 5) matching the target difficulty ...
+	  // ... 2 more question objects (total 3) matching the target difficulty ...
 	]
 }
 
 Constraints:
 - The output MUST be ONLY the valid JSON array described above. No extra text, keys, or explanations outside the array structure.
-- Generate exactly 5 questions in the array.
+- Generate exactly 3 questions in the array.
 - Each question must have exactly 4 answers.
 - Exactly one answer per question must have `"is_correct": true`.
 - All questions, answers, and feedback MUST be directly based on the provided "Current Lesson Part Text" and "Current Lesson Part Title". Do NOT use external knowledge beyond interpreting the provided text.
 - Generate questions appropriate for the requested 'Target Difficulty'.
 - **CRITICAL**: Review the "Previously Generated Questions" list provided by the user. Do NOT generate questions that are identical or substantially similar in meaning to any question in that list.
-- `image_prompt_idea` fields are optional, short, and descriptive if included.
+- `image_prompt_idea` short, and descriptive.
+- `image_search_keywords` short, and relevant to the question without hinting the answer.
 PROMPT;
 
 		/**
-		 * Generates the basic lesson structure (no quizzes) using an LLM.
+		 * Generates the basic lesson structure (no questions) using an LLM.
 		 */
 		public static function generateLessonStructure(string $llm, string $userSubject, int $maxRetries = 1): array
 		{
@@ -116,7 +118,7 @@ PROMPT;
 		}
 
 		/**
-		 * MODIFIED: Generates 5 quizzes for a single lesson part and difficulty using an LLM.
+		 * MODIFIED: Generates 3 questions for a single lesson part and difficulty using an LLM.
 		 *
 		 * @param string $llm The LLM model ID.
 		 * @param string $lessonPartTitle Title of the current lesson part.
@@ -126,7 +128,7 @@ PROMPT;
 		 * @param int $maxRetries Maximum number of retries for the LLM call.
 		 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 		 */
-		public static function generateQuizzesForPartDifficulty(string $llm, string $lessonPartTitle, string $lessonPartText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
+		public static function generateQuestionsForPartDifficulty(string $llm, string $lessonPartTitle, string $lessonPartText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
 		{
 			$userContent = "Current Lesson Part Title: " . $lessonPartTitle . "\n\n";
 			$userContent .= "Current Lesson Part Text: " . $lessonPartText . "\n\n";
@@ -140,17 +142,17 @@ PROMPT;
 				}
 			}
 
-			$chatHistoryQuizGen = [['role' => 'user', 'content' => $userContent]];
-			Log::info("Requesting {$difficulty} quiz generation for part '{$lessonPartTitle}' using LLM: {$llm}");
+			$chatHistoryQuestionGen = [['role' => 'user', 'content' => $userContent]];
+			Log::info("Requesting {$difficulty} question generation for part '{$lessonPartTitle}' using LLM: {$llm}");
 			// Log::debug("Existing questions provided to LLM for duplication check:", $existingQuestionTexts); // Optional
 
-			// Expecting a flat array of 5 quiz objects now
-			return MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_QUIZ_GENERATION, $chatHistoryQuizGen, true, $maxRetries);
+			// Expecting a flat array of 5 question objects now
+			return MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_QUIZ_GENERATION, $chatHistoryQuestionGen, true, $maxRetries);
 		}
 
 
 		/**
-		 * Validates the structure of the basic lesson plan (no quizzes).
+		 * Validates the structure of the basic lesson plan (no questions).
 		 */
 		public static function isValidLessonStructureResponse(?array $planData): bool
 		{
@@ -163,35 +165,27 @@ PROMPT;
 				if (!is_array($part) || !isset($part['title']) || !is_string($part['title']) || !isset($part['text']) || !is_string($part['text']) || !isset($part['image_prompt_idea']) || !is_string($part['image_prompt_idea'])) {
 					return false;
 				}
-				// DO NOT check for 'quizzes' key here
+				// DO NOT check for 'questions' key here
 			}
 			return true; // All checks passed
 		}
 
 		/**
-		 * RENAMED & MODIFIED: Validates the structure of a list of quiz questions (e.g., a batch of 5).
+		 * RENAMED & MODIFIED: Validates the structure of a list of question questions (e.g., a batch of 5).
 		 *
-		 * @param array|null $quizListData The decoded JSON data (should be an array of quiz objects).
+		 * @param array|null $questionListData The decoded JSON data (should be an array of question objects).
 		 * @return bool True if the structure is valid, false otherwise.
 		 */
-		public static function isValidQuizListResponse(?array $quizListData): bool
+		public static function isValidQuestionListResponse(?array $questionListData): bool
 		{
-			if (empty($quizListData) || !is_array($quizListData)) {
-				Log::warning('Invalid Quiz List: Data is empty or not an array.', ['data' => $quizListData]);
+			if (empty($questionListData) || !is_array($questionListData)) {
+				Log::warning('Invalid Question List: Data is empty or not an array.', ['data' => $questionListData]);
 				return false;
 			}
 
-			// Check if it's exactly 5 questions (as requested from LLM)
-//			if (count($quizListData) !== 5) {
-//				Log::warning('Invalid Quiz List: Count is not 5.', ['count' => count($quizListData)]);
-//				return false;
-//			}
-
-			foreach ($quizListData as $index => $quiz) {
-				// Use existing single quiz validation
-				// image_prompt_idea is optional in the response, so set requireImagePrompt to false
-				if (!self::isValidSingleQuizStructure($quiz)) {
-					Log::warning("Invalid quiz structure found within quiz list (Quiz index {$index}).", ['quiz_data' => $quiz]);
+			foreach ($questionListData as $index => $question) {
+				if (!self::isValidSingleQuestionStructure($question)) {
+					Log::warning("Invalid question structure found within question list (Question index {$index}).", ['question_data' => $question]);
 					return false;
 				}
 			}
@@ -199,13 +193,13 @@ PROMPT;
 		}
 
 
-		public static function isValidSingleQuizStructure($data): bool
+		public static function isValidSingleQuestionStructure($data): bool
 		{
 			if (!is_array($data)) return false;
 			if (!isset($data['question']) || !is_string($data['question'])) return false;
 
-			// Make image_prompt_idea check conditional based on the flag
 			if ((!isset($data['image_prompt_idea']) || !is_string($data['image_prompt_idea']))) return false;
+			if (!isset($data['image_search_keywords']) || !is_string($data['image_search_keywords'])) return false;
 
 			if (!isset($data['answers']) || !is_array($data['answers']) || count($data['answers']) !== 4) return false;
 
@@ -224,7 +218,7 @@ PROMPT;
 		}
 
 		/**
-		 * MODIFIED: Handle AJAX request to generate lesson structure preview (NO quizzes).
+		 * MODIFIED: Handle AJAX request to generate lesson structure preview (NO questions).
 		 *
 		 * @param Request $request
 		 * @return \Illuminate\Http\JsonResponse
@@ -266,7 +260,7 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your subject or using a different model.']);
 			}
 
-			Log::info("Lesson structure generated successfully for preview (no quizzes).");
+			Log::info("Lesson structure generated successfully for preview (no questions).");
 
 			// Return the structure data
 			return response()->json(['success' => true, 'plan' => $planStructureResult]);
@@ -274,7 +268,7 @@ PROMPT;
 
 		/**
 		 * MODIFIED: Handle the actual creation after user confirmation.
-		 * Saves ONLY the lesson structure. Quizzes are generated later via edit screen.
+		 * Saves ONLY the lesson structure. Questions are generated later via edit screen.
 		 *
 		 * @param Request $request
 		 * @return \Illuminate\Http\JsonResponse | \Illuminate\Http\RedirectResponse
@@ -292,7 +286,7 @@ PROMPT;
 				'plan.lesson_parts.*.title' => 'required|string',
 				'plan.lesson_parts.*.text' => 'required|string',
 				'plan.lesson_parts.*.image_prompt_idea' => 'required|string',
-				// No 'quizzes' validation needed here
+				// No 'questions' validation needed here
 			]);
 
 			if ($validator->fails()) {
@@ -318,22 +312,22 @@ PROMPT;
 				'name' => $userSubject,
 				'title' => $plan['main_title'],
 				'image_prompt_idea' => $plan['image_prompt_idea'],
-				'lesson_parts' => $plan['lesson_parts'], // Store parts array (no quizzes inside yet)
+				'lesson_parts' => $plan['lesson_parts'], // Store parts array (no questions inside yet)
 				'session_id' => $sessionId,
 				'llm_used' => $llm,
 			]);
 
-			Log::info("Subject record created with ID: {$subject->id}, SessionID: {$sessionId}. No quizzes created at this stage.");
+			Log::info("Subject record created with ID: {$subject->id}, SessionID: {$sessionId}. No questions created at this stage.");
 
-			// --- 2. NO Quiz Records Created Here ---
+			// --- 2. NO Question Records Created Here ---
 
 			// --- 3. Respond / Redirect ---
 			// Assets (video, audio, images) will be generated on first access or via edit screen/background job.
 			Log::info("Lesson structure saved successfully. Redirecting user to edit screen.");
 			return response()->json([
 				'success' => true,
-				'message' => 'Lesson structure saved! Please use the edit screen to add quizzes and generate assets.',
-				// Redirect to EDIT screen instead of quiz interface
+				'message' => 'Lesson structure saved! Please use the edit screen to add questions and generate assets.',
+				// Redirect to EDIT screen instead of question interface
 				'redirectUrl' => route('lesson.edit', ['subject' => $sessionId])
 			]);
 		}
@@ -348,29 +342,29 @@ PROMPT;
 		 */
 		public function edit(Subject $subject)
 		{
-			// Eager load quizzes and their associated images
+			// Eager load questions and their associated images
 			// Order them by part, then difficulty, then their own order/id
-			$subject->load(['quizzes' => function ($query) {
+			$subject->load(['questions' => function ($query) {
 				$query->orderBy('lesson_part_index', 'asc')
 					->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")
 					->orderBy('order', 'asc') // Use the order field
 					->orderBy('id', 'asc');
-			}, 'quizzes.generatedImage']);
+			}, 'questions.generatedImage']);
 
 			Log::info("Showing edit page for Subject ID: {$subject->id} (Session: {$subject->session_id})");
 
-			// Group quizzes by part and difficulty for easier display in the view
-			$groupedQuizzes = [];
-			foreach ($subject->quizzes as $quiz) {
-				$partIndex = $quiz->lesson_part_index;
-				$difficulty = $quiz->difficulty_level;
-				if (!isset($groupedQuizzes[$partIndex])) {
-					$groupedQuizzes[$partIndex] = ['easy' => [], 'medium' => [], 'hard' => []];
+			// Group questions by part and difficulty for easier display in the view
+			$groupedQuestions = [];
+			foreach ($subject->questions as $question) {
+				$partIndex = $question->lesson_part_index;
+				$difficulty = $question->difficulty_level;
+				if (!isset($groupedQuestions[$partIndex])) {
+					$groupedQuestions[$partIndex] = ['easy' => [], 'medium' => [], 'hard' => []];
 				}
-				if (!isset($groupedQuizzes[$partIndex][$difficulty])) {
-					$groupedQuizzes[$partIndex][$difficulty] = []; // Ensure difficulty array exists
+				if (!isset($groupedQuestions[$partIndex][$difficulty])) {
+					$groupedQuestions[$partIndex][$difficulty] = []; // Ensure difficulty array exists
 				}
-				$groupedQuizzes[$partIndex][$difficulty][] = $quiz;
+				$groupedQuestions[$partIndex][$difficulty][] = $question;
 			}
 
 			// Decode lesson parts if needed (it should be auto-decoded by cast)
@@ -381,19 +375,19 @@ PROMPT;
 			// Ensure it's an array for the view
 			$subject->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
 
-			// Get the default LLM (needed if generating quizzes on this page)
+			// Get the default LLM (needed if generating questions on this page)
 			$llm = $subject->llm_used ?: env('DEFAULT_LLM');
 
 			return view('lesson_edit', [
 				'subject' => $subject,
-				'groupedQuizzes' => $groupedQuizzes,
+				'groupedQuestions' => $groupedQuestions,
 				'llm' => $llm, // Pass LLM to view for generation calls
 			]);
 		}
 
 
 		/**
-		 * NEW: AJAX endpoint to generate a batch of 5 quizzes for a specific part and difficulty.
+		 * NEW: AJAX endpoint to generate a batch of 3 questions for a specific part and difficulty.
 		 *
 		 * @param Request $request
 		 * @param Subject $subject
@@ -401,9 +395,9 @@ PROMPT;
 		 * @param string $difficulty ('easy', 'medium', 'hard')
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function generateQuizBatchAjax(Request $request, Subject $subject, int $partIndex, string $difficulty)
+		public function generateQuestionBatchAjax(Request $request, Subject $subject, int $partIndex, string $difficulty)
 		{
-			Log::info("AJAX request to generate '{$difficulty}' quiz batch for Subject ID: {$subject->id}, Part Index: {$partIndex}");
+			Log::info("AJAX request to generate '{$difficulty}' question batch for Subject ID: {$subject->id}, Part Index: {$partIndex}");
 
 			// Validate difficulty
 			if (!in_array($difficulty, ['easy', 'medium', 'hard'])) {
@@ -424,7 +418,7 @@ PROMPT;
 			$partText = $partData['text'] ?? '';
 
 			if(empty($partText)){
-				Log::error("Cannot generate quizzes for part {$partIndex}: Text is empty.");
+				Log::error("Cannot generate questions for part {$partIndex}: Text is empty.");
 				return response()->json(['success' => false, 'message' => 'Lesson part text is empty.'], 400);
 			}
 
@@ -436,11 +430,11 @@ PROMPT;
 			}
 
 			// Fetch ALL existing question texts for THIS subject to prevent duplicates
-			$existingQuestionTexts = $subject->quizzes()->pluck('question_text')->toArray();
+			$existingQuestionTexts = $subject->questions()->pluck('question_text')->toArray();
 			Log::debug("Found " . count($existingQuestionTexts) . " existing questions for subject {$subject->id}");
 
 			$maxRetries = 1;
-			$quizResult = self::generateQuizzesForPartDifficulty(
+			$questionResult = self::generateQuestionsForPartDifficulty(
 				$llm,
 				$partTitle,
 				$partText,
@@ -449,34 +443,34 @@ PROMPT;
 				$maxRetries
 			);
 
-			Log::info("LLM Quiz Gen Result for Part {$partIndex}, Difficulty '{$difficulty}': ", $quizResult);
+			Log::info("LLM Question Gen Result for Part {$partIndex}, Difficulty '{$difficulty}': ", $questionResult);
 
-			if (isset($quizResult['error'])) {
-				$errorMsg = $quizResult['error'];
-				$logMsg = "LLM Quiz Gen Error for Part {$partIndex}, Difficulty '{$difficulty}': " . $errorMsg;
+			if (isset($questionResult['error'])) {
+				$errorMsg = $questionResult['error'];
+				$logMsg = "LLM Question Gen Error for Part {$partIndex}, Difficulty '{$difficulty}': " . $errorMsg;
 				Log::error($logMsg, ['subject' => $subject->id, 'llm' => $llm, 'part_title' => $partTitle]);
-				return response()->json(['success' => false, 'message' => "Failed to generate {$difficulty} quizzes: " . $errorMsg], 500);
+				return response()->json(['success' => false, 'message' => "Failed to generate {$difficulty} questions: " . $errorMsg], 500);
 			}
 
 
-			// Validate the generated list of 5 quizzes
-			if (!self::isValidQuizListResponse($quizResult['questions'])) {
-				$errorMsg = "LLM returned an invalid {$difficulty} quiz structure for lesson part '{$partTitle}'.";
-				Log::error($errorMsg, ['subject' => $subject->id, 'llm' => $llm, 'part_title' => $partTitle, 'response' => $quizResult]);
+			// Validate the generated list of questions
+			if (!self::isValidQuestionListResponse($questionResult['questions'])) {
+				$errorMsg = "LLM returned an invalid {$difficulty} question structure for lesson part '{$partTitle}'.";
+				Log::error($errorMsg, ['subject' => $subject->id, 'llm' => $llm, 'part_title' => $partTitle, 'response' => $questionResult]);
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try again.'], 500);
 			}
 
-			// Save the new quizzes
-			$createdQuizzesData = [];
+			// Save the new questions
+			$createdQuestionsData = [];
 			// Determine the next order number
-			$maxOrder = Quiz::where('subject_id', $subject->id)->max('order') ?? -1;
+			$maxOrder = Question::where('subject_id', $subject->id)->max('order') ?? -1;
 			$nextOrder = $maxOrder + 1;
 
 			try {
-				foreach ($quizResult['questions'] as $quizQuestionData) {
+				foreach ($questionResult['questions'] as $questionQuestionData) {
 					// Prepare answers array *without* audio paths
 					$answersToStore = [];
-					foreach ($quizQuestionData['answers'] as $answer) {
+					foreach ($questionQuestionData['answers'] as $answer) {
 						$answersToStore[] = [
 							'text' => $answer['text'],
 							'is_correct' => $answer['is_correct'],
@@ -485,45 +479,46 @@ PROMPT;
 						];
 					}
 
-					$newQuiz = Quiz::create([
+					$newQuestion = Question::create([
 						'subject_id' => $subject->id,
-						'image_prompt_idea' => $quizQuestionData['image_prompt_idea'] ?? null,
-						'question_text' => $quizQuestionData['question'],
+						'image_prompt_idea' => $questionQuestionData['image_prompt_idea'] ?? null,
+						'image_search_keywords' => $questionQuestionData['image_search_keywords'] ?? null,
+						'question_text' => $questionQuestionData['question'],
 						'answers' => $answersToStore,
 						'difficulty_level' => $difficulty,
 						'lesson_part_index' => $partIndex,
 						'order' => $nextOrder++,
 					]);
 					// Load the image relationship in case it was somehow set (unlikely here)
-					// $newQuiz->load('generatedImage');
-					$createdQuizzesData[] = $newQuiz->toArray() + ['question_audio_url' => null]; // Add null audio URL initially
+					// $newQuestion->load('generatedImage');
+					$createdQuestionsData[] = $newQuestion->toArray() + ['question_audio_url' => null]; // Add null audio URL initially
 				}
-				Log::info("Created " . count($createdQuizzesData) . " new '{$difficulty}' quiz records for Subject ID: {$subject->id}, Part: {$partIndex}");
+				Log::info("Created " . count($createdQuestionsData) . " new '{$difficulty}' question records for Subject ID: {$subject->id}, Part: {$partIndex}");
 
-				// Return the data for the newly created quizzes so the frontend can render them
+				// Return the data for the newly created questions so the frontend can render them
 				return response()->json([
 					'success' => true,
-					'message' => "Successfully generated 5 {$difficulty} quizzes!",
-					'quizzes' => $createdQuizzesData // Send back data for JS rendering
+					'message' => "Successfully generated 5 {$difficulty} questions!",
+					'questions' => $createdQuestionsData // Send back data for JS rendering
 				]);
 
 			} catch (Exception $e) {
-				Log::error("Database error saving new quizzes for Subject ID {$subject->id}: " . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'Failed to save generated quizzes.'], 500);
+				Log::error("Database error saving new questions for Subject ID {$subject->id}: " . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'Failed to save generated questions.'], 500);
 			}
 		}
 
 		/**
-		 * NEW: AJAX endpoint to delete a specific quiz.
+		 * NEW: AJAX endpoint to delete a specific question.
 		 *
-		 * @param Quiz $quiz Route model binding
+		 * @param Question $question Route model binding
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function deleteQuizAjax(Quiz $quiz)
+		public function deleteQuestionAjax(Question $question)
 		{
-			$quizId = $quiz->id;
-			$subjectId = $quiz->subject_id;
-			Log::info("AJAX request to delete Quiz ID: {$quizId} from Subject ID: {$subjectId}");
+			$questionId = $question->id;
+			$subjectId = $question->subject_id;
+			Log::info("AJAX request to delete Question ID: {$questionId} from Subject ID: {$subjectId}");
 
 			DB::beginTransaction(); // Use transaction for safety
 			try {
@@ -531,12 +526,12 @@ PROMPT;
 
 				// --- Asset Cleanup ---
 				// 1. Audio Files
-				if ($quiz->question_audio_path && Storage::disk('public')->exists($quiz->question_audio_path)) {
-					Storage::disk('public')->delete($quiz->question_audio_path);
-					Log::info("Deleted question audio file: {$quiz->question_audio_path}");
+				if ($question->question_audio_path && Storage::disk('public')->exists($question->question_audio_path)) {
+					Storage::disk('public')->delete($question->question_audio_path);
+					Log::info("Deleted question audio file: {$question->question_audio_path}");
 				}
-				if (is_array($quiz->answers)) {
-					foreach ($quiz->answers as $answer) {
+				if (is_array($question->answers)) {
+					foreach ($question->answers as $answer) {
 						// Safely access keys
 						$answerAudioPath = $answer['answer_audio_path'] ?? null;
 						$feedbackAudioPath = $answer['feedback_audio_path'] ?? null;
@@ -553,30 +548,30 @@ PROMPT;
 				}
 
 				// 2. Associated Image File (ONLY if source is 'upload' or 'freepik')
-				if ($quiz->generated_image_id) {
-					$image = GeneratedImage::find($quiz->generated_image_id);
+				if ($question->generated_image_id) {
+					$image = GeneratedImage::find($question->generated_image_id);
 					if ($image && in_array($image->source, ['upload', 'freepik'])) {
-						Log::info("Deleting storage files for GeneratedImage ID: {$image->id} (Source: {$image->source}) linked to Quiz ID: {$quizId}");
+						Log::info("Deleting storage files for GeneratedImage ID: {$image->id} (Source: {$image->source}) linked to Question ID: {$questionId}");
 						$image->deleteStorageFiles();
 						// Optionally delete the GeneratedImage record itself if it's guaranteed not to be reused
 						// $image->delete();
-						// For now, just delete files to be safer. Quiz deletion breaks the link.
+						// For now, just delete files to be safer. Question deletion breaks the link.
 					} elseif ($image) {
 						Log::info("Keeping GeneratedImage ID: {$image->id} (Source: {$image->source}) as it might be shared or managed elsewhere.");
 					}
 				}
 
-				// --- Delete Quiz Record ---
-				$quiz->delete();
+				// --- Delete Question Record ---
+				$question->delete();
 				DB::commit(); // Commit transaction
 
-				Log::info("Successfully deleted Quiz ID: {$quizId}");
-				return response()->json(['success' => true, 'message' => 'Quiz deleted successfully.']);
+				Log::info("Successfully deleted Question ID: {$questionId}");
+				return response()->json(['success' => true, 'message' => 'Question deleted successfully.']);
 
 			} catch (Exception $e) {
 				DB::rollBack(); // Rollback on error
-				Log::error("Error deleting Quiz ID {$quizId}: " . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'Failed to delete quiz.'], 500);
+				Log::error("Error deleting Question ID {$questionId}: " . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'Failed to delete question.'], 500);
 			}
 		}
 
@@ -664,29 +659,29 @@ PROMPT;
 			}
 		}
 
-		public function generateQuestionAudioAjax(Quiz $quiz)
+		public function generateQuestionAudioAjax(Question $question)
 		{
 			// ... (Keep existing implementation) ...
-			Log::info("AJAX request to generate question audio for Quiz ID: {$quiz->id}");
+			Log::info("AJAX request to generate question audio for Question ID: {$question->id}");
 
-			if (!empty($quiz->question_audio_path) && !empty($quiz->question_audio_url)) {
+			if (!empty($question->question_audio_path) && !empty($question->question_audio_url)) {
 				// Verify file existence before claiming success
-				if (Storage::disk('public')->exists($quiz->question_audio_path)) {
-					Log::warning("Question audio already exists for Quiz ID: {$quiz->id}. Path: {$quiz->question_audio_path}");
+				if (Storage::disk('public')->exists($question->question_audio_path)) {
+					Log::warning("Question audio already exists for Question ID: {$question->id}. Path: {$question->question_audio_path}");
 					return response()->json([
 						'success' => true, // Indicate it exists
 						'message' => 'Question audio already exists.',
-						'audio_url' => $quiz->question_audio_url,
-						'audio_path' => $quiz->question_audio_path
+						'audio_url' => $question->question_audio_url,
+						'audio_path' => $question->question_audio_path
 					], 200); // 200 OK
 				} else {
-					Log::warning("Question audio path/URL recorded but file missing for Quiz ID: {$quiz->id}. Path: {$quiz->question_audio_path}. Will attempt regeneration.");
+					Log::warning("Question audio path/URL recorded but file missing for Question ID: {$question->id}. Path: {$question->question_audio_path}. Will attempt regeneration.");
 					// Allow generation to proceed
 				}
 			}
 
-			if (empty($quiz->question_text)) {
-				Log::error("Cannot generate question audio for Quiz ID {$quiz->id}: Question text is empty.");
+			if (empty($question->question_text)) {
+				Log::error("Cannot generate question audio for Question ID {$question->id}: Question text is empty.");
 				return response()->json(['success' => false, 'message' => 'Question text is empty.'], 400);
 			}
 
@@ -695,11 +690,11 @@ PROMPT;
 				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
 				$languageCode = 'en-US';
 				// More robust unique identifier
-				$quizIdentifier = "s{$quiz->subject_id}_p{$quiz->lesson_part_index}_q{$quiz->id}";
-				$outputFilenameBase = 'audio/quiz_q_' . $quizIdentifier; // Include path segment
+				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
+				$outputFilenameBase = 'audio/question_q_' . $questionIdentifier; // Include path segment
 
 				$audioResult = MyHelper::text2speech(
-					$quiz->question_text,
+					$question->question_text,
 					$ttsVoice,
 					$languageCode,
 					$outputFilenameBase,
@@ -707,36 +702,36 @@ PROMPT;
 				);
 
 				if ($audioResult['success'] && isset($audioResult['storage_path'])) {
-					$quiz->question_audio_path = $audioResult['storage_path'];
-					$quiz->save(); // Save the path, accessor will generate URL
+					$question->question_audio_path = $audioResult['storage_path'];
+					$question->save(); // Save the path, accessor will generate URL
 
 					// We need to get the URL generated by the accessor to return it
-					$generatedUrl = $quiz->fresh()->question_audio_url; // Refresh model and get URL
+					$generatedUrl = $question->fresh()->question_audio_url; // Refresh model and get URL
 
-					Log::info("Question audio generated for Quiz ID: {$quiz->id}. Path: {$quiz->question_audio_path}, URL: {$generatedUrl}");
+					Log::info("Question audio generated for Question ID: {$question->id}. Path: {$question->question_audio_path}, URL: {$generatedUrl}");
 					return response()->json([
 						'success' => true,
 						'message' => 'Question audio generated successfully!',
 						'audio_url' => $generatedUrl, // Return the generated URL
-						'audio_path' => $quiz->question_audio_path,
+						'audio_path' => $question->question_audio_path,
 					]);
 				} else {
 					throw new \Exception($audioResult['message'] ?? 'TTS generation failed');
 				}
 			} catch (\Exception $e) {
-				Log::error("Exception during question audio generation for Quiz ID {$quiz->id}: " . $e->getMessage());
+				Log::error("Exception during question audio generation for Question ID {$question->id}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Server error during audio generation: ' . $e->getMessage()], 500);
 			}
 		}
 
-		public function generateAnswerAudioAjax(Quiz $quiz)
+		public function generateAnswerAudioAjax(Question $question)
 		{
-			Log::info("AJAX request to generate answer/feedback audio for Quiz ID: {$quiz->id}");
-			$currentAnswers = $quiz->answers ?? [];
+			Log::info("AJAX request to generate answer/feedback audio for Question ID: {$question->id}");
+			$currentAnswers = $question->answers ?? [];
 
 			if (empty($currentAnswers) || !is_array($currentAnswers)) {
-				Log::error("Cannot generate answer audio for Quiz ID {$quiz->id}: Answers data is missing or invalid.");
-				return response()->json(['success' => false, 'message' => 'Quiz answers data is missing or invalid.'], 400);
+				Log::error("Cannot generate answer audio for Question ID {$question->id}: Answers data is missing or invalid.");
+				return response()->json(['success' => false, 'message' => 'Question answers data is missing or invalid.'], 400);
 			}
 
 			// Check if audio seems to exist already (e.g., first answer has BOTH paths/URLs and files exist)
@@ -746,17 +741,17 @@ PROMPT;
 					Storage::disk('public')->exists($currentAnswers[0]['feedback_audio_path'])) {
 					$audioExists = true;
 				} else {
-					Log::warning("Answer/Feedback audio paths recorded but files missing for Quiz ID: {$quiz->id}. Will attempt regeneration.");
+					Log::warning("Answer/Feedback audio paths recorded but files missing for Question ID: {$question->id}. Will attempt regeneration.");
 				}
 			}
 
 			if ($audioExists) {
-				Log::warning("Answer/feedback audio seems to already exist and files are present for Quiz ID: {$quiz->id}.");
+				Log::warning("Answer/feedback audio seems to already exist and files are present for Question ID: {$question->id}.");
 				// Return the existing data so JS can potentially update button states if needed
 				return response()->json([
 					'success' => true, // Indicate it exists
 					'message' => 'Answer/feedback audio appears to already exist.',
-					'answers' => $quiz->answers, // Return current answer data
+					'answers' => $question->answers, // Return current answer data
 				], 200);
 			}
 
@@ -764,90 +759,87 @@ PROMPT;
 				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
 				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
 				$languageCode = 'en-US';
-				$quizIdentifier = "s{$quiz->subject_id}_p{$quiz->lesson_part_index}_q{$quiz->id}";
-				$filenamePrefix = 'audio/quiz_' . $quizIdentifier; // Include path segment
+				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
+				$filenamePrefix = 'audio/question_' . $questionIdentifier; // Include path segment
 
-				// Process answers using the static method in Quiz model
-				$processedAnswers = Quiz::processAnswersWithTTS(
+				// Process answers using the static method in Question model
+				$processedAnswers = Question::processAnswersWithTTS(
 					$currentAnswers,
-					$quiz->id, // Pass Quiz ID for potential use inside, although identifier is main now
+					$question->id, // Pass Question ID for potential use inside, although identifier is main now
 					$filenamePrefix, // Identifier for filenames
 					$ttsEngine,
 					$ttsVoice,
 					$languageCode
 				);
 
-				// Update the quiz's answers column
-				$quiz->answers = $processedAnswers;
-				$quiz->save();
+				// Update the question's answers column
+				$question->answers = $processedAnswers;
+				$question->save();
 
-				Log::info("Answer/feedback audio generation complete for Quiz ID: {$quiz->id}");
+				Log::info("Answer/feedback audio generation complete for Question ID: {$question->id}");
 				return response()->json([
 					'success' => true,
 					'message' => 'Answer and feedback audio generated successfully!',
 					'answers' => $processedAnswers // Return updated answers array
 				]);
 			} catch (\Exception $e) {
-				Log::error("Exception during answer/feedback audio generation for Quiz ID {$quiz->id}: " . $e->getMessage());
+				Log::error("Exception during answer/feedback audio generation for Question ID {$question->id}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Server error during audio generation: ' . $e->getMessage()], 500);
 			}
 		}
 
-		public function generateQuizImageAjax(Request $request, Quiz $quiz)
+		public function generateQuestionImageAjax(Request $request, Question $question)
 		{
 			$newPrompt = $request->input('new_prompt'); // Get potential new prompt
 
 			if ($newPrompt) {
-				Log::info("AJAX request to *regenerate* image for Quiz ID: {$quiz->id} with new prompt.");
+				Log::info("AJAX request to *regenerate* image for Question ID: {$question->id} with new prompt.");
 				$validator = Validator::make(['new_prompt' => $newPrompt], [
 					'new_prompt' => 'required|string|max:500'
 				]);
 				if ($validator->fails()) {
-					Log::error("Invalid prompt provided for image regeneration. Quiz ID: {$quiz->id}", ['errors' => $validator->errors()]);
+					Log::error("Invalid prompt provided for image regeneration. Question ID: {$question->id}", ['errors' => $validator->errors()]);
 					return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
 				}
-				// Update prompt *before* generating
-				$quiz->image_prompt_idea = $newPrompt;
-				// Keep old generated_image_id for now, will be overwritten on success.
-				// Cleanup of old image could be manual or via job if necessary.
-				$quiz->save();
-				Log::info("Updated image prompt for Quiz ID: {$quiz->id}. Proceeding with regeneration.");
+				$question->image_prompt_idea = $newPrompt;
+				$question->save();
+				Log::info("Updated image prompt for Question ID: {$question->id}. Proceeding with regeneration.");
 
 			} else {
-				Log::info("AJAX request to generate image for Quiz ID: {$quiz->id}.");
+				Log::info("AJAX request to generate image for Question ID: {$question->id}.");
 				// --- Standard Generation - Check Existence ---
-				if (!empty($quiz->generated_image_id)) {
-					$existingImage = GeneratedImage::find($quiz->generated_image_id);
+				if (!empty($question->generated_image_id)) {
+					$existingImage = GeneratedImage::find($question->generated_image_id);
 					if ($existingImage && $existingImage->original_url && Storage::disk('public')->exists($existingImage->image_original_path)) {
-						Log::warning("Image already exists and file found for Quiz ID: {$quiz->id}. Image ID: {$quiz->generated_image_id}");
+						Log::warning("Image already exists and file found for Question ID: {$question->id}. Image ID: {$question->generated_image_id}");
 						return response()->json([
 							'success' => true, // Indicate it exists
-							'message' => 'Image already exists for this quiz.',
-							'image_id' => $quiz->generated_image_id,
+							'message' => 'Image already exists for this question.',
+							'image_id' => $question->generated_image_id,
 							'image_urls' => [
 								'small' => $existingImage->small_url,
 								'medium' => $existingImage->medium_url,
 								'large' => $existingImage->large_url,
 								'original' => $existingImage->original_url,
 							],
-							'prompt' => $quiz->image_prompt_idea // Return current prompt
+							'prompt' => $question->image_prompt_idea // Return current prompt
 						], 200); // 200 OK
 					} else {
-						Log::warning("Image ID {$quiz->generated_image_id} linked to Quiz {$quiz->id}, but image record or file missing. Will attempt regeneration.");
+						Log::warning("Image ID {$question->generated_image_id} linked to Question {$question->id}, but image record or file missing. Will attempt regeneration.");
 						// Reset link and allow generation to proceed
-						$quiz->generated_image_id = null;
-						$quiz->save();
+						$question->generated_image_id = null;
+						$question->save();
 					}
 				}
-				if (empty($quiz->image_prompt_idea)) {
-					Log::error("Cannot generate image for Quiz ID {$quiz->id}: Image prompt is empty.");
+				if (empty($question->image_prompt_idea)) {
+					Log::error("Cannot generate image for Question ID {$question->id}: Image prompt is empty.");
 					return response()->json(['success' => false, 'message' => 'Image prompt is empty.'], 400);
 				}
 			}
 
 			// --- Common Generation Call ---
 			try {
-				$promptToUse = $quiz->image_prompt_idea; // Already updated if new prompt was provided
+				$promptToUse = $question->image_prompt_idea;
 				if (empty($promptToUse)) {
 					throw new \Exception('Image prompt is unexpectedly empty.');
 				}
@@ -855,7 +847,7 @@ PROMPT;
 				$imageModel = env('DEFAULT_IMAGE_MODEL', 'fal-ai/flux/schnell');
 				$imageSize = 'square_hd'; // Or 'square' etc.
 
-				Log::info("Calling makeImage for Quiz {$quiz->id}. Model: {$imageModel}, Size: {$imageSize}, Prompt: '{$promptToUse}'");
+				Log::info("Calling makeImage for Question {$question->id}. Model: {$imageModel}, Size: {$imageSize}, Prompt: '{$promptToUse}'");
 
 				$imageResult = MyHelper::makeImage(
 					$promptToUse,
@@ -865,11 +857,11 @@ PROMPT;
 
 				// Check for success and *image_id* which is now preferred over guid lookup
 				if ($imageResult['success'] && isset($imageResult['image_id'], $imageResult['image_urls'])) {
-					// Link the generated image to the quiz
-					$quiz->generated_image_id = $imageResult['image_id'];
-					$quiz->save(); // Save the quiz with the new image ID
+					// Link the generated image to the question
+					$question->generated_image_id = $imageResult['image_id'];
+					$question->save(); // Save the question with the new image ID
 
-					Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked for Quiz ID: {$quiz->id}. Image ID: {$imageResult['image_id']}");
+					Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked for Question ID: {$question->id}. Image ID: {$imageResult['image_id']}");
 					return response()->json([
 						'success' => true,
 						'message' => 'Image ' . ($newPrompt ? "regenerated" : "generated") . ' successfully!',
@@ -883,9 +875,9 @@ PROMPT;
 					if ($imageResult['success'] && isset($imageResult['image_guid'])) {
 						$imageModel = GeneratedImage::where('image_guid', $imageResult['image_guid'])->first();
 						if ($imageModel) {
-							$quiz->generated_image_id = $imageModel->id;
-							$quiz->save();
-							Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked (fallback lookup by GUID) for Quiz ID: {$quiz->id}. Image ID: {$imageModel->id}");
+							$question->generated_image_id = $imageModel->id;
+							$question->save();
+							Log::info("Image " . ($newPrompt ? "regenerated" : "generated") . " and linked (fallback lookup by GUID) for Question ID: {$question->id}. Image ID: {$imageModel->id}");
 							$imageUrls = [
 								'small' => $imageModel->small_url,
 								'medium' => $imageModel->medium_url,
@@ -901,7 +893,7 @@ PROMPT;
 								'prompt' => $promptToUse
 							]);
 						} else {
-							Log::error("Image generation reported success with GUID {$imageResult['image_guid']} but GeneratedImage record not found. Quiz ID {$quiz->id}");
+							Log::error("Image generation reported success with GUID {$imageResult['image_guid']} but GeneratedImage record not found. Question ID {$question->id}");
 							throw new \Exception('Image generation succeeded but failed to find/link the image record.');
 						}
 					}
@@ -909,31 +901,31 @@ PROMPT;
 					throw new \Exception($imageResult['message'] ?? 'Image generation failed');
 				}
 			} catch (\Exception $e) {
-				Log::error("Exception during image generation/regeneration for Quiz ID {$quiz->id}: " . $e->getMessage(), ['exception' => $e]);
+				Log::error("Exception during image generation/regeneration for Question ID {$question->id}: " . $e->getMessage(), ['exception' => $e]);
 				// Revert prompt change if regeneration failed? Maybe not, user might want to try again.
 				if ($newPrompt) {
-					Log::warning("Image regeneration failed, but the new prompt '{$newPrompt}' remains saved for Quiz ID {$quiz->id}.");
+					Log::warning("Image regeneration failed, but the new prompt '{$newPrompt}' remains saved for Question ID {$question->id}.");
 				}
 				return response()->json(['success' => false, 'message' => 'Server error during image generation: ' . $e->getMessage()], 500);
 			}
 		}
 
-		public function uploadQuizImageAjax(Request $request, Quiz $quiz)
+		public function uploadQuestionImageAjax(Request $request, Question $question)
 		{
 			$validator = Validator::make($request->all(), [
-				'quiz_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB Max
+				'question_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB Max
 			]);
 
 			if ($validator->fails()) {
 				return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
 			}
 
-			Log::info("AJAX request to upload image for Quiz ID: {$quiz->id}");
+			Log::info("AJAX request to upload image for Question ID: {$question->id}");
 
 			/** @var UploadedFile $uploadedFile */
-			$uploadedFile = $request->file('quiz_image');
+			$uploadedFile = $request->file('question_image');
 			$originalFilename = pathinfo($uploadedFile->getClientOriginalName(), PATHINFO_FILENAME);
-			$baseDir = 'uploads/quiz_images/' . $quiz->subject_id; // Organize by subject
+			$baseDir = 'uploads/question_images/' . $question->subject_id; // Organize by subject
 			$baseName = Str::slug($originalFilename) . '_' . time(); // Unique base name
 
 			DB::beginTransaction();
@@ -947,7 +939,7 @@ PROMPT;
 
 				// --- Create GeneratedImage Record ---
 				$newImage = GeneratedImage::create([
-					'image_type' => 'quiz',
+					'image_type' => 'question',
 					'image_guid' => Str::uuid(), // Unique GUID for image set
 					'source' => 'upload',
 					'prompt' => 'User Upload: ' . $uploadedFile->getClientOriginalName(),
@@ -961,21 +953,19 @@ PROMPT;
 				]);
 
 				// --- Clean up old image files if replaced ---
-				if ($quiz->generated_image_id) {
-					$oldImage = GeneratedImage::find($quiz->generated_image_id);
+				if ($question->generated_image_id) {
+					$oldImage = GeneratedImage::find($question->generated_image_id);
 					if ($oldImage && in_array($oldImage->source, ['upload', 'freepik'])) {
-						Log::info("Deleting old image files (ID: {$oldImage->id}) replaced by upload for Quiz ID: {$quiz->id}");
+						Log::info("Deleting old image files (ID: {$oldImage->id}) replaced by upload for Question ID: {$question->id}");
 						$oldImage->deleteStorageFiles();
 						// Optionally delete the old GeneratedImage record itself
 						// $oldImage->delete();
 					}
 				}
 
-				// --- Link to Quiz ---
-				$quiz->generated_image_id = $newImage->id;
-				// Optionally clear the LLM prompt if a user uploads an image
-				$quiz->image_prompt_idea = null;
-				$quiz->save();
+				// --- Link to Question ---
+				$question->generated_image_id = $newImage->id;
+				$question->save();
 
 				DB::commit();
 
@@ -989,18 +979,18 @@ PROMPT;
 					'original' => $newImage->original_url,
 				];
 
-				Log::info("Image uploaded and linked for Quiz ID: {$quiz->id}. New Image ID: {$newImage->id}");
+				Log::info("Image uploaded and linked for Question ID: {$question->id}. New Image ID: {$newImage->id}");
 				return response()->json([
 					'success' => true,
 					'message' => 'Image uploaded successfully!',
 					'image_id' => $newImage->id,
 					'image_urls' => $imageUrls,
-					'prompt' => $quiz->image_prompt_idea // Return null or updated prompt
+					'prompt' => $question->image_prompt_idea
 				]);
 
 			} catch (Exception $e) {
 				DB::rollBack();
-				Log::error("Exception during image upload for Quiz ID {$quiz->id}: " . $e->getMessage(), ['exception' => $e]);
+				Log::error("Exception during image upload for Question ID {$question->id}: " . $e->getMessage(), ['exception' => $e]);
 				return response()->json(['success' => false, 'message' => 'Server error during image upload: ' . $e->getMessage()], 500);
 			}
 		}

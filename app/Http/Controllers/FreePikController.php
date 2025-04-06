@@ -4,7 +4,7 @@
 
 	use App\Helpers\MyHelper;
 	use App\Models\GeneratedImage;
-	use App\Models\Quiz;
+	use App\Models\Question;
 	use Exception;
 	use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 	use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -30,7 +30,7 @@
 		 * Note: Requires Freepik API key in .env (e.g., FREEPIK_API_KEY)
 		 * and attribution requirements met if using free tier.
 		 */
-		public function searchFreepikAjax(Request $request, Quiz $quiz)
+		public function searchFreepikAjax(Request $request, Question $question)
 		{
 			$validator = Validator::make($request->all(), [
 				'query' => 'required|string|max:100',
@@ -51,7 +51,7 @@
 			$page = $request->input('page', 1);
 			$perPage = 12; // Number of results per page
 
-			Log::info("AJAX request to search Freepik for Quiz ID: {$quiz->id}. Query: '{$query}', Page: {$page}");
+			Log::info("AJAX request to search Freepik for Question ID: {$question->id}. Query: '{$query}', Page: {$page}");
 
 			try {
 				// Check Freepik API docs for current endpoint and parameters
@@ -106,7 +106,7 @@
 				]);
 
 			} catch (Exception $e) {
-				Log::error("Exception during Freepik search for Quiz ID {$quiz->id}: " . $e->getMessage(), ['exception' => $e]);
+				Log::error("Exception during Freepik search for Question ID {$question->id}: " . $e->getMessage(), ['exception' => $e]);
 				return response()->json(['success' => false, 'message' => 'Server error during image search: ' . $e->getMessage()], 500);
 			}
 		}
@@ -114,7 +114,7 @@
 		/**
 		 * NEW: Handle AJAX request to select and download a Freepik image.
 		 */
-		public function selectFreepikImageAjax(Request $request, Quiz $quiz)
+		public function selectFreepikImageAjax(Request $request, Question $question)
 		{
 			$validator = Validator::make($request->all(), [
 				'freepik_id' => 'required|numeric', // Freepik resource ID
@@ -131,7 +131,7 @@
 			$description = $request->input('description', 'Image from Freepik');
 			$apiKey = env('FREEPIK_API_KEY'); // Needed again potentially
 
-			Log::info("AJAX request to select Freepik image ID {$freepikId} for Quiz ID: {$quiz->id}");
+			Log::info("AJAX request to select Freepik image ID {$freepikId} for Question ID: {$question->id}");
 
 			if (!$apiKey) {
 				Log::error("Freepik API Key not configured for download.");
@@ -169,12 +169,15 @@
 				}
 				$imageContent = $imageContentResponse->body();
 				$originalFilename = pathinfo($actualImageUrl, PATHINFO_FILENAME);
-				$baseDir = 'uploads/quiz_images/' . $quiz->subject_id; // Organize by subject
+				$baseDir = 'uploads/question_images/' . $question->subject_id; // Organize by subject
 				$baseName = Str::slug($originalFilename) . '_freepik_source_' . time(); // Unique base name
 				$imageExtension = pathinfo($actualImageUrl, PATHINFO_EXTENSION);
 				$imageExtension = $imageExtension ?: 'jpg'; // Default to jpg if no extension found
 				$imagePath = $baseDir . '/' . $baseName . '.' . $imageExtension;
 				$tempPath = storage_path('app/public/' . $imagePath); // Full path for storage
+				// Ensure the directory exists
+				Storage::makeDirectory('public/' . $baseDir, 0755, true, true);
+
 				Log::info("Downloading Freepik image to: {$tempPath}");
 				file_put_contents($tempPath, $imageContent);
 
@@ -189,7 +192,7 @@
 
 				// --- Step 4: Create GeneratedImage Record ---
 				$newImage = GeneratedImage::create([
-					'image_type' => 'quiz',
+					'image_type' => 'question',
 					'image_guid' => Str::uuid(), // Unique GUID for image set
 					'source' => 'freepik',
 					'prompt' => $description,
@@ -203,19 +206,18 @@
 				]);
 
 				// --- Step 5: Clean up old image files if replaced ---
-				if ($quiz->generated_image_id) {
-					$oldImage = GeneratedImage::find($quiz->generated_image_id);
+				if ($question->generated_image_id) {
+					$oldImage = GeneratedImage::find($question->generated_image_id);
 					if ($oldImage && in_array($oldImage->source, ['upload', 'freepik'])) {
-						Log::info("Deleting old image files (ID: {$oldImage->id}) replaced by Freepik selection for Quiz ID: {$quiz->id}");
+						Log::info("Deleting old image files (ID: {$oldImage->id}) replaced by Freepik selection for Question ID: {$question->id}");
 						$oldImage->deleteStorageFiles();
 						// $oldImage->delete(); // Optional: Delete record
 					}
 				}
 
-				// --- Step 6: Link to Quiz ---
-				$quiz->generated_image_id = $newImage->id;
-				$quiz->image_prompt_idea = $description; // Update prompt to description
-				$quiz->save();
+				// --- Step 6: Link to Question ---
+				$question->generated_image_id = $newImage->id;
+				$question->save();
 
 				DB::commit();
 
@@ -228,13 +230,13 @@
 					'original' => $newImage->original_url,
 				];
 
-				Log::info("Freepik image {$freepikId} selected, downloaded, and linked for Quiz ID: {$quiz->id}. New Image ID: {$newImage->id}");
+				Log::info("Freepik image {$freepikId} selected, downloaded, and linked for Question ID: {$question->id}. New Image ID: {$newImage->id}");
 				return response()->json([
 					'success' => true,
 					'message' => 'Image selected successfully!',
 					'image_id' => $newImage->id,
 					'image_urls' => $imageUrls,
-					'prompt' => $quiz->image_prompt_idea // Return updated prompt
+					'prompt' => $question->image_search_keywords
 				]);
 
 			} catch (Exception $e) {
@@ -243,7 +245,7 @@
 				if (isset($tempPath) && file_exists($tempPath)) {
 					unlink($tempPath);
 				}
-				Log::error("Exception during Freepik image selection for Quiz ID {$quiz->id}: " . $e->getMessage(), ['exception' => $e]);
+				Log::error("Exception during Freepik image selection for Question ID {$question->id}: " . $e->getMessage(), ['exception' => $e]);
 				return response()->json(['success' => false, 'message' => 'Server error during image selection: ' . $e->getMessage()], 500);
 			}
 		}

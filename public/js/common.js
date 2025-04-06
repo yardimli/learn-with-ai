@@ -30,3 +30,62 @@ document.addEventListener('DOMContentLoaded', () => {
 		updateIcons(isDarkMode);
 	});
 });
+
+
+function showSpinner(element, show = true) {
+	if (!element) return;
+	const spinner = element.querySelector('.spinner-border');
+	if (spinner) spinner.classList.toggle('d-none', !show);
+	// Disable button/input associated with the spinner container
+	if (element.tagName === 'BUTTON' || element.tagName === 'INPUT') {
+		element.disabled = show;
+	} else {
+		// If it's a container, try to find a button inside
+		const button = element.querySelector('button');
+		if (button) button.disabled = show;
+	}
+}
+
+function showError(elementOrId, message) {
+	const errorEl = (typeof elementOrId === 'string') ? document.getElementById(elementOrId) : elementOrId;
+	if (errorEl) {
+		errorEl.textContent = message || 'An unknown error occurred.';
+		errorEl.style.display = 'inline-block'; // Or 'block' if preferred
+	} else {
+		console.warn(`Error element not found: ${elementOrId}`);
+		// Fallback to general alert if exists
+		const mainErrorArea = document.getElementById('errorMessageArea');
+		const mainErrorText = document.getElementById('errorMessageText');
+		if (mainErrorArea && mainErrorText) {
+			mainErrorText.textContent = `Error: ${message || 'An unknown error occurred.'}`;
+			mainErrorArea.classList.remove('d-none');
+		}
+	}
+}
+
+function hideError(elementOrId) {
+	const errorEl = (typeof elementOrId === 'string') ? document.getElementById(elementOrId) : elementOrId;
+	if (errorEl && errorEl.style.display !== 'none') {
+		errorEl.style.display = 'none';
+		errorEl.textContent = '';
+	}
+}
+
+function showSuccess(elementOrId, message, autoHideDelay = 3000) {
+	const successEl = (typeof elementOrId === 'string') ? document.getElementById(elementOrId) : elementOrId;
+	if (successEl) {
+		successEl.textContent = message || 'Operation successful.';
+		successEl.style.display = 'block'; // Or 'inline-block'
+		if (autoHideDelay > 0) {
+			setTimeout(() => hideSuccess(successEl), autoHideDelay);
+		}
+	}
+}
+
+function hideSuccess(elementOrId) {
+	const successEl = (typeof elementOrId === 'string') ? document.getElementById(elementOrId) : elementOrId;
+	if (successEl && successEl.style.display !== 'none') {
+		successEl.style.display = 'none';
+		successEl.textContent = '';
+	}
+}

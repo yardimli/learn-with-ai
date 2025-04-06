@@ -11,13 +11,14 @@
 
 	// For URL accessor
 
-	class Quiz extends Model
+	class Question extends Model
 	{
 		use HasFactory;
 
 		protected $fillable = [
 			'subject_id',
 			'image_prompt_idea',
+			'image_search_keywords',
 			'generated_image_id',
 			'question_text',
 			'question_audio_path',
@@ -87,8 +88,8 @@
 		 * Process answers array, generating TTS for text and feedback using the specified engine.
 		 *
 		 * @param array $answers The original answers array from LLM.
-		 * @param int $quizId The ID of the quiz for logging/uniqueness.
-		 * @param string $filenamePrefix Prefix including path segments (e.g., 'audio/quiz_sX_pY_qZ').
+		 * @param int $questionId The ID of the question for logging/uniqueness.
+		 * @param string $filenamePrefix Prefix including path segments (e.g., 'audio/question_sX_pY_qZ').
 		 * @param string $ttsEngine The TTS engine ('google' or 'openai').
 		 * @param string $ttsVoice The voice name specific to the chosen engine.
 		 * @param string $languageCode Language code (primarily for Google).
@@ -96,7 +97,7 @@
 		 */
 		public static function processAnswersWithTTS(
 			array  $answers,
-			int    $quizId, // Keep quizId for logging
+			int    $questionId, // Keep questionId for logging
 			string $filenamePrefix, // Use this as the base for filenames
 			string $ttsEngine,
 			string $ttsVoice,
@@ -108,7 +109,7 @@
 				$baseFilename = Str::slug(Str::limit($answer['text'], 20)) . '_' . $index; // Base on answer text + index
 
 				// --- Generate TTS for ANSWER TEXT ---
-				$answerFilename = $filenamePrefix . '_ans_' . $baseFilename; // e.g., audio/quiz_sX_pY_qZ_ans_answer-text_0
+				$answerFilename = $filenamePrefix . '_ans_' . $baseFilename; // e.g., audio/question_sX_pY_qZ_ans_answer-text_0
 				$answerTtsResult = MyHelper::text2speech(
 					$answer['text'] ?? '',
 					$ttsVoice,
@@ -119,15 +120,15 @@
 				if ($answerTtsResult && isset($answerTtsResult['storage_path'], $answerTtsResult['fileUrl'])) {
 					$answer['answer_audio_path'] = $answerTtsResult['storage_path'];
 					$answer['answer_audio_url'] = $answerTtsResult['fileUrl']; // Store URL directly
-					Log::info("Generated TTS for Quiz {$quizId} Answer {$index}: " . $answerTtsResult['storage_path']);
+					Log::info("Generated TTS for Question {$questionId} Answer {$index}: " . $answerTtsResult['storage_path']);
 				} else {
-					Log::warning("Failed to generate TTS for Quiz {$quizId} Answer {$index}");
+					Log::warning("Failed to generate TTS for Question {$questionId} Answer {$index}");
 					$answer['answer_audio_path'] = null;
 					$answer['answer_audio_url'] = null;
 				}
 
 				// --- Generate TTS for FEEDBACK TEXT ---
-				$feedbackFilename = $filenamePrefix . '_fb_' . $baseFilename; // e.g., audio/quiz_sX_pY_qZ_fb_answer-text_0
+				$feedbackFilename = $filenamePrefix . '_fb_' . $baseFilename; // e.g., audio/question_sX_pY_qZ_fb_answer-text_0
 				$feedbackTtsResult = MyHelper::text2speech(
 					$answer['feedback'] ?? '',
 					$ttsVoice,
@@ -138,9 +139,9 @@
 				if ($feedbackTtsResult && isset($feedbackTtsResult['storage_path'], $feedbackTtsResult['fileUrl'])) {
 					$answer['feedback_audio_path'] = $feedbackTtsResult['storage_path'];
 					$answer['feedback_audio_url'] = $feedbackTtsResult['fileUrl']; // Store URL directly
-					Log::info("Generated TTS for Quiz {$quizId} Feedback {$index}: " . $feedbackTtsResult['storage_path']);
+					Log::info("Generated TTS for Question {$questionId} Feedback {$index}: " . $feedbackTtsResult['storage_path']);
 				} else {
-					Log::warning("Failed to generate TTS for Quiz {$quizId} Feedback {$index}");
+					Log::warning("Failed to generate TTS for Question {$questionId} Feedback {$index}");
 					$answer['feedback_audio_path'] = null;
 					$answer['feedback_audio_url'] = null;
 				}

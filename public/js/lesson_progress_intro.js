@@ -1,9 +1,9 @@
 function setupIntroEventListeners() {
-	startPartQuizButton.addEventListener('click', () => {
+	startPartQuestionButton.addEventListener('click', () => {
 		if (!isLoading && !interactionsDisabled) {
-			console.log("Start Part Quiz button clicked for Part:", currentState.partIndex, "Difficulty:", currentState.difficulty);
+			console.log("Start Part Question button clicked for Part:", currentState.partIndex, "Difficulty:", currentState.difficulty);
 			if (currentState.partIndex === null || currentState.difficulty === null) {
-				setErrorState("Cannot start quiz: Invalid state (part or difficulty missing).");
+				setErrorState("Cannot start question: Invalid state (part or difficulty missing).");
 				return;
 			}
 			// Load questions for the current state's part/difficulty
@@ -91,20 +91,20 @@ function showPartIntro(partIndexToShow) {
 		return;
 	}
 	
-	stopPlaybackSequence(true); // Stop quiz audio and enable interactions
+	stopPlaybackSequence(true); // Stop question audio and enable interactions
 	feedbackData = null; // Clear any lingering feedback
 	isPartIntroVisible = true;
 	hasIntroVideoPlayed = false; // Reset video played flag
-	currentPartQuizzes = []; // Clear quizzes from previous part
-	currentQuizIndex = -1;
-	currentQuiz = null;
+	currentPartQuestions = []; // Clear questions from previous part
+	currentQuestionIndex = -1;
+	currentQuestion = null;
 	displayedPartIndex = partIndexToShow;
 	currentState.partIndex = partIndexToShow;
 	currentState.difficulty = 'easy'; // Reset difficulty to easy for intro
 	
 	
-	// Hide Quiz Area, Show Intro Area
-	toggleElement(quizArea, false);
+	// Hide Question Area, Show Intro Area
+	toggleElement(questionArea, false);
 	toggleElement(completionMessage, false);
 	toggleElement(partIntroArea, true);
 	
@@ -118,9 +118,9 @@ function showPartIntro(partIndexToShow) {
 	const partNumber = partIndexToShow + 1;
 	if(partIntroTitle) partIntroTitle.textContent = `Part ${partNumber}: ${introTitle}`;
 	if(partIntroText) partIntroText.textContent = introText;
-	if(startPartQuizButton) {
-		startPartQuizButton.textContent = `Start Part ${partNumber} Quiz`;
-		startPartQuizButton.disabled = false; // Should be enabled by default
+	if(startPartQuestionButton) {
+		startPartQuestionButton.textContent = `Start Part ${partNumber} Question`;
+		startPartQuestionButton.disabled = false; // Should be enabled by default
 	}
 	
 	// Handle Video Element Existence and Content

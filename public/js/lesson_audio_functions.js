@@ -1,14 +1,14 @@
 // --- TTS Playback Functions ---
 // ... (Keep buildPlaybackQueue, startPlaybackSequence, stopPlaybackSequence, playNextInSequence, handleTtsAudioEnded, handleTtsAudioError) ...
-function buildPlaybackQueue(quizData) {
+function buildPlaybackQueue(questionData) {
 	playbackQueue = [];
 	currentPlaybackIndex = -1;
-	if (!quizData) return;
+	if (!questionData) return;
 	
-	if (quizData.question_audio_url && questionTextElement) {
-		playbackQueue.push({element: questionTextElement, url: quizData.question_audio_url});
+	if (questionData.question_audio_url && questionTextElement) {
+		playbackQueue.push({element: questionTextElement, url: questionData.question_audio_url});
 	}
-	quizData.answers.forEach((answer, index) => {
+	questionData.answers.forEach((answer, index) => {
 		const answerButton = document.getElementById(`answerBtn_${index}`);
 		if (answer.answer_audio_url && answerButton) {
 			playbackQueue.push({element: answerButton, url: answer.answer_audio_url});

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Quiz: ' . $subject->title)
+@section('title', 'Question: ' . $subject->title)
 
 @push('styles')
 	<style>
-      /* Quiz Area */
-      #quizQuestionContainer {
+      /* Question Area */
+      #questionQuestionContainer {
           min-height: 150px; /* Prevent collapsing */
       }
 
@@ -28,7 +28,7 @@
       }
 
       /* Ensure answer buttons fill width */
-      #quizAnswersContainer .answer-btn {
+      #questionAnswersContainer .answer-btn {
           width: 100%;
       }
 
@@ -55,18 +55,18 @@
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio>
 	<audio id="feedbackAudioPlayer" style="display: none;" preload="auto"></audio>
 	
-	<div class="quiz-card"> {{-- Main container --}}
+	<div class="question-card"> {{-- Main container --}}
 		<h3 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h3>
 		
 		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
 		
-		<div id="quizArea" class="d-none">
+		<div id="questionArea" class="d-none">
 			<div class="row">
 				<!-- Left Column: Question Text & Image -->
 				<div class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0">
-					<div id="quizQuestionContainer" class="p-3 border rounded question-container position-relative">
+					<div id="questionQuestionContainer" class="p-3 border rounded question-container position-relative">
 						<p id="questionDifficulty" class="text-muted small mb-2"></p>
-						<p id="questionTextElement" class="quiz-question-text fs-5 mb-4">Loading question...</p>
+						<p id="questionTextElement" class="question-question-text fs-5 mb-4">Loading question...</p>
 						{{-- Question Image Display --}}
 						<div class="mb-3 text-center">
 							<img id="questionImageElement" src="{{ asset('images/placeholder_q.png') }}"
@@ -80,12 +80,12 @@
 				<!-- Right Column: Answers & Feedback -->
 				<div class="col-12 col-md-7">
 					<!-- Answer Buttons -->
-					<div id="quizAnswersContainer" class="d-grid gap-3 mb-4">
+					<div id="questionAnswersContainer" class="d-grid gap-3 mb-4">
 						{{-- Buttons loaded by JS --}}
 					</div>
 				</div> <!-- End Right Column -->
 			</div> <!-- End Row -->
-		</div> <!-- End Quiz Area -->
+		</div> <!-- End Question Area -->
 		
 		{{-- 4. Completion Message Area --}}
 		<div id="completionMessage" class="d-none mt-4">
@@ -109,7 +109,7 @@
 		</div>
 	
 	
-	</div> {{-- End Quiz Card --}}
+	</div> {{-- End Question Card --}}
 	
 	
 	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true"
@@ -141,17 +141,17 @@
 @push('scripts')
 	{{-- Pass initial data from Controller to JS --}}
 	<script>
-		window.quizInitialState = @json($state);
+		window.questionInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
 		window.allPartIntros = @json($allPartIntros);
 		
 		// --- DOM Element References ---
-		let quizArea = null;
+		let questionArea = null;
 		let questionDifficulty = null;
 		let questionTextElement = null;
 		let questionImageElement = null;
 		let noImagePlaceholder = null;
-		let quizAnswersContainer = null;
+		let questionAnswersContainer = null;
 		let completionMessage = null;
 		
 		let feedbackModal = null;
@@ -172,10 +172,10 @@
 		let totalParts = window.totalLessonParts || 0;
 		let difficulties = ['easy', 'medium', 'hard'];
 		
-		let currentState = window.quizInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
-		let currentPartQuizzes = [];
-		let currentQuizIndex = -1;
-		let currentQuiz = null;
+		let currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+		let currentPartQuestions = [];
+		let currentQuestionIndex = -1;
+		let currentQuestion = null;
 		
 		let selectedIndex = null;
 		let isLoading = false;
@@ -200,10 +200,10 @@
 		let partIntroVideo = null;
 		let partIntroVideoPlaceholder = null;
 		let partIntroText = null;
-		let startPartQuizButton = null;
+		let startPartQuestionButton = null;
 		
 		let hasIntroVideoPlayed = false; // Track if intro video played (per part)
-		let isPartIntroVisible = false; // Track if intro or quiz area is shown
+		let isPartIntroVisible = false; // Track if intro or question area is shown
 		
 		let loadingOverlay = null;
 		let loadingMessageEl = null;
@@ -226,10 +226,10 @@
 			subjectSessionId = document.getElementById('subjectSessionId').value;
 			subjectId = document.getElementById('subjectId').value;
 			
-			currentState = window.quizInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
-			currentPartQuizzes = [];
-			currentQuizIndex = -1;
-			currentQuiz = null;
+			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+			currentPartQuestions = [];
+			currentQuestionIndex = -1;
+			currentQuestion = null;
 			
 			selectedIndex = null;
 			isLoading = false;
@@ -242,19 +242,19 @@
 			partIntroVideo = document.getElementById('partIntroVideo');
 			partIntroVideoPlaceholder = document.getElementById('partIntroVideoPlaceholder');
 			partIntroText = document.getElementById('partIntroText');
-			startPartQuizButton = document.getElementById('startPartQuizButton');
+			startPartQuestionButton = document.getElementById('startPartQuestionButton');
 			
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
 			autoPlayAudioSwitch = document.getElementById('autoPlayAudioSwitch');
 			
 			// --- DOM Element References ---
-			quizArea = document.getElementById('quizArea');
+			questionArea = document.getElementById('questionArea');
 			questionDifficulty = document.getElementById('questionDifficulty');
 			questionTextElement = document.getElementById('questionTextElement');
 			questionImageElement = document.getElementById('questionImageElement');
 			noImagePlaceholder = document.getElementById('noImagePlaceholder');
-			quizAnswersContainer = document.getElementById('quizAnswersContainer');
+			questionAnswersContainer = document.getElementById('questionAnswersContainer');
 			
 			feedbackModal = document.getElementById('feedbackModal');
 			feedbackModalLabel = document.getElementById('feedbackModalLabel');
@@ -268,7 +268,7 @@
 			partCompletionMessage = document.getElementById('partCompletionMessage');
 			
 			
-			console.log('Interactive Quiz JS Loaded');
+			console.log('Interactive Question JS Loaded');
 			
 			// --- Load Auto-Play Preference ---
 			const savedAutoPlayPref = localStorage.getItem('autoPlayAudioEnabled');
@@ -281,17 +281,17 @@
 			setupIntroEventListeners();
 			setupAudioEventListeners();
 			setupModalEventListeners();
-			setupQuizAnswerEventListeners();
+			setupQuestionAnswerEventListeners();
 			setupHelperEventListeners();
-			initQuizInterface();
+			initQuestionInterface();
 			
 		});
 		
 	
 	
 	</script>
-	<script src="{{ asset('js/quiz_helper_functions.js') }}"></script>
+	<script src="{{ asset('js/question_helper_functions.js') }}"></script>
 	<script src="{{ asset('js/lesson_audio_functions.js') }}"></script>
 	<script src="{{ asset('js/lesson_progress_intro.js') }}"></script>
-	<script src="{{ asset('js/quiz_interface.js') }}"></script>
+	<script src="{{ asset('js/question_interface.js') }}"></script>
 @endpush

@@ -3,7 +3,7 @@
 	namespace App\Helpers;
 
 	use App\Models\Subject;
-	use App\Models\Quiz;
+	use App\Models\Question;
 	use App\Models\GeneratedImage;
 	use App\Models\UserAnswer;
 	use Carbon\Carbon;
@@ -1324,7 +1324,7 @@
 		 * Saves original and resized versions, returns relative paths.
 		 *
 		 * @param UploadedFile|string $file Input file (UploadedFile or path to temp downloaded file)
-		 * @param string $baseDir Base directory within 'public' disk (e.g., 'uploads/quiz_images')
+		 * @param string $baseDir Base directory within 'public' disk (e.g., 'uploads/question_images')
 		 * @param string $baseName Base filename without extension
 		 * @return array|null Array of paths [original_path, large_path, medium_path, small_path] or null on failure
 		 */

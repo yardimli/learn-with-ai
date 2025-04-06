@@ -92,7 +92,7 @@
 		<a href="{{ route('home') }}" id="resetButton" class="btn btn-outline-secondary"> Start New Subject </a>
 	</div>
 	
-	<!-- Hidden audio element (Maybe move to quiz page only if not needed globally) -->
+	<!-- Hidden audio element (Maybe move to question page only if not needed globally) -->
 	<audio id="feedbackAudioPlayer" style="display: none;"></audio>
 	
 	<!-- Hidden audio element for JS control -->
