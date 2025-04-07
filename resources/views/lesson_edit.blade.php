@@ -22,7 +22,7 @@
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
-		<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> View Live Lesson</a>
+		<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> Start Lesson</a>
 	</div>
 	
 	<div class="content-card mb-4">

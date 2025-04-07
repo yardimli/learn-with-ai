@@ -14,7 +14,8 @@
 			
 			<div class="mb-3">
 				<label for="subjectInput" class="form-label fs-5">Enter a Subject:</label>
-				<input type="text" class="form-control form-control-lg" id="subjectInput" name="subject" placeholder="e.g., Quantum Physics, Photosynthesis" value="cats" required>
+				<input type="text" class="form-control form-control-lg" id="subjectInput" name="subject"
+				       placeholder="e.g., Quantum Physics, Photosynthesis" value="cats" required>
 			</div>
 			
 			<div class="mb-3">
@@ -46,7 +47,8 @@
 			
 			<div class="d-grid">
 				<button type="submit" id="startLearningButton" class="btn btn-primary btn-lg">
-					<span id="startLearningSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+					<span id="startLearningSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+					      aria-hidden="true"></span>
 					Generate Lesson Preview
 				</button>
 			</div>
@@ -66,16 +68,29 @@
 				<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
 					<div>
 						<h5 class="mb-1">{{ $subject->title }}</h5>
-						<p class="mb-1"><small class="text-muted">Subject: {{ $subject->name }} | Created: {{ $subject->created_at->format('M d, Y H:i') }}</small></p>
+						<p class="mb-1"><small class="text-muted">Subject: {{ $subject->name }} |
+								Created: {{ $subject->created_at->format('M d, Y H:i') }}</small></p>
 					</div>
 					<div>
-						<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-sm btn-outline-success me-2" title="View Lesson">
-							<i class="fas fa-eye"></i> View
+						<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}"
+						   class="btn btn-sm btn-outline-success me-2" title="Start Learning">
+							<i class="fas fa-eye"></i> Start Learning
 						</a>
-						<a href="{{ route('lesson.edit', ['subject' => $subject->session_id]) }}" class="btn btn-sm btn-outline-primary" title="Edit Assets">
-							<i class="fas fa-edit"></i> Edit Assets
+						<a href="{{ route('lesson.edit', ['subject' => $subject->session_id]) }}"
+						   class="btn btn-sm btn-outline-primary" title="Edit">
+							<i class="fas fa-edit"></i> Edit
+						</a>
+						<a href="{{ route('progress.show', ['subject' => $subject->session_id]) }}"
+						   class="btn btn-sm btn-outline-info" title="View Progress">
+							<i class="fas fa-chart-line"></i> <span class="d-none d-md-inline">Progress</span>
 						</a>
 						{{-- Add Delete button later if needed --}}
+						<button type="button" class="btn btn-sm btn-outline-warning archive-progress-btn"
+						        title="Archive Progress & Reset" data-subject-session-id="{{ $subject->session_id }}"
+						        data-archive-url="{{ route('lesson.archive', ['subject' => $subject->session_id]) }}">
+							<i class="fas fa-archive"></i> <span class="d-none d-md-inline">Archive</span>
+						</button>
+					
 					</div>
 				</div>
 			@endforeach
@@ -84,7 +99,8 @@
 	
 	
 	<!-- Lesson Plan Preview Modal -->
-	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop --}}
+	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel"
+	     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop --}}
 		<div class="modal-dialog modal-lg modal-dialog-scrollable"> {{-- Larger & Scrollable --}}
 			<div class="modal-content">
 				<div class="modal-header">
@@ -105,8 +121,10 @@
                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                      Creating Lesson...
                  </span>
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel</button>
-					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson</button> {{-- Disabled initially --}}
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel
+					</button>
+					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson
+					</button> {{-- Disabled initially --}}
 				</div>
 			</div>
 		</div>

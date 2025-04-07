@@ -121,11 +121,6 @@ function displayQuestionAtIndex(index) {
 	
 	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber})`);
 	
-	// Randomize answer order before displaying (while preserving correct answer)
-	if (currentQuestion.answers && Array.isArray(currentQuestion.answers)) {
-		//shuffleAnswers();
-	}
-	
 	updateUIForQuestion();
 	
 	// Reset button styles from previous feedback
@@ -173,25 +168,15 @@ function updateUIForQuestion() {
 	currentQuestion.answers.forEach((answer, idx) => {
 		const button = document.createElement('button');
 		button.type = 'button';
-		button.id = `answerBtn_${idx}`;
+		button.id = `answerBtn_${answer.index}`;
 		button.classList.add('btn', 'btn-outline-primary', 'btn-lg', 'answer-btn', 'w-100', 'mb-2');
-		button.dataset.index = idx; // Store the ORIGINAL index before shuffling
+		button.dataset.index = answer.index;
 		button.textContent = answer.text;
 		button.disabled = interactionsDisabled; // Initial state based on current interaction status
 		buttons.push(button); // Add the created button to our array
 	});
+	
 
-// --- Shuffle the buttons array ---
-// Fisher-Yates (aka Knuth) Shuffle Algorithm
-	for (let i = buttons.length - 1; i > 0; i--) {
-		// Pick a random index from 0 to i
-		const j = Math.floor(Math.random() * (i + 1));
-		// Swap elements buttons[i] and buttons[j]
-		[buttons[i], buttons[j]] = [buttons[j], buttons[i]];
-	}
-// --- End Shuffle ---
-
-// Append the shuffled buttons to the container
 	buttons.forEach(button => {
 		questionAnswersContainer.appendChild(button);
 	});
@@ -523,6 +508,7 @@ function setupModalEventListeners() {
 			}
 			console.log('Modal closed, refreshing button states');
 			updateButtonStates(); // Refresh button states after modal closes
+			checkStateAndTransition();
 		});
 		feedbackModal.addEventListener('shown.bs.modal', () => {
 			isModalVisible = true;
@@ -536,7 +522,6 @@ function setupModalEventListeners() {
 			console.log('Next Question clicked');
 			feedbackModalInstance.hide();
 			// Now trigger the state transition logic
-			checkStateAndTransition();
 		});
 	}
 	

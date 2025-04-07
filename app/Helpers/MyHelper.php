@@ -1214,6 +1214,10 @@
 
 					if ($response->successful()) {
 						// Save the raw audio content directly
+						// Check if the $storagePath exists and delete it if it does
+						if (Storage::disk('public')->exists($storagePath)) {
+							Storage::disk('public')->delete($storagePath);
+						}
 						$saved = Storage::disk('public')->put($storagePath, $response->body());
 						if (!$saved) {
 							throw new \Exception("Failed to save OpenAI TTS audio to disk at {$storagePath}. Check permissions.");
@@ -1222,6 +1226,10 @@
 						$loudness = 4.0; // Adjust volume level as needed
 						$newFilePath = Storage::disk('public')->path($storagePath);
 						$newFilePath = str_replace('.mp3', '_loud.mp3', $newFilePath);
+						//delete $newFilePath if it exists
+						if (file_exists($newFilePath)) {
+							unlink($newFilePath);
+						}
 						$amplified = self::amplifyMp3Volume(Storage::disk('public')->path($storagePath), $newFilePath, $loudness);
 
 						if ($amplified) {

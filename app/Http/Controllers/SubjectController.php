@@ -4,7 +4,11 @@
 
 	use App\Helpers\MyHelper;
 	use App\Models\Subject;
+	use App\Models\UserAnswer;
+	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
+	use Illuminate\Support\Carbon;
+	use Illuminate\Support\Facades\DB;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
@@ -185,6 +189,58 @@ PROMPT;
 				// Redirect to EDIT screen instead of question interface
 				'redirectUrl' => route('lesson.edit', ['subject' => $sessionId])
 			]);
+		}
+
+		public function archiveProgress(Subject $subject)
+		{
+			Log::info("Archive request received for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+
+			$userAnswers = UserAnswer::where('subject_id', $subject->id)->get();
+
+			if ($userAnswers->isEmpty()) {
+				Log::info("No user answers found to archive for Subject ID: {$subject->id}.");
+				return response()->json(['success' => true, 'message' => 'No progress found to archive.'], 200);
+			}
+
+			DB::beginTransaction();
+			try {
+				$archiveTimestamp = Carbon::now();
+				$archiveBatchId = Str::uuid()->toString();
+
+				$archiveData = [];
+				foreach ($userAnswers as $answer) {
+					$archiveData[] = [
+						'original_user_answer_id' => $answer->id,
+						'question_id' => $answer->question_id,
+						'subject_id' => $answer->subject_id,
+						'selected_answer_index' => $answer->selected_answer_index,
+						'was_correct' => $answer->was_correct,
+						'attempt_number' => $answer->attempt_number,
+						'archived_at' => $archiveTimestamp,
+						'archive_batch_id' => $archiveBatchId, // If using batch ID
+						'created_at' => $answer->created_at, // Preserve original timestamps
+						'updated_at' => $answer->updated_at, // Preserve original timestamps
+					];
+				}
+
+				// Bulk insert for efficiency
+				UserAnswerArchive::insert($archiveData);
+				Log::info("Successfully inserted {$userAnswers->count()} records into user_answer_archives for Subject ID: {$subject->id}.");
+
+				// Delete original answers
+				$deletedCount = UserAnswer::where('subject_id', $subject->id)->delete();
+				Log::info("Successfully deleted {$deletedCount} original user answers for Subject ID: {$subject->id}.");
+
+				DB::commit();
+				Log::info("Archiving completed for Subject ID: {$subject->id}.");
+
+				return response()->json(['success' => true, 'message' => 'Progress archived successfully.'], 200);
+
+			} catch (\Exception $e) {
+				DB::rollBack();
+				Log::error("Error archiving progress for Subject ID: {$subject->id} - " . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'Failed to archive progress. Please try again.'], 500);
+			}
 		}
 
 	} // End of SubjectController

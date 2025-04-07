@@ -34,23 +34,23 @@
 				return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 			}
 			// Check if video already exists for this part
-			if (!empty($lessonParts[$partIndex]['video_path']) && !empty($lessonParts[$partIndex]['video_url'])) {
-				$relativePath = $lessonParts[$partIndex]['video_path'];
-				$videoUrl = $lessonParts[$partIndex]['video_url'];
-				// Ensure file actually exists before claiming success
-				if (Storage::disk('public')->exists($relativePath)) {
-					Log::warning("Video already exists for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}");
-					return response()->json([
-						'success' => true, // Indicate it exists
-						'message' => 'Video already exists for this part.',
-						'video_url' => $videoUrl,
-						'video_path' => $relativePath
-					], 200); // 200 OK is fine here
-				} else {
-					Log::warning("Video path/URL recorded but file missing for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}. Will attempt regeneration.");
-					// Allow generation to proceed
-				}
-			}
+//			if (!empty($lessonParts[$partIndex]['video_path']) && !empty($lessonParts[$partIndex]['video_url'])) {
+//				$relativePath = $lessonParts[$partIndex]['video_path'];
+//				$videoUrl = $lessonParts[$partIndex]['video_url'];
+//				// Ensure file actually exists before claiming success
+//				if (Storage::disk('public')->exists($relativePath)) {
+//					Log::warning("Video already exists for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}");
+//					return response()->json([
+//						'success' => true, // Indicate it exists
+//						'message' => 'Video already exists for this part.',
+//						'video_url' => $videoUrl,
+//						'video_path' => $relativePath
+//					], 200); // 200 OK is fine here
+//				} else {
+//					Log::warning("Video path/URL recorded but file missing for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}. Will attempt regeneration.");
+//					// Allow generation to proceed
+//				}
+//			}
 
 			// Get text for video generation
 			$partData = $lessonParts[$partIndex];
@@ -111,21 +111,21 @@
 			// ... (Keep existing implementation) ...
 			Log::info("AJAX request to generate question audio for Question ID: {$question->id}");
 
-			if (!empty($question->question_audio_path) && !empty($question->question_audio_url)) {
-				// Verify file existence before claiming success
-				if (Storage::disk('public')->exists($question->question_audio_path)) {
-					Log::warning("Question audio already exists for Question ID: {$question->id}. Path: {$question->question_audio_path}");
-					return response()->json([
-						'success' => true, // Indicate it exists
-						'message' => 'Question audio already exists.',
-						'audio_url' => $question->question_audio_url,
-						'audio_path' => $question->question_audio_path
-					], 200); // 200 OK
-				} else {
-					Log::warning("Question audio path/URL recorded but file missing for Question ID: {$question->id}. Path: {$question->question_audio_path}. Will attempt regeneration.");
-					// Allow generation to proceed
-				}
-			}
+//			if (!empty($question->question_audio_path) && !empty($question->question_audio_url)) {
+//				// Verify file existence before claiming success
+//				if (Storage::disk('public')->exists($question->question_audio_path)) {
+//					Log::warning("Question audio already exists for Question ID: {$question->id}. Path: {$question->question_audio_path}");
+//					return response()->json([
+//						'success' => true, // Indicate it exists
+//						'message' => 'Question audio already exists.',
+//						'audio_url' => $question->question_audio_url,
+//						'audio_path' => $question->question_audio_path
+//					], 200); // 200 OK
+//				} else {
+//					Log::warning("Question audio path/URL recorded but file missing for Question ID: {$question->id}. Path: {$question->question_audio_path}. Will attempt regeneration.");
+//					// Allow generation to proceed
+//				}
+//			}
 
 			if (empty($question->question_text)) {
 				Log::error("Cannot generate question audio for Question ID {$question->id}: Question text is empty.");
@@ -196,25 +196,25 @@
 			}
 
 			// Check if audio seems to exist already (e.g., first answer has BOTH paths/URLs and files exist)
-			$audioExists = false;
-			if(isset($currentAnswers[0]['answer_audio_path'], $currentAnswers[0]['feedback_audio_path'])) {
-				if(Storage::disk('public')->exists($currentAnswers[0]['answer_audio_path']) &&
-					Storage::disk('public')->exists($currentAnswers[0]['feedback_audio_path'])) {
-					$audioExists = true;
-				} else {
-					Log::warning("Answer/Feedback audio paths recorded but files missing for Question ID: {$question->id}. Will attempt regeneration.");
-				}
-			}
-
-			if ($audioExists) {
-				Log::warning("Answer/feedback audio seems to already exist and files are present for Question ID: {$question->id}.");
-				// Return the existing data so JS can potentially update button states if needed
-				return response()->json([
-					'success' => true, // Indicate it exists
-					'message' => 'Answer/feedback audio appears to already exist.',
-					'answers' => $question->answers, // Return current answer data
-				], 200);
-			}
+//			$audioExists = false;
+//			if(isset($currentAnswers[0]['answer_audio_path'], $currentAnswers[0]['feedback_audio_path'])) {
+//				if(Storage::disk('public')->exists($currentAnswers[0]['answer_audio_path']) &&
+//					Storage::disk('public')->exists($currentAnswers[0]['feedback_audio_path'])) {
+//					$audioExists = true;
+//				} else {
+//					Log::warning("Answer/Feedback audio paths recorded but files missing for Question ID: {$question->id}. Will attempt regeneration.");
+//				}
+//			}
+//
+//			if ($audioExists) {
+//				Log::warning("Answer/feedback audio seems to already exist and files are present for Question ID: {$question->id}.");
+//				// Return the existing data so JS can potentially update button states if needed
+//				return response()->json([
+//					'success' => true, // Indicate it exists
+//					'message' => 'Answer/feedback audio appears to already exist.',
+//					'answers' => $question->answers, // Return current answer data
+//				], 200);
+//			}
 
 			try {
 				// Get preferences from session or default
@@ -222,11 +222,12 @@
 				$ttsVoice = session('preferred_voice');
 
 				// If no voice preference set, use defaults based on engine
-				if (empty($voiceName)) {
+				if (empty($ttsVoice)) {
 					$ttsVoice = ($ttsEngine === 'openai')
 						? env('OPENAI_TTS_VOICE', 'alloy')
 						: env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
 				}
+
 
 				$languageCode = 'en-US';
 
@@ -283,29 +284,30 @@
 			} else {
 				Log::info("AJAX request to generate image for Question ID: {$question->id}.");
 				// --- Standard Generation - Check Existence ---
-				if (!empty($question->generated_image_id)) {
-					$existingImage = GeneratedImage::find($question->generated_image_id);
-					if ($existingImage && $existingImage->original_url && Storage::disk('public')->exists($existingImage->image_original_path)) {
-						Log::warning("Image already exists and file found for Question ID: {$question->id}. Image ID: {$question->generated_image_id}");
-						return response()->json([
-							'success' => true, // Indicate it exists
-							'message' => 'Image already exists for this question.',
-							'image_id' => $question->generated_image_id,
-							'image_urls' => [
-								'small' => $existingImage->small_url,
-								'medium' => $existingImage->medium_url,
-								'large' => $existingImage->large_url,
-								'original' => $existingImage->original_url,
-							],
-							'prompt' => $question->image_prompt_idea // Return current prompt
-						], 200); // 200 OK
-					} else {
-						Log::warning("Image ID {$question->generated_image_id} linked to Question {$question->id}, but image record or file missing. Will attempt regeneration.");
-						// Reset link and allow generation to proceed
-						$question->generated_image_id = null;
-						$question->save();
-					}
-				}
+//				if (!empty($question->generated_image_id)) {
+//					$existingImage = GeneratedImage::find($question->generated_image_id);
+//					if ($existingImage && $existingImage->original_url && Storage::disk('public')->exists($existingImage->image_original_path)) {
+//						Log::warning("Image already exists and file found for Question ID: {$question->id}. Image ID: {$question->generated_image_id}");
+//						return response()->json([
+//							'success' => true, // Indicate it exists
+//							'message' => 'Image already exists for this question.',
+//							'image_id' => $question->generated_image_id,
+//							'image_urls' => [
+//								'small' => $existingImage->small_url,
+//								'medium' => $existingImage->medium_url,
+//								'large' => $existingImage->large_url,
+//								'original' => $existingImage->original_url,
+//							],
+//							'prompt' => $question->image_prompt_idea // Return current prompt
+//						], 200); // 200 OK
+//					} else {
+//						Log::warning("Image ID {$question->generated_image_id} linked to Question {$question->id}, but image record or file missing. Will attempt regeneration.");
+//						// Reset link and allow generation to proceed
+//						$question->generated_image_id = null;
+//						$question->save();
+//					}
+//				}
+
 				if (empty($question->image_prompt_idea)) {
 					Log::error("Cannot generate image for Question ID {$question->id}: Image prompt is empty.");
 					return response()->json(['success' => false, 'message' => 'Image prompt is empty.'], 400);

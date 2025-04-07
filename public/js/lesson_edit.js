@@ -97,7 +97,9 @@ function updateQuestionAudioDisplay(questionId, audioUrl) {
 	// Ensure any associated generate button is removed (might be handled by caller)
 	const genButton = controlsArea.closest('.question-item').querySelector(`.generate-asset-btn[data-question-id="${questionId}"][data-asset-type="question-audio"]`);
 	if (genButton) {
-		genButton.remove();
+		//remove spinner from button
+		showSpinner(genButton, false);
+		//genButton.remove();
 	}
 }
 
@@ -113,7 +115,8 @@ function updateAnswerAudioStatus(questionId, success = true, answersData = null)
 	
 	if (success) {
 		statusArea.innerHTML = '<span class="text-success small"><i class="fas fa-check-circle me-1"></i>Generated</span>';
-		generateButton.remove(); // Remove the 'Generate All' button
+		showSpinner(generateButton, false); // Hide spinner
+		//generateButton.remove(); // Remove the 'Generate All' button
 		
 		// Update individual answer/feedback play buttons if data provided
 		if (answersData && Array.isArray(answersData)) {
@@ -809,7 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						} else if (assetType === 'answer-audio') {
 							updateAnswerAudioStatus(questionId, true, result.answers); // Mark as success, update players if data provided
 						} else {
-							btn.remove(); // Fallback: remove the generate button
+							//btn.remove(); // Fallback: remove the generate button
 						}
 						showSpinner(btn, false); // Ensure spinner is off
 					} else {

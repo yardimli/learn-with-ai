@@ -1,6 +1,7 @@
 {{-- resources/views/partials/_question_edit_item.blade.php --}}
 {{-- Expects $question object, or null if used as template --}}
-<div class="question-item" data-question-id="{{ $question->id ?? 'TEMPLATE_QUESTION_ID' }}" id="question-item-{{ $question->id ?? 'TEMPLATE_QUESTION_ID' }}">
+<div class="question-item" data-question-id="{{ $question->id ?? 'TEMPLATE_QUESTION_ID' }}"
+     id="question-item-{{ $question->id ?? 'TEMPLATE_QUESTION_ID' }}">
 	@php
 		// Use optional chaining and null coalescing for template safety
 		$questionId = $question->id ?? 'TEMPLATE_QUESTION_ID';
@@ -51,11 +52,17 @@
 			<div id="q-image-display-{{ $questionId }}" class="me-3 flex-shrink-0" style="width: 150px;">
 				{{-- Fixed size container --}}
 				@if($image && ($image->medium_url || $image->small_url))
-					<a href="#" class="question-image-clickable" data-bs-toggle="modal" data-bs-target="#imageModal" data-image-url="{{ $image->original_url ?? '#' }}" data-image-alt="{{ $image->image_alt ?? $prompt ?? 'Question Image' }}" title="Click to enlarge">
-						<img src="{{ $image->medium_url ?? $image->small_url }}" alt="{{ $image->image_alt ?? $prompt ?? 'Question Image' }}" class="img-thumbnail question-image-thumb" style="width: 100%; object-fit: cover;">
+					<a href="#" class="question-image-clickable" data-bs-toggle="modal" data-bs-target="#imageModal"
+					   data-image-url="{{ $image->original_url ?? '#' }}"
+					   data-image-alt="{{ $image->image_alt ?? $prompt ?? 'Question Image' }}" title="Click to enlarge">
+						<img src="{{ $image->medium_url ?? $image->small_url }}"
+						     alt="{{ $image->image_alt ?? $prompt ?? 'Question Image' }}" class="img-thumbnail question-image-thumb"
+						     style="width: 100%; object-fit: cover;">
 					</a>
 				@else
-					<span class="text-muted question-image-thumb d-flex align-items-center justify-content-center border rounded p-2 text-center" style="width: 100%; height: 100%; background: var(--bs-tertiary-bg);">
+					<span
+						class="text-muted question-image-thumb d-flex align-items-center justify-content-center border rounded p-2 text-center"
+						style="width: 100%; height: 100%; background: var(--bs-tertiary-bg);">
                          {{ empty($prompt) ? 'No Prompt or Image' : 'No Image Generated' }}
                     </span>
 				@endif
@@ -70,68 +77,82 @@
 					<span id="q-audio-controls-{{ $questionId }}" class="ms-1">
                        {{-- ... (existing audio button/generation logic) ... --}}
 						@if($questionAudioUrl)
-							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $questionAudioUrl }}" data-error-area-id="q-audio-error-{{ $questionId }}" title="Play Question Audio">
+							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $questionAudioUrl }}"
+							        data-error-area-id="q-audio-error-{{ $questionId }}" title="Play Question Audio">
                            <i class="fas fa-play"></i><i class="fas fa-pause"></i>
                        </button>
-						@elseif($question)
-							<button class="btn btn-sm btn-outline-secondary generate-asset-btn" data-url="{{ route('question.generate.audio.question', $questionId) }}" data-asset-type="question-audio" data-question-id="{{ $questionId }}" data-target-area-id="q-audio-controls-{{ $questionId }}" data-error-area-id="q-audio-error-{{ $questionId }}" title="Generate Question Audio">
-                           <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                           <i class="fas fa-microphone-alt"></i> Gen
-                       </button>
-						@else
-							<span class="badge bg-light text-dark ms-1" title="Audio not generated"><i class="fas fa-volume-mute"></i></span>
 						@endif
                     </span>
-					<div class="asset-generation-error text-danger small mt-1 d-inline-block" id="q-audio-error-{{ $questionId }}" style="display: none;"></div>
+					
+					<button class="btn btn-sm btn-outline-secondary generate-asset-btn"
+					        data-url="{{ route('question.generate.audio.question', $questionId) }}"
+					        data-asset-type="question-audio" data-question-id="{{ $questionId }}"
+					        data-target-area-id="q-audio-controls-{{ $questionId }}"
+					        data-error-area-id="q-audio-error-{{ $questionId }}" title="Generate Question Audio">
+                           <span class="spinner-border spinner-border-sm d-none" role="status"
+                                 aria-hidden="true"></span>
+						<i class="fas fa-microphone-alt"></i> Gen
+					</button>
+					
+					{{--							<span class="badge bg-light text-dark ms-1" title="Audio not generated"><i class="fas fa-volume-mute"></i></span>--}}
+					<div class="asset-generation-error text-danger small mt-1 d-inline-block" id="q-audio-error-{{ $questionId }}"
+					     style="display: none;"></div>
 				</div>
 				
 				{{-- Image Prompt & Actions --}}
 				<h6><i class="fas fa-image me-1 text-success"></i>Question Image</h6>
 				<div class="mb-2">
 					<label for="prompt-input-{{ $questionId }}" class="form-label visually-hidden">Image Prompt</label>
-					<input type="text" class="form-control form-control-sm question-image-prompt-input" id="prompt-input-{{ $questionId }}" value="{{ $prompt }}" placeholder="Enter Image Prompt for AI generation">
+					<input type="text" class="form-control form-control-sm question-image-prompt-input"
+					       id="prompt-input-{{ $questionId }}" value="{{ $prompt }}"
+					       placeholder="Enter Image Prompt for AI generation">
 					
-					<input type="hidden" class="question-image-search-keywords" id="keywords-input-{{ $questionId }}" value="{{ $image_search_keywords }}">
+					<input type="hidden" class="question-image-search-keywords" id="keywords-input-{{ $questionId }}"
+					       value="{{ $image_search_keywords }}">
 				</div>
 				
 				{{-- Image Action Buttons (Dropdown) --}}
-				@if($question) {{-- Only show actions if not template --}}
-				<div class="btn-group btn-group-sm" role="group" aria-label="Image Actions">
-					{{-- 1. Generate Button --}}
-					<button type="button" class="btn btn-outline-primary regenerate-question-image-btn"
-					        data-url="{{ route('question.generate.image', $questionId) }}"
-					        data-question-id="{{ $questionId }}"
-					        data-prompt-input-id="prompt-input-{{ $questionId }}"
-					        data-target-area-id="q-image-display-{{ $questionId }}"
-					        data-error-area-id="q-image-error-{{ $questionId }}"
-					        title="Generate image using AI and the prompt above">
-						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-						<i class="fas fa-magic"></i> {{ $image && $image->source == 'llm' ? 'Regen' : 'Generate' }}
-					</button>
-					
-					{{-- 2. Upload Button Trigger --}}
-					<button type="button" class="btn btn-outline-secondary trigger-upload-btn"
-					        data-question-id="{{ $questionId }}"
-					        data-file-input-id="file-input-{{ $questionId }}"
-					        title="Upload your own image">
-						<i class="fas fa-upload"></i> Upload
-					</button>
-					{{-- Hidden File Input --}}
-					<input type="file" class="d-none" id="file-input-{{ $questionId }}" data-question-id="{{ $questionId }}" accept="image/png, image/jpeg, image/gif, image/webp">
-					
-					
-					{{-- 3. Search Button --}}
-					<button type="button" class="btn btn-outline-info search-freepik-btn"
-					        data-bs-toggle="modal" data-bs-target="#freepikSearchModal"
-					        data-question-id="{{ $questionId }}"
-					        data-prompt-input-id="prompt-input-{{ $questionId }}"
-					        data-keywords-input-id="keywords-input-{{ $questionId }}"
-					        title="Search Freepik for an image">
-						<i class="fas fa-search"></i> Search
-					</button>
-				</div>
-				<div class="asset-generation-error text-danger small mt-1" id="q-image-error-{{ $questionId }}" style="display: none;"></div>
-				<div class="asset-generation-success text-success small mt-1" id="q-image-success-{{ $questionId }}" style="display: none;"></div>
+				@if($question)
+					{{-- Only show actions if not template --}}
+					<div class="btn-group btn-group-sm" role="group" aria-label="Image Actions">
+						{{-- 1. Generate Button --}}
+						<button type="button" class="btn btn-outline-primary regenerate-question-image-btn"
+						        data-url="{{ route('question.generate.image', $questionId) }}"
+						        data-question-id="{{ $questionId }}"
+						        data-prompt-input-id="prompt-input-{{ $questionId }}"
+						        data-target-area-id="q-image-display-{{ $questionId }}"
+						        data-error-area-id="q-image-error-{{ $questionId }}"
+						        title="Generate image using AI and the prompt above">
+							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+							<i class="fas fa-magic"></i> {{ $image && $image->source == 'llm' ? 'Regen' : 'Generate' }}
+						</button>
+						
+						{{-- 2. Upload Button Trigger --}}
+						<button type="button" class="btn btn-outline-secondary trigger-upload-btn"
+						        data-question-id="{{ $questionId }}"
+						        data-file-input-id="file-input-{{ $questionId }}"
+						        title="Upload your own image">
+							<i class="fas fa-upload"></i> Upload
+						</button>
+						{{-- Hidden File Input --}}
+						<input type="file" class="d-none" id="file-input-{{ $questionId }}" data-question-id="{{ $questionId }}"
+						       accept="image/png, image/jpeg, image/gif, image/webp">
+						
+						
+						{{-- 3. Search Button --}}
+						<button type="button" class="btn btn-outline-info search-freepik-btn"
+						        data-bs-toggle="modal" data-bs-target="#freepikSearchModal"
+						        data-question-id="{{ $questionId }}"
+						        data-prompt-input-id="prompt-input-{{ $questionId }}"
+						        data-keywords-input-id="keywords-input-{{ $questionId }}"
+						        title="Search Freepik for an image">
+							<i class="fas fa-search"></i> Stock Photo
+						</button>
+					</div>
+					<div class="asset-generation-error text-danger small mt-1" id="q-image-error-{{ $questionId }}"
+					     style="display: none;"></div>
+					<div class="asset-generation-success text-success small mt-1" id="q-image-success-{{ $questionId }}"
+					     style="display: none;"></div>
 				@else
 					<span class="text-muted small">Image actions available after creation.</span>
 				@endif
@@ -154,7 +175,7 @@
 			@endif
 		</div>
 		{{-- Generate button only if $question exists and audio needed --}}
-		@if($question && !empty($answers) && $answersNeedAudio)
+		@if($question && !empty($answers) )
 			<button class="btn btn-sm btn-outline-secondary generate-asset-btn"
 			        data-url="{{ route('question.generate.audio.answers', $questionId) }}"
 			        data-asset-type="answer-audio"
@@ -166,7 +187,8 @@
 				<i class="fas fa-microphone-alt"></i> Generate All
 			</button>
 		@endif
-		<div class="asset-generation-error text-danger small d-inline-block ms-2" id="a-audio-error-{{ $questionId }}" style="display: none;"></div>
+		<div class="asset-generation-error text-danger small d-inline-block ms-2" id="a-audio-error-{{ $questionId }}"
+		     style="display: none;"></div>
 	</div>
 	
 	{{-- List Answers --}}
@@ -180,15 +202,20 @@
 				@endphp
 				<li>
 					<span class="answer-text-content">{{ $ansIndex + 1 }}. {{ $answer['text'] ?? 'N/A' }}</span>
-					@if($answer['is_correct'] ?? false) <strong class="text-success">(Correct)</strong> @endif
+					@if($answer['is_correct'] ?? false)
+						<strong class="text-success">(Correct)</strong>
+					@endif
 					{{-- Answer Audio Play Button --}}
 					<span id="ans-audio-controls-{{ $questionId }}-{{ $ansIndex }}" class="ms-1">
                      @if($answerAudioUrl)
-							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $answerAudioUrl }}" data-error-area-id="a-audio-error-{{ $questionId }}" title="Play Answer Audio">
+							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $answerAudioUrl }}"
+							        data-error-area-id="a-audio-error-{{ $questionId }}" title="Play Answer Audio">
                             <i class="fas fa-play"></i><i class="fas fa-pause"></i>
                         </button>
-						@elseif(!$answersNeedAudio && $question) {{-- Only show mute icon if overall generation happened but this specific one failed/is missing --}}
-						<span class="badge bg-light text-dark ms-1" title="Answer audio not available"><i class="fas fa-volume-mute"></i></span>
+						@elseif(!$answersNeedAudio && $question)
+							{{-- Only show mute icon if overall generation happened but this specific one failed/is missing --}}
+							<span class="badge bg-light text-dark ms-1" title="Answer audio not available"><i
+									class="fas fa-volume-mute"></i></span>
 						@endif
                 </span>
 					<br>
@@ -196,11 +223,13 @@
 					{{-- Feedback Audio Play Button --}}
 					<span id="fb-audio-controls-{{ $questionId }}-{{ $ansIndex }}" class="ms-1">
                      @if($feedbackAudioUrl)
-							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $feedbackAudioUrl }}" data-error-area-id="a-audio-error-{{ $questionId }}" title="Play Feedback Audio">
+							<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="{{ $feedbackAudioUrl }}"
+							        data-error-area-id="a-audio-error-{{ $questionId }}" title="Play Feedback Audio">
                             <i class="fas fa-play"></i><i class="fas fa-pause"></i>
                         </button>
 						@elseif(!$answersNeedAudio && $question)
-							<span class="badge bg-light text-dark ms-1" title="Feedback audio not available"><i class="fas fa-volume-mute"></i></span>
+							<span class="badge bg-light text-dark ms-1" title="Feedback audio not available"><i
+									class="fas fa-volume-mute"></i></span>
 						@endif
                 </span>
 				</li>

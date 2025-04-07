@@ -4,6 +4,7 @@
 	use App\Http\Controllers\EditController;
 	use App\Http\Controllers\FreePikController;
 	use App\Http\Controllers\GenerateAssetController;
+	use App\Http\Controllers\ProgressController;
 	use Illuminate\Support\Facades\Route;
 	use App\Http\Controllers\SubjectController;
 	use App\Http\Controllers\LessonController;
@@ -12,6 +13,9 @@
 	Route::get('/', [SubjectController::class, 'index'])->name('home');
 	Route::post('/lesson/generate-structure', [SubjectController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
 	Route::post('/lesson/save-structure', [SubjectController::class, 'createLesson'])->name('lesson.save.structure');
+	Route::post('/lesson/{subject}/archive', [SubjectController::class, 'archiveProgress'])->name('lesson.archive');
+	Route::get('/progress/{subject:session_id}', [ProgressController::class, 'show'])->name('progress.show');
+
 
 	Route::get('/api/llms-list', function () {
 		return response()->json(['llms' => App\Helpers\MyHelper::checkLLMsJson()]);

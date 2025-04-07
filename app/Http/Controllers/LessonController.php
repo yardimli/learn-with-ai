@@ -289,11 +289,15 @@
 					$processedAnswers = $question->answers;
 					if ($processedAnswers && is_array($processedAnswers)) {
 						foreach ($processedAnswers as $index => &$answer) {
+							$answer['index'] = $index;
 							$answer['answer_audio_url'] = $question->getAnswerAudioUrl($index);
 							$answer['feedback_audio_url'] = $question->getFeedbackAudioUrl($index);
 						}
 						unset($answer);
 					}
+
+					//shuffle answers
+					shuffle($processedAnswers);
 
 					return [
 						'id' => $question->id,

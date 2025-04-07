@@ -91,12 +91,6 @@
 	
 	@yield('content')
 	
-	<!-- === Start Over Button (Common) === -->
-	<div class="text-center mt-4">
-		{{-- Link back to the home page --}}
-		<a href="{{ route('home') }}" id="resetButton" class="btn btn-outline-secondary"> Start New Subject </a>
-	</div>
-	
 	<!-- Hidden audio element (Maybe move to question page only if not needed globally) -->
 	<audio id="feedbackAudioPlayer" style="display: none;"></audio>
 	

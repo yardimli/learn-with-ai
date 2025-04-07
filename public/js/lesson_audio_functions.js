@@ -9,7 +9,7 @@ function buildPlaybackQueue(questionData) {
 		playbackQueue.push({element: questionTextElement, url: questionData.question_audio_url});
 	}
 	questionData.answers.forEach((answer, index) => {
-		const answerButton = document.getElementById(`answerBtn_${index}`);
+		const answerButton = document.getElementById(`answerBtn_${answer.index}`);
 		if (answer.answer_audio_url && answerButton) {
 			playbackQueue.push({element: answerButton, url: answer.answer_audio_url});
 		}
@@ -30,6 +30,7 @@ function startPlaybackSequence() {
 		setInteractionsDisabled(false);
 		return;
 	}
+	
 	stopPlaybackSequence();
 	console.log("Starting playback sequence...");
 	console.log("Playback queue:", playbackQueue);
