@@ -251,7 +251,7 @@
 		</div>
 	</div>
 	
-	htmlCopy{{-- Edit Texts Modal --}}
+	{{-- Edit Texts Modal --}}
 	<div class="modal fade" id="editTextsModal" tabindex="-1" aria-labelledby="editTextsModalLabel" aria-hidden="true" data-bs-backdrop="static">
 		<div class="modal-dialog modal-lg">
 			<div class="modal-content">
