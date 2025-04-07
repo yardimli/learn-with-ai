@@ -13,6 +13,49 @@
 	Route::post('/lesson/generate-structure', [SubjectController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
 	Route::post('/lesson/save-structure', [SubjectController::class, 'createLesson'])->name('lesson.save.structure');
 
+	Route::get('/api/llms-list', function () {
+		return response()->json(['llms' => App\Helpers\MyHelper::checkLLMsJson()]);
+	})->name('api.llms.list');
+
+	Route::post('/settings/llm-preference', function (Illuminate\Http\Request $request) {
+		$validated = $request->validate([
+			'llm' => 'required|string',
+			'subject_id' => 'required|string'
+		]);
+
+		// Store in session
+		session(['preferred_llm' => $validated['llm']]);
+
+		// Optionally update the subject record too
+		if ($subject = App\Models\Subject::where('session_id', $validated['subject_id'])->first()) {
+			$subject->llm_used = $validated['llm'];
+			$subject->save();
+		}
+
+		return response()->json(['success' => true]);
+	})->name('settings.llm.preference');
+
+	Route::post('/settings/voice-preference', function (Illuminate\Http\Request $request) {
+		$validated = $request->validate([
+			'voice' => 'required|string',
+			'engine' => 'required|string|in:google,openai'
+		]);
+
+		// Store in session
+		session(['preferred_voice' => $validated['voice']]);
+		session(['preferred_tts_engine' => $validated['engine']]);
+
+		return response()->json(['success' => true]);
+	})->name('settings.voice.preference');
+
+	Route::get('/settings/get-preferences', function () {
+		return response()->json([
+			'preferred_llm' => session('preferred_llm'),
+			'preferred_voice' => session('preferred_voice'),
+			'preferred_tts_engine' => session('preferred_tts_engine', 'google'), // Default to 'google' if not set
+		]);
+	})->name('settings.get.preferences');
+
 // --- Lesson Editing & Asset Management ---
 	Route::get('/lesson/{subject}/edit', [EditController::class, 'edit'])->name('lesson.edit');
 

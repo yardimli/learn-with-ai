@@ -28,6 +28,56 @@
 	<div class="content-card mb-4">
 		<h1 class="mb-1">Edit Lesson: {{ $subject->title }}</h1>
 		<p class="text-muted mb-3">Subject: {{ $subject->name }} (ID: {{ $subject->id }}, Session: {{ $subject->session_id }})</p>
+		
+		<!-- New Settings Row -->
+		<div class="row mb-3 border-top pt-3">
+			<div class="col-md-6 mb-2 mb-md-0">
+				<div class="d-flex align-items-center">
+					<label for="llmSelector" class="form-label me-2 mb-0"><i class="fas fa-robot text-primary me-1"></i>AI Model:</label>
+					<select id="llmSelector" class="form-select form-select-sm" style="max-width: 400px;">
+						<!-- This will be filled by JS using the $llms data passed to view -->
+						<option value="{{ $llm }}">Current: {{ $llm }}</option>
+					</select>
+					<button class="btn btn-sm btn-outline-secondary ms-2" id="updateLLMBtn" title="Apply AI Model change">
+						<i class="fas fa-check"></i>
+					</button>
+				</div>
+			</div>
+			<div class="col-md-6">
+				<div class="d-flex align-items-center">
+					<label for="voiceSelector" class="form-label me-2 mb-0"><i class="fas fa-microphone text-success me-1"></i>Voice:</label>
+					<select id="voiceSelector" class="form-select form-select-sm" style="max-width: 300px;">
+						<optgroup label="Google Voices">
+							<option value="en-US-Standard-A">en-US-Standard-A (Male)</option>
+							<option value="en-US-Standard-B">en-US-Standard-B (Male)</option>
+							<option value="en-US-Standard-C">en-US-Standard-C (Female)</option>
+							<option value="en-US-Standard-D">en-US-Standard-D (Male)</option>
+							<option value="en-US-Standard-E">en-US-Standard-E (Female)</option>
+							<option value="en-US-Standard-F">en-US-Standard-F (Female)</option>
+							<option value="en-US-Standard-G">en-US-Standard-G (Female)</option>
+							<option value="en-US-Standard-H">en-US-Standard-H (Female)</option>
+							<option value="en-US-Studio-O" selected>en-US-Studio-O (Female)</option>
+						</optgroup>
+						<optgroup label="OpenAI Voices">
+							<option value="alloy">Alloy (Neutral)</option>
+							<option value="echo">Echo (Male)</option>
+							<option value="fable">Fable (Male)</option>
+							<option value="onyx">Onyx (Male)</option>
+							<option value="nova">Nova (Female)</option>
+							<option value="shimmer">Shimmer (Female)</option>
+						</optgroup>
+					</select>
+					<button class="btn btn-sm btn-outline-secondary ms-2" id="updateVoiceBtn" title="Apply Voice change">
+						<i class="fas fa-check"></i>
+					</button>
+					<select id="ttsEngineSelector" class="form-select form-select-sm ms-2" style="max-width: 140px;">
+						<option value="google">Google</option>
+						<option value="openai">OpenAI</option>
+					</select>
+				</div>
+			</div>
+		</div>
+		
 		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
@@ -243,6 +293,7 @@
 	<script>
 		let sharedAudioPlayer = null;
 		let imageModal = null;
+		let currentlyPlayingButton = null;
 	
 	</script>
 	<script src="{{ asset('js/lesson_edit.js') }}"></script>

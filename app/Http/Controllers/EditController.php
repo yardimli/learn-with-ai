@@ -195,10 +195,14 @@ PROMPT;
 			// Get the default LLM (needed if generating questions on this page)
 			$llm = $subject->llm_used ?: env('DEFAULT_LLM');
 
+			// Get available LLMs
+			$llms = MyHelper::checkLLMsJson();
+
 			return view('lesson_edit', [
 				'subject' => $subject,
 				'groupedQuestions' => $groupedQuestions,
-				'llm' => $llm, // Pass LLM to view for generation calls
+				'llm' => $llm,
+				'llms' => $llms // Pass LLMs to view
 			]);
 		}
 
@@ -344,7 +348,7 @@ PROMPT;
 			}
 
 			// Get LLM
-			$llm = $subject->llm_used ?: env('DEFAULT_LLM');
+			$llm = session('preferred_llm', $subject->llm_used) ?: env('DEFAULT_LLM');
 			if (empty($llm)) {
 				Log::error("No LLM configured for subject {$subject->id} or as default.");
 				return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);

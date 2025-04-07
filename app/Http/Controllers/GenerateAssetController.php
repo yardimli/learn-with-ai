@@ -133,9 +133,23 @@
 			}
 
 			try {
-				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
-				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				// Get preferences from session or default
+				$ttsEngine = session('preferred_tts_engine', env('DEFAULT_TTS_ENGINE', 'google'));
+				$ttsVoice = session('preferred_voice');
+
+				// If no voice preference set, use defaults based on engine
+				if (empty($ttsVoice)) {
+					$ttsVoice = ($ttsEngine === 'openai')
+						? env('OPENAI_TTS_VOICE', 'alloy')
+						: env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				}
+
 				$languageCode = 'en-US';
+
+//				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
+//				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+//				$languageCode = 'en-US';
+
 				// More robust unique identifier
 				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$outputFilenameBase = 'audio/question_q_' . $questionIdentifier; // Include path segment
@@ -203,9 +217,23 @@
 			}
 
 			try {
-				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
-				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				// Get preferences from session or default
+				$ttsEngine = session('preferred_tts_engine', env('DEFAULT_TTS_ENGINE', 'google'));
+				$ttsVoice = session('preferred_voice');
+
+				// If no voice preference set, use defaults based on engine
+				if (empty($voiceName)) {
+					$ttsVoice = ($ttsEngine === 'openai')
+						? env('OPENAI_TTS_VOICE', 'alloy')
+						: env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				}
+
 				$languageCode = 'en-US';
+
+//				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
+//				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+//				$languageCode = 'en-US';
+
 				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$filenamePrefix = 'audio/question_' . $questionIdentifier; // Include path segment
 
