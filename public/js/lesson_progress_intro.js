@@ -49,36 +49,43 @@ function handlePartLabelClick(event) {
 function updateProgressBar() {
 	if (!progressBar || !partIndicatorContainer || !currentState) return;
 	
-	const currentPart = currentState.partIndex;
-	let totalProgress = 0;
+	const currentPart = currentState.partIndex; // The index of the first incomplete part, or last part if completed
+	let overallProgress = 0;
 	
-	// Calculate progress based on first-attempt correct answers
-	if (currentState.status === 'completed') {
-		totalProgress = 100;
-	} else if (currentState.totalQuestions > 0) {
-		// Use first-attempt correct count for progress percentage
-		totalProgress = Math.round((currentState.firstAttemptCorrectCount / currentState.totalQuestions) * 100);
+	// Calculate progress based on OVERALL first-attempt correct answers
+	if (currentState.status === 'completed' && currentState.overallTotalQuestions > 0) {
+		overallProgress = 100; // If completed status and there were questions, it's 100%
+	} else if (currentState.overallTotalQuestions > 0) {
+		// Use the NEW OVERALL counts from the state object
+		overallProgress = Math.round((currentState.overallCorrectCount / currentState.overallTotalQuestions) * 100);
+	} else {
+		// Handle 0 total questions case - 100% if completed/empty, 0% otherwise
+		overallProgress = (currentState.status === 'completed' || currentState.status === 'empty') ? 100 : 0;
 	}
 	
-	totalProgress = Math.min(100, Math.max(0, totalProgress));
+	overallProgress = Math.min(100, Math.max(0, overallProgress)); // Clamp between 0 and 100
 	
-	progressBar.style.width = `${totalProgress}%`;
-	progressBar.textContent = `${totalProgress}%`;
-	progressBar.setAttribute('aria-valuenow', totalProgress);
+	progressBar.style.width = `${overallProgress}%`;
+	progressBar.textContent = `${overallProgress}%`; // Display overall progress
+	progressBar.setAttribute('aria-valuenow', overallProgress);
 	
-	// Update part labels
+	// --- Update part labels ---
+	// This logic correctly uses the currentPart index determined by the backend
 	for (let i = 0; i < totalParts; i++) {
 		const label = document.getElementById(`partLabel_${i}`);
 		if (label) {
 			label.classList.remove('active', 'completed');
-			
 			if (currentState.status === 'completed') {
+				// If the whole lesson is complete, mark all parts as completed
 				label.classList.add('completed');
 			} else if (i < currentPart) {
+				// Parts *before* the current active part are completed
 				label.classList.add('completed');
 			} else if (i === currentPart) {
+				// The current *active* part (first incomplete one)
 				label.classList.add('active');
 			}
+			// Parts *after* the current active part have no special class
 		}
 	}
 }

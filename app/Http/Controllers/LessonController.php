@@ -14,8 +14,40 @@
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
 
-	class QuestionController extends Controller
+	class LessonController extends Controller
 	{
+
+		/**
+		 * Displays the main interactive question interface.
+		 * Determines the starting state based on user progress.
+		 *
+		 * @param Subject $subject Route model binding via session_id
+		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+		 */
+		public function showQuestionInterface(Subject $subject)
+		{
+			Log::info("Loading question interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+
+			$state = $this->calculateCurrentState($subject->id);
+			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
+
+			$allPartIntros = $this->getAllPartIntros($subject);
+
+			// Add intro text/video for the starting part
+			$state['currentPartIntroText'] = null; // Default to null
+			$state['currentPartVideoUrl'] = null; // Default to null
+			if ($state['status'] !== 'completed' && $state['partIndex'] >= 0 && $state['partIndex'] < $totalParts) {
+				$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
+				$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
+			}
+
+
+			// We pass null for the initial question now. JS handles loading.
+			$question = null;
+			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
+
+			return view('question_interface', compact('subject', 'question', 'state', 'totalParts', 'allPartIntros'));
+		}
 
 		/**
 		 * Get the video URL for a specific lesson part.
@@ -60,37 +92,6 @@
 			return $intros;
 		}
 
-		/**
-		 * Displays the main interactive question interface.
-		 * Determines the starting state based on user progress.
-		 *
-		 * @param Subject $subject Route model binding via session_id
-		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
-		 */
-		public function showQuestionInterface(Subject $subject)
-		{
-			Log::info("Loading question interface for Subject Session: {$subject->session_id} (ID: {$subject->id})");
-
-			$state = $this->calculateCurrentState($subject->id);
-			$totalParts = is_array($subject->lesson_parts) ? count($subject->lesson_parts) : 0;
-
-			$allPartIntros = $this->getAllPartIntros($subject);
-
-			// Add intro text/video for the starting part
-			$state['currentPartIntroText'] = null; // Default to null
-			$state['currentPartVideoUrl'] = null; // Default to null
-			if ($state['status'] !== 'completed' && $state['partIndex'] >= 0 && $state['partIndex'] < $totalParts) {
-				$state['currentPartIntroText'] = $this->getPartText($subject, $state['partIndex']);
-				$state['currentPartVideoUrl'] = $this->getPartVideoUrl($subject, $state['partIndex']);
-			}
-
-
-			// We pass null for the initial question now. JS handles loading.
-			$question = null;
-			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
-
-			return view('question_interface', compact('subject', 'question', 'state', 'totalParts', 'allPartIntros'));
-		}
 
 		/**
 		 * Calculates the user's current progress state within a lesson.
@@ -100,56 +101,119 @@
 		 */
 		private function calculateCurrentState(int $subjectId): array
 		{
-			$totalParts = Subject::find($subjectId)->lesson_parts ? count(Subject::find($subjectId)->lesson_parts) : 0;
+			$subject = Subject::find($subjectId); // Get subject once
+			if (!$subject) {
+				Log::error("Subject not found for ID: {$subjectId} in calculateCurrentState");
+				// Return a default error state or handle as appropriate
+				return [
+					'totalParts' => 0,
+					'partIndex' => -1,
+					'status' => 'error',
+					'overallTotalQuestions' => 0,
+					'overallCorrectCount' => 0,
+					'currentPartTotalQuestions' => 0,
+					'currentPartCorrectCount' => 0,
+				];
+			}
+			$lessonParts = $subject->lesson_parts ?? [];
+			$totalParts = is_array($lessonParts) ? count($lessonParts) : 0;
+
+			$overallTotalQuestions = 0;
+			$overallCorrectCount = 0;
+			$currentPartIndex = -1; // Initialize to -1 (no active part found yet)
+			$status = 'completed'; // Assume complete initially
+			$activePartTotalQuestions = 0;
+			$activePartCorrectCount = 0;
+
 
 			for ($part = 0; $part < $totalParts; $part++) {
-				// Get all questions for this part
-				$totalQuestions = Question::where('subject_id', $subjectId)
-					->where('lesson_part_index', $part)
-					->count();
+				$partTotalQuestions = Question::where('subject_id', $subjectId)
+					->where('lesson_part_index', $part)->count();
 
-				if ($totalQuestions === 0) {
-					continue; // Skip empty parts
+				$overallTotalQuestions += $partTotalQuestions; // Add to overall total
+
+				if ($partTotalQuestions === 0) {
+					continue; // Skip empty parts for first-attempt calculation logic below
 				}
 
-				// Get completed questions (any correct answer)
-				$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
-					->where('was_correct', true)
+				$correctAnsweredCount = UserAnswer::where('subject_id', $subjectId)
 					->whereHas('question', function ($query) use ($part) {
 						$query->where('lesson_part_index', $part);
 					})
-					->distinct('question_id')
-					->count('question_id');
+					->select('question_id')
+					->groupBy('attempt_number', 'question_id')
+					->havingRaw('COUNT(*) = 1') // Only one attempt total
+					->havingRaw('SUM(CASE WHEN was_correct = 1 THEN 1 ELSE 0 END) = 1') // That attempt was correct
+					->count();
+				Log::info("Part {$part} - Total Questions: {$partTotalQuestions}, Correctly Answered: {$correctAnsweredCount}");
 
-				// Get first-attempt correct answers (for progress calculation)
-				$firstAttemptCorrectCount = UserAnswer::where('subject_id', $subjectId)
-					->where('was_correct', true)
-					->where('attempt_number', 1)
-					->whereHas('question', function ($query) use ($part) {
-						$query->where('lesson_part_index', $part);
-					})
-					->distinct('question_id')
-					->count('question_id');
+				$overallCorrectCount += $correctAnsweredCount; // Add to overall correct count
 
-				// If not all questions correctly answered, this is the current part
-				if ($correctlyAnsweredCount < $totalQuestions) {
-					return [
-						'partIndex' => $part,
-						'totalQuestions' => $totalQuestions,
-						'correctCount' => $correctlyAnsweredCount,
-						'firstAttemptCorrectCount' => $firstAttemptCorrectCount,
-						'status' => 'inprogress',
-					];
+				// If this part is not fully completed on first attempt *and* we haven't found the active part yet
+				if ($correctAnsweredCount < $partTotalQuestions && $currentPartIndex === -1) {
+					$currentPartIndex = $part;
+					$status = 'inprogress';
+
+					// Store counts for the *current* active part
+					$activePartTotalQuestions = $partTotalQuestions;
+					$activePartCorrectCount = $correctAnsweredCount;
 				}
 			}
 
-			// If all parts are complete
+			// If loop finishes and status is still 'completed', set partIndex to the last one
+			if ($status === 'completed' && $totalParts > 0) {
+				$currentPartIndex = $totalParts - 1;
+			} elseif ($totalParts === 0) {
+				$currentPartIndex = -1; // Handle case with no parts
+				$status = 'empty'; // Or 'completed' depending on desired behavior for empty lessons
+			}
+
+			// If status is completed, ensure the active part counts reflect the last part (if any)
+			// or remain 0 if the lesson was empty.
+			if ($status === 'completed' && $currentPartIndex !== -1) {
+				$lastPartQuestionIds = Question::where('subject_id', $subjectId)
+					->where('lesson_part_index', $currentPartIndex)
+					->pluck('id');
+				$activePartTotalQuestions = $lastPartQuestionIds->count();
+
+				$activePartCorrectCount = UserAnswer::where('subject_id', $subjectId)
+					->whereHas('question', function ($query) use ($currentPartIndex) {
+						$query->where('lesson_part_index', $currentPartIndex);
+					})
+					->select('question_id')
+					->groupBy('attempt_number', 'question_id')
+					->havingRaw('COUNT(*) = 1') // Only one attempt total
+					->havingRaw('SUM(CASE WHEN was_correct = 1 THEN 1 ELSE 0 END) = 1') // That attempt was correct
+					->count();
+
+				$activePartCorrectlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
+					->whereIn('question_id', $lastPartQuestionIds)
+					->where('was_correct', true)
+					->distinct('question_id')
+					->count('question_id');
+			}
+
+
+			Log::info("Calculated State for Subject {$subjectId}: ", [
+				'totalParts' => $totalParts,
+				'partIndex' => $currentPartIndex,
+				'status' => $status,
+				'overallTotalQuestions' => $overallTotalQuestions,
+				'overallCorrectCount' => $overallCorrectCount,
+				'currentPartTotalQuestions' => $activePartTotalQuestions, // Renamed for consistency
+				'currentPartCorrectCount' => $activePartCorrectCount, // Renamed for consistency
+			]);
+
 			return [
-				'partIndex' => $totalParts - 1,
-				'totalQuestions' => 0,
-				'correctCount' => 0,
-				'firstAttemptCorrectCount' => 0,
-				'status' => 'completed',
+				'totalParts' => $totalParts,
+				'partIndex' => $currentPartIndex, // The first incomplete part index, or last if complete/empty
+				'status' => $status,
+				// Overall progress metrics
+				'overallTotalQuestions' => $overallTotalQuestions,
+				'overallCorrectCount' => $overallCorrectCount,
+				// Counts for the *current* active part (or last part if completed)
+				'currentPartTotalQuestions' => $activePartTotalQuestions,
+				'currentPartCorrectCount' => $activePartCorrectCount,
 			];
 		}
 
@@ -352,15 +416,17 @@
 				return true; // No questions means part is "complete"
 			}
 
-			$correctlyAnsweredCount = UserAnswer::where('subject_id', $subjectId)
-				->where('was_correct', true)
+			$correctAnsweredCount = UserAnswer::where('subject_id', $subjectId)
 				->whereHas('question', function ($query) use ($partIndex) {
 					$query->where('lesson_part_index', $partIndex);
 				})
-				->distinct('question_id')
-				->count('question_id');
+				->select('question_id')
+				->groupBy('attempt_number', 'question_id')
+				->havingRaw('COUNT(*) = 1') // Only one attempt total
+				->havingRaw('SUM(CASE WHEN was_correct = 1 THEN 1 ELSE 0 END) = 1') // That attempt was correct
+				->count();
 
-			return $correctlyAnsweredCount >= $totalQuestions;
+			return $correctAnsweredCount >= $totalQuestions;
 		}
 
 	}

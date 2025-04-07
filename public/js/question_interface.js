@@ -40,7 +40,6 @@ function loadQuestionsForLevel(partIndex) {
 			}
 			
 			console.log(`Loaded ${data.questions.length} questions for Part ${partIndex}`);
-			
 			// Filter out questions that should be skipped (correct in last attempt with no wrong answers)
 			currentPartQuestions = data.questions.filter(question => !question.should_skip);
 			

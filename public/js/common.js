@@ -89,3 +89,32 @@ function hideSuccess(elementOrId) {
 		successEl.textContent = '';
 	}
 }
+
+// Show a toast notification
+function showToast(message, title = 'Notification', type = 'info') {
+	const toast = document.getElementById('toast');
+	const toastTitle = document.getElementById('toastTitle');
+	const toastMessage = document.getElementById('toastMessage');
+	
+	if (!toast || !toastTitle || !toastMessage) return;
+	
+	// Set toast content
+	toastTitle.textContent = title;
+	toastMessage.textContent = message;
+	
+	// Set toast type (via Bootstrap classes)
+	toast.className = 'toast';
+	if (type === 'success') {
+		toast.classList.add('bg-success', 'text-white');
+	} else if (type === 'error') {
+		toast.classList.add('bg-danger', 'text-white');
+	} else if (type === 'warning') {
+		toast.classList.add('bg-warning');
+	} else {
+		toast.classList.add('bg-info', 'text-white');
+	}
+	
+	// Create and show toast
+	const bsToast = new bootstrap.Toast(toast);
+	bsToast.show();
+}

@@ -652,6 +652,26 @@ body {
     color: #fff; /* Lighter heading */
 }
 
+.dark-mode .toast {
+    background-color: #2c2c2e; /* Darker toast */
+    color: #e4e4e6; /* Light text */
+    border: 1px solid var(--bs-border-color);
+}
+
+.dark-mode .toast-header {
+    background-color: var(--bs-secondary-bg);
+    color: #e4e4e6; /* Light text */
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.dark-mode .toast-body {
+    color: #e4e4e6; /* Light text */
+    background-color: var(--bs-secondary-bg);
+}
+
+.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
 
 
 /* --- Freepik Search Modal --- */

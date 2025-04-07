@@ -27,9 +27,21 @@
 	@endphp
 	
 	<div class="d-flex justify-content-end mb-2">
-		<div class="me-auto small text-muted">Question ID: {{ $questionId }}</div> {{-- Show ID --}}
-		<button class="btn btn-sm btn-outline-danger delete-question-btn" data-question-id="{{ $questionId }}" data-delete-url="{{ route('question.delete', ['question' => $questionId]) }}" title="Delete Question">
-			<i class="fas fa-trash-alt"></i> Delete <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+		<div class="me-auto small text-muted">Question ID: {{ $questionId }}</div>
+		<button class="btn btn-sm btn-outline-primary edit-question-texts-btn me-2"
+		        data-question-id="{{ $questionId }}"
+		        data-edit-url="{{ route('question.update.texts', ['question' => $questionId]) }}"
+		        data-bs-toggle="modal"
+		        data-bs-target="#editTextsModal"
+		        title="Edit Question Texts">
+			<i class="fas fa-edit"></i> Edit Texts
+		</button>
+		<button class="btn btn-sm btn-outline-danger delete-question-btn"
+		        data-question-id="{{ $questionId }}"
+		        data-delete-url="{{ route('question.delete', ['question' => $questionId]) }}"
+		        title="Delete Question">
+			<i class="fas fa-trash-alt"></i> Delete
+			<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 		</button>
 	</div>
 	
