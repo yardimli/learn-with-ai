@@ -1170,12 +1170,12 @@
 
 			// Second pass: Remove silence from beginning and end
 			$silenceRemoveCommand = sprintf(
-				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse,silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse -b:a %s %s',
+				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse,silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse" -b:a %s %s',
 				escapeshellarg($tempFile),
 				$bitrate,
 				escapeshellarg($outputFile)
 			);
-
+		//	 ffmpeg -i '/var/www/elooi/storage/app/public/tts/audioquestion-s2-p0-q14-fb-hen-ga-3_temp.mp3' -af "silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse,silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse -b:a 128k '/var/www/elooi/storage/app/public/tts/audioquestion-s2-p0-q14-fb-hen-ga-3_loud.mp3'
 			Log::info("Executing silence removal command: {$silenceRemoveCommand}");
 
 			// Execute silence removal command
