@@ -1181,6 +1181,8 @@
 			// Execute silence removal command
 			exec($silenceRemoveCommand, $output, $returnCode);
 
+			Log::info("Silence removal command executed. Return Code: {$returnCode}");
+
 			// Clean up the temporary file
 //			if (file_exists($tempFile)) {
 //				unlink($tempFile);
