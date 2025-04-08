@@ -198,7 +198,7 @@ PROMPT;
 			// Get available LLMs
 			$llms = MyHelper::checkLLMsJson();
 
-			return view('lesson_edit', [
+			return view('edit_lesson', [
 				'subject' => $subject,
 				'groupedQuestions' => $groupedQuestions,
 				'llm' => $llm,

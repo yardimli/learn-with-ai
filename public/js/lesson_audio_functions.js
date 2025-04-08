@@ -1,5 +1,3 @@
-// --- TTS Playback Functions ---
-// ... (Keep buildPlaybackQueue, startPlaybackSequence, stopPlaybackSequence, playNextInSequence, handleTtsAudioEnded, handleTtsAudioError) ...
 function buildPlaybackQueue(questionData) {
 	playbackQueue = [];
 	currentPlaybackIndex = -1;
@@ -103,27 +101,6 @@ function handleTtsAudioError(event) {
 		setErrorState("An error occurred during audio playback.");
 		setInteractionsDisabled(false);
 	}
-}
-
-
-// --- Feedback Audio ---
-// ... (Keep playFeedbackAudio, handleFeedbackAudioEnd) ...
-function playFeedbackAudio() {
-	if (!feedbackData.feedback_audio_url || !feedbackAudioPlayer) {
-		checkStateAndTransition(); // No audio, proceed to state check
-		return;
-	}
-	// Interactions should already be disabled here by submitAnswer's callback
-	feedbackAudioPlayer.src = feedbackData.feedback_audio_url;
-	feedbackAudioPlayer.play().catch(e => {
-		console.error("Feedback audio playback error:", e);
-		handleFeedbackAudioEnd(); // Treat error same as end
-	});
-}
-
-function handleFeedbackAudioEnd() {
-	// console.log("Feedback audio finished or failed.");
-	checkStateAndTransition(); // Check state after audio finishes
 }
 
 function setupAudioEventListeners() {

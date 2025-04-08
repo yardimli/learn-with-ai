@@ -47,15 +47,13 @@
 @endpush
 
 @section('content')
-	{{-- Store initial data for JS --}}
 	<input type="hidden" id="subjectSessionId" value="{{ $subject->session_id }}">
 	<input type="hidden" id="subjectId" value="{{ $subject->id }}">
 	
-	{{-- Audio Players --}}
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio>
 	<audio id="feedbackAudioPlayer" style="display: none;" preload="auto"></audio>
 	
-	<div class="question-card"> {{-- Main container --}}
+	<div class="question-card">
 		<h3 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h3>
 		
 		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
@@ -67,13 +65,11 @@
 					<div id="questionQuestionContainer" class="p-3 border rounded question-container position-relative">
 						<p id="questionDifficulty" class="text-muted small mb-2"></p>
 						<p id="questionTextElement" class="question-question-text fs-5 mb-4">Loading question...</p>
-						{{-- Question Image Display --}}
 						<div class="mb-3 text-center">
 							<img id="questionImageElement" src="{{ asset('images/placeholder_q.png') }}"
 							     class="img-fluid rounded mb-2 d-none" style="max-height: 300px;" alt="Visual aid for the question">
 							<p id="noImagePlaceholder" class="text-muted d-none">(No image for this question)</p>
 						</div>
-						{{-- Review Button could go here if needed --}}
 					</div>
 				</div>
 				
@@ -81,29 +77,24 @@
 				<div class="col-12 col-md-7">
 					<!-- Answer Buttons -->
 					<div id="questionAnswersContainer" class="d-grid gap-3 mb-4">
-						{{-- Buttons loaded by JS --}}
 					</div>
 				</div> <!-- End Right Column -->
 			</div> <!-- End Row -->
 		</div> <!-- End Question Area -->
 		
-		{{-- 4. Completion Message Area --}}
 		<div id="completionMessage" class="d-none mt-4">
 			<h3 class="text-success"><i class="fas fa-check-circle me-2"></i>Lesson Complete!</h3>
 			<p>Congratulations, you've successfully answered the required questions for all parts of this lesson.</p>
 			<a href="{{ route('home') }}" class="btn btn-primary">Choose Another Subject</a>
-			{{-- Optionally add a link to review the lesson or see stats --}}
 		</div>
 		
 		<div id="partCompletionMessage" class="d-none mt-4">
-			{{-- Content will be dynamically populated by JS --}}
 		</div>
 		
-		{{-- Auto-Play Audio Switch --}}
 		<div class="auto-play-switch-container mb-3">
 			<div class="form-check form-switch">
 				<input class="form-check-input" type="checkbox" role="switch" id="autoPlayAudioSwitch"
-				       checked> {{-- Default to checked --}}
+				       checked>
 				<label class="form-check-label small" for="autoPlayAudioSwitch">Auto-play Audio</label>
 			</div>
 		</div>
@@ -113,7 +104,7 @@
 	
 	
 	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true"
-	     data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop, no keyboard close --}}
+	     data-bs-backdrop="static" data-bs-keyboard="false">
 		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -139,7 +130,6 @@
 @endsection
 
 @push('scripts')
-	{{-- Pass initial data from Controller to JS --}}
 	<script>
 		window.questionInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
@@ -290,8 +280,8 @@
 	
 	
 	</script>
-	<script src="{{ asset('js/question_helper_functions.js') }}"></script>
+	<script src="{{ asset('js/lesson_helper_functions.js') }}"></script>
 	<script src="{{ asset('js/lesson_audio_functions.js') }}"></script>
 	<script src="{{ asset('js/lesson_progress_intro.js') }}"></script>
-	<script src="{{ asset('js/question_interface.js') }}"></script>
+	<script src="{{ asset('js/lesson_interface.js') }}"></script>
 @endpush

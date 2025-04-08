@@ -1,4 +1,4 @@
-// learn-with-ai/public/js/subject_input.js
+// learn-with-ai/public/js/create_lesson.js
 
 document.addEventListener('DOMContentLoaded', () => {
 	const subjectForm = document.getElementById('subjectForm');

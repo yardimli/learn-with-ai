@@ -81,14 +81,12 @@
 		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
-	{{-- Lesson Parts and Questions --}}
 	@if (!empty($subject->lesson_parts))
 		@foreach($subject->lesson_parts as $partIndex => $part)
 			<div class="content-card mb-4">
 				<h3 class="mb-3">Lesson Part {{ $partIndex + 1 }}: {{ $part['title'] }}</h3>
 				<p>{{ $part['text'] }}</p>
 				
-				{{-- Part Video Generation --}}
 				<div class="asset-container mb-4 generated-video-container border-top pt-3 mt-3">
 					<h6><i class="fas fa-film me-2 text-primary"></i>Part Video</h6>
 					@php
@@ -102,7 +100,7 @@
 							<p><small class="text-muted d-block mt-1">Video available. Path: {{ $videoPath }}</small></p>
 						@endif
 					</div>
-					<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;">{{-- Placeholder for JS --}}</div>
+					<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;"></div>
 					<div class="text-center video-button-area" id="video-button-area-{{ $partIndex }}">
 						<button class="btn btn-outline-info generate-part-video-btn"
 						        data-subject-id="{{ $subject->session_id }}"
@@ -118,11 +116,9 @@
 					</div>
 				</div>
 				
-				{{-- Questions Section --}}
 				<div class="questions-section border-top pt-3 mt-4">
 					<h4 class="mt-0 mb-3">Questions for this Part</h4>
 					
-					{{-- Question Generation Buttons --}}
 					<div class="mb-4">
 						<h5 class="mb-2">Generate New Questions</h5>
 						<div class="btn-group" role="group" aria-label="Generate Question Buttons">
@@ -139,13 +135,11 @@
 								</button>
 							@endforeach
 						</div>
-						{{-- Place for general generation errors --}}
 						@foreach(['easy', 'medium', 'hard'] as $difficulty)
 							<div class="asset-generation-error text-danger small mt-1" id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}" style="display: none;"></div>
 						@endforeach
 					</div>
 					
-					{{-- Display Existing Questions by Difficulty --}}
 					@foreach(['easy', 'medium', 'hard'] as $difficulty)
 						<div class="question-difficulty-group">
 							<h5 class="d-flex justify-content-between align-items-center">
@@ -171,22 +165,20 @@
 		<div class="alert alert-warning">Lesson part data is missing or invalid for this subject. Cannot display edit options.</div>
 	@endif
 	
-	{{-- Include the question item partial template for JS --}}
 	<template id="question-item-template">
 		@include('partials._question_edit_item', ['question' => null])
 	</template>
 	
 	
-	{{-- Add Freepik Search Modal --}}
 	<div class="modal fade" id="freepikSearchModal" tabindex="-1" aria-labelledby="freepikSearchModalLabel" aria-hidden="true" data-bs-backdrop="static">
-		<div class="modal-dialog modal-xl modal-dialog-scrollable"> {{-- Large & Scrollable --}}
+		<div class="modal-dialog modal-xl modal-dialog-scrollable">
 			<div class="modal-content">
 				<div class="modal-header">
 					<h5 class="modal-title" id="freepikSearchModalLabel">Search Freepik for Question Image</h5>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 				<div class="modal-body">
-					<input type="hidden" id="freepikModalQuestionId" value="{{$subject->id}}"> {{-- Store target Question ID --}}
+					<input type="hidden" id="freepikModalQuestionId" value="{{$subject->id}}">
 					<div class="input-group mb-3">
 						<input type="text" id="freepikSearchQuery" class="form-control" placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
 						<button class="btn btn-primary" type="button" id="freepikSearchExecuteBtn">
@@ -196,9 +188,7 @@
 					</div>
 					<div id="freepikSearchError" class="alert alert-danger d-none" role="alert"></div>
 					
-					{{-- Results Area --}}
 					<div id="freepikSearchResults" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" style="min-height: 200px;">
-						{{-- Results will be loaded here by JS --}}
 						<div class="col-12 text-center text-muted d-none" id="freepikSearchPlaceholder">
 							Enter a search term above to find images.
 						</div>
@@ -211,10 +201,8 @@
 						</div>
 					</div>
 					
-					{{-- Pagination (Optional but good) --}}
 					<nav aria-label="Freepik Search Pagination" class="mt-3 d-none" id="freepikPaginationContainer">
 						<ul class="pagination justify-content-center" id="freepikPagination">
-							{{-- Pagination links added by JS --}}
 						</ul>
 					</nav>
 				
@@ -222,13 +210,11 @@
 				<div class="modal-footer">
 					<small class="text-muted me-auto">Image search powered by Freepik. Ensure compliance with Freepik's terms.</small>
 					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-					{{-- Selection happens by clicking image, no confirm button needed here --}}
 				</div>
 			</div>
 		</div>
 	</div>
 	
-	{{-- Success Modal for Question Batch Generation --}}
 	<div class="modal fade" id="questionBatchSuccessModal" tabindex="-1" aria-labelledby="questionBatchSuccessModalLabel" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
@@ -251,7 +237,6 @@
 		</div>
 	</div>
 	
-	{{-- Edit Texts Modal --}}
 	<div class="modal fade" id="editTextsModal" tabindex="-1" aria-labelledby="editTextsModalLabel" aria-hidden="true" data-bs-backdrop="static">
 		<div class="modal-dialog modal-lg">
 			<div class="modal-content">
@@ -294,8 +279,10 @@
 		let sharedAudioPlayer = null;
 		let imageModal = null;
 		let currentlyPlayingButton = null;
+		let existingPlayButtons = null;
 	
 	</script>
-	<script src="{{ asset('js/lesson_edit.js') }}"></script>
-	<script src="{{ asset('js/freepik_functions.js') }}"></script>
+	<script src="{{ asset('js/edit_lesson.js') }}"></script>
+	<script src="{{ asset('js/edit_lesson_audio.js') }}"></script>
+	<script src="{{ asset('js/edit_lesson_freepik_functions.js') }}"></script>
 @endpush

@@ -6,10 +6,8 @@
 	<h1 class="text-center mb-4">Learn Something New with AI</h1>
 	
 	<div class="content-card">
-		{{-- Point form action to the preview route --}}
 		<form id="subjectForm" action="{{ route('lesson.generate.structure') }}" method="POST">
 			@csrf
-			{{-- Add hidden input for the actual create URL for JS --}}
 			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}">
 			
 			<div class="mb-3">
@@ -36,7 +34,6 @@
 					@endphp
 					<option value="{{$defaultLlmId}}">Use Default - {{ $defaultLlmName }}</option>
 					@foreach ($llms ?? [] as $llm)
-						{{-- Filter out the default if already shown, or handle duplicates --}}
 						@if($llm['id'] !== $defaultLlmId)
 							<option value="{{ $llm['id'] }}">{{ $llm['name'] }}</option>
 						@endif
@@ -56,7 +53,6 @@
 	</div>
 	
 	
-	{{-- NEW: List of Existing Lessons --}}
 	<hr>
 	<h2 class="text-center my-4">Existing Lessons</h2>
 	
@@ -72,7 +68,6 @@
 								Created: {{ $subject->created_at->format('M d, Y H:i') }}</small></p>
 					</div>
 					<div class="col-lg-4 text-end">
-						{{-- Add a button to preview the lesson --}}
 						<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}"
 						   class="btn btn-sm btn-outline-success me-2" title="Start Learning">
 							<i class="fas fa-eye"></i> Start Learning
@@ -101,15 +96,14 @@
 	
 	<!-- Lesson Plan Preview Modal -->
 	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel"
-	     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {{-- Static backdrop --}}
-		<div class="modal-dialog modal-lg modal-dialog-scrollable"> {{-- Larger & Scrollable --}}
+	     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+		<div class="modal-dialog modal-lg modal-dialog-scrollable">
 			<div class="modal-content">
 				<div class="modal-header">
 					<h5 class="modal-title" id="lessonPreviewModalLabel">Lesson Plan Preview</h5>
 					{{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}} {{-- Disable closing via X --}}
 				</div>
 				<div class="modal-body" id="lessonPreviewBody">
-					{{-- Content will be loaded via JavaScript --}}
 					<div class="text-center">
 						<div class="spinner-border text-primary" role="status">
 							<span class="visually-hidden">Loading preview...</span>
@@ -125,7 +119,7 @@
 					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel
 					</button>
 					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson
-					</button> {{-- Disabled initially --}}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -133,5 +127,5 @@
 @endsection
 
 @push('scripts')
-	<script src="{{ asset('js/subject_input.js') }}"></script>
+	<script src="{{ asset('js/create_lesson.js') }}"></script>
 @endpush

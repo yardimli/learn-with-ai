@@ -14,10 +14,9 @@
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
 	      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
 	      crossorigin="anonymous" referrerpolicy="no-referrer"/>
-	{{-- Link the common CSS file --}}
 	<link rel="stylesheet" href="{{ asset('css/app.css') }}">
 	
-	@stack('styles') {{-- For page-specific styles --}}
+	@stack('styles')
 	
 	<script>
 		(function () {
@@ -62,7 +61,6 @@
 </head>
 <body class="antialiased">
 
-{{-- Dark Mode Switch --}}
 <div class="dark-mode-switch-container shadow-sm">
 	<div class="form-check form-switch">
 		<input class="form-check-input" type="checkbox" role="switch" id="darkModeSwitch">
@@ -99,15 +97,15 @@
 	
 	<!-- Generic Image Modal -->
 	<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-		<div class="modal-dialog modal-xl modal-dialog-centered"> {{-- Extra large and centered --}}
+		<div class="modal-dialog modal-xl modal-dialog-centered">
 			<div class="modal-content">
 				<div class="modal-header">
 					<h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
-				<div class="modal-body text-center"> {{-- Center the image --}}
+				<div class="modal-body text-center">
 					<img src="" id="imageModalDisplay" alt="Image Preview" class="img-fluid"
-					     style="max-height: 80vh;"> {{-- Responsive, limit height --}}
+					     style="max-height: 80vh;">
 				</div>
 			</div>
 		</div>
@@ -129,8 +127,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
         crossorigin="anonymous"></script>
-{{-- Common JS utilities if needed --}}
 <script src="{{ asset('js/common.js') }}"></script>
-@stack('scripts') {{-- For page-specific scripts --}}
+@stack('scripts')
 </body>
 </html>

@@ -30,7 +30,7 @@
 			$llms = MyHelper::checkLLMsJson();
 			// Eager load question count for potential display (optional)
 			$subjects = Subject::withCount('questions')->orderBy('created_at', 'desc')->get();
-			return view('subject_input', compact('llms', 'subjects'));
+			return view('create_lesson', compact('llms', 'subjects'));
 		}
 
 		// --- Prompt for generating Lesson Structure ONLY ---

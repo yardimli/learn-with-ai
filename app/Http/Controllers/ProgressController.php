@@ -107,6 +107,6 @@
 				}
 			}
 
-			return view('progress', compact('subject', 'currentProgress', 'archivedProgressSets'));
+			return view('progress_reports', compact('subject', 'currentProgress', 'archivedProgressSets'));
 		}
 	}

@@ -32,37 +32,6 @@ async function uploadQuestionImage(questionId, file, errorAreaId, successAreaId)
 	}
 }
 
-function playAudio(button, audioUrl) {
-	if (!sharedAudioPlayer || !button || !audioUrl) return;
-	
-	if (currentlyPlayingButton && currentlyPlayingButton !== button) {
-		sharedAudioPlayer.pause();
-		resetPlayButton(currentlyPlayingButton);
-	}
-	
-	if (currentlyPlayingButton === button) {
-		sharedAudioPlayer.pause(); // Will trigger pause listener to reset state
-	} else {
-		sharedAudioPlayer.src = audioUrl;
-		sharedAudioPlayer.play().then(() => {
-			button.classList.add('playing');
-			currentlyPlayingButton = button;
-			if (button.dataset.errorAreaId) hideError(button.dataset.errorAreaId);
-		}).catch(error => {
-			console.error("Error playing audio:", error);
-			if (button.dataset.errorAreaId) showError(button.dataset.errorAreaId, 'Playback failed.');
-			resetPlayButton(button); // Reset button state on play error
-			currentlyPlayingButton = null;
-		});
-	}
-}
-
-function resetPlayButton(button) {
-	if (button) {
-		button.classList.remove('playing');
-	}
-}
-
 function updateVideoDisplay(partIndex, videoUrl, videoPath) {
 	const displayArea = document.getElementById(`video-display-${partIndex}`);
 	const buttonArea = document.getElementById(`video-button-area-${partIndex}`);
@@ -82,73 +51,6 @@ function updateVideoDisplay(partIndex, videoUrl, videoPath) {
 	// Update button text to 'Regenerate' and ensure spinner is off
 	button.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span><i class="fas fa-video me-1"></i> Regenerate Video`;
 	showSpinner(button, false);
-}
-
-function updateQuestionAudioDisplay(questionId, audioUrl) {
-	const controlsArea = document.getElementById(`q-audio-controls-${questionId}`);
-	const errorAreaId = `q-audio-error-${questionId}`;
-	if (!controlsArea) return;
-	
-	hideError(errorAreaId);
-	controlsArea.innerHTML = `
-            <button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="${audioUrl}" data-error-area-id="${errorAreaId}" title="Play Question Audio">
-                <i class="fas fa-play"></i><i class="fas fa-pause"></i>
-            </button>`;
-	// Ensure any associated generate button is removed (might be handled by caller)
-	const genButton = controlsArea.closest('.question-item').querySelector(`.generate-asset-btn[data-question-id="${questionId}"][data-asset-type="question-audio"]`);
-	if (genButton) {
-		//remove spinner from button
-		showSpinner(genButton, false);
-		//genButton.remove();
-	}
-}
-
-function updateAnswerAudioStatus(questionId, success = true, answersData = null) {
-	const statusArea = document.getElementById(`a-audio-status-${questionId}`);
-	const buttonContainer = document.getElementById(`a-audio-container-${questionId}`);
-	const errorAreaId = `a-audio-error-${questionId}`;
-	hideError(errorAreaId);
-	
-	if (!statusArea || !buttonContainer) return;
-	
-	const generateButton = buttonContainer.querySelector(`.generate-asset-btn[data-question-id="${questionId}"][data-asset-type="answer-audio"]`);
-	
-	if (success) {
-		statusArea.innerHTML = '<span class="text-success small"><i class="fas fa-check-circle me-1"></i>Generated</span>';
-		showSpinner(generateButton, false); // Hide spinner
-		//generateButton.remove(); // Remove the 'Generate All' button
-		
-		// Update individual answer/feedback play buttons if data provided
-		if (answersData && Array.isArray(answersData)) {
-			const answerList = document.querySelector(`#question-item-${questionId} .answer-list`);
-			if (answerList) {
-				answersData.forEach((answer, index) => {
-					const ansControls = answerList.querySelector(`#ans-audio-controls-${questionId}-${index}`);
-					const fbControls = answerList.querySelector(`#fb-audio-controls-${questionId}-${index}`);
-					
-					if (ansControls && answer.answer_audio_url) {
-						ansControls.innerHTML = `<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="${answer.answer_audio_url}" data-error-area-id="${errorAreaId}" title="Play Answer Audio"><i class="fas fa-play"></i><i class="fas fa-pause"></i></button>`;
-					} else if (ansControls) {
-						ansControls.innerHTML = `<span class="badge bg-light text-dark ms-1" title="Answer audio not available"><i class="fas fa-volume-mute"></i></span>`; // Show mute if failed/missing
-					}
-					
-					if (fbControls && answer.feedback_audio_url) {
-						fbControls.innerHTML = `<button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="${answer.feedback_audio_url}" data-error-area-id="${errorAreaId}" title="Play Feedback Audio"><i class="fas fa-play"></i><i class="fas fa-pause"></i></button>`;
-					} else if (fbControls) {
-						fbControls.innerHTML = `<span class="badge bg-light text-dark ms-1" title="Feedback audio not available"><i class="fas fa-volume-mute"></i></span>`; // Show mute if failed/missing
-					}
-				});
-			}
-		} else {
-			// If no data, just show status and maybe suggest refresh?
-			// statusArea.innerHTML += ' <a href="javascript:location.reload();" class="small">(Refresh page to view players)</a>';
-			console.warn(`Answer audio generated for question ${questionId}, but no answer data returned to update players.`);
-		}
-	} else {
-		statusArea.innerHTML = '<span class="text-danger small"><i class="fas fa-times-circle me-1"></i>Failed</span>';
-		// Re-enable button on failure
-		if (generateButton) showSpinner(generateButton, false);
-	}
 }
 
 function populateEditTextsModal(questionId) {
@@ -668,28 +570,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			});
 	});
 	
-	// --- Shared Audio Player (Keep as is) ---
-	sharedAudioPlayer = document.getElementById('sharedAudioPlayer');
-	// ... (audio player event listeners: ended, pause, error - unchanged) ...
-	sharedAudioPlayer.addEventListener('ended', () => {
-		resetPlayButton(currentlyPlayingButton);
-		currentlyPlayingButton = null;
-	});
-	sharedAudioPlayer.addEventListener('pause', () => {
-		if (!sharedAudioPlayer.ended && currentlyPlayingButton) {
-			resetPlayButton(currentlyPlayingButton);
-			currentlyPlayingButton = null;
-		}
-	});
-	sharedAudioPlayer.addEventListener('error', (e) => {
-		console.error("Audio Player Error:", e);
-		const errorAreaId = currentlyPlayingButton.dataset.errorAreaId;
-		if (errorAreaId) showError(errorAreaId, 'Audio playback error.');
-		resetPlayButton(currentlyPlayingButton);
-		currentlyPlayingButton = null;
-	});
-	
-	
 	// --- Image Modal (Keep as is) ---
 	imageModal = document.getElementById('imageModal');
 	
@@ -724,16 +604,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			populateEditTextsModal(questionId);
 		}
 		
-		
-		// 1. Play/Pause Button Click
-		const playPauseButton = event.target.closest('.btn-play-pause');
-		if (playPauseButton) {
-			const audioUrl = playPauseButton.dataset.audioUrl;
-			playAudio(playPauseButton, audioUrl);
-			return; // Stop processing further listeners
-		}
-		
-		// 2. Generate Part Video Button Click
 		const generateVideoBtn = event.target.closest('.generate-part-video-btn');
 		if (generateVideoBtn) {
 			const btn = generateVideoBtn;
@@ -780,63 +650,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			return; // Stop processing further listeners
 		}
 		
-		// 3. Generate Single Asset Button Click (Question Audio, Answer Audio)
-		const generateAssetBtn = event.target.closest('.generate-asset-btn');
-		if (generateAssetBtn) {
-			const btn = generateAssetBtn;
-			const url = btn.dataset.url;
-			const assetType = btn.dataset.assetType; // 'question-audio', 'answer-audio'
-			const questionId = btn.dataset.questionId;
-			const targetAreaId = btn.dataset.targetAreaId;
-			const errorAreaId = btn.dataset.errorAreaId;
-			
-			hideError(errorAreaId);
-			showSpinner(btn, true);
-			
-			try {
-				const response = await fetch(url, {
-					method: 'POST',
-					headers: {
-						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-						'Accept': 'application/json',
-					}
-				});
-				const result = await response.json();
-				
-				if (!response.ok || !result.success) {
-					// Handle conflict/already exists specifically
-					if (response.status === 200 && result.message.includes('already exists')) { // Backend returns 200
-						console.warn(`${assetType} for question ${questionId} already exists.`);
-						if (assetType === 'question-audio' && result.audio_url) {
-							updateQuestionAudioDisplay(questionId, result.audio_url); // Update UI to show player
-						} else if (assetType === 'answer-audio') {
-							updateAnswerAudioStatus(questionId, true, result.answers); // Mark as success, update players if data provided
-						} else {
-							//btn.remove(); // Fallback: remove the generate button
-						}
-						showSpinner(btn, false); // Ensure spinner is off
-					} else {
-						throw new Error(result.message || `HTTP error ${response.status}`);
-					}
-				} else {
-					// --- Success ---
-					if (assetType === 'question-audio' && result.audio_url) {
-						updateQuestionAudioDisplay(questionId, result.audio_url);
-						// Button is removed/replaced by updateQuestionAudioDisplay
-					} else if (assetType === 'answer-audio') {
-						updateAnswerAudioStatus(questionId, true, result.answers); // Pass returned answer data
-						// Button is removed by updateAnswerAudioStatus
-					}
-				}
-			} catch (error) {
-				console.error(`Error generating ${assetType} for question ${questionId}:`, error);
-				showError(errorAreaId, `Failed: ${error.message}`);
-				showSpinner(btn, false); // Re-enable button on error
-			}
-			return; // Stop processing further listeners
-		}
-		
-		// 4. Regenerate/Generate Question Image Button Click
 		const regenImageBtn = event.target.closest('.regenerate-question-image-btn');
 		if (regenImageBtn) {
 			const btn = regenImageBtn;
@@ -894,8 +707,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			return; // Stop processing further listeners
 		}
 		
-		
-		// 5. NEW: Add Question Batch Button Click
 		const addQuestionBatchBtn = event.target.closest('.add-question-batch-btn');
 		if (addQuestionBatchBtn) {
 			const btn = addQuestionBatchBtn;
@@ -958,7 +769,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			return; // Stop processing
 		}
 		
-		// 6. NEW: Delete Question Button Click
 		const deleteQuestionBtn = event.target.closest('.delete-question-btn');
 		if (deleteQuestionBtn) {
 			const btn = deleteQuestionBtn;
@@ -1021,8 +831,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			return; // Stop processing
 		}
 		
-		
-		// --- NEW: Image Upload Trigger ---
 		const triggerUploadBtn = event.target.closest('.trigger-upload-btn');
 		if (triggerUploadBtn) {
 			const fileInputId = triggerUploadBtn.dataset.fileInputId;
@@ -1038,7 +846,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 	}); // End of delegated event listener
 	
-	// Handle save button click in edit texts modal
 	document.getElementById('saveTextsBtn').addEventListener('click', async function () {
 		// Hide any previous error message
 		document.getElementById('editTextsError').classList.add('d-none');

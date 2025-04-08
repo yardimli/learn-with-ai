@@ -1,11 +1,9 @@
-{{-- 1. Progress Bar and Part Indicators --}}
-<div class="progress-container shadow-sm mb-4"> {{-- Added mb-4 for spacing --}}
+<div class="progress-container shadow-sm mb-4">
 	<div class="progress" role="progressbar" aria-label="Lesson Progress" aria-valuenow="0" aria-valuemin="0"
 	     aria-valuemax="100">
 		<div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%">0%</div>
 	</div>
 	<div class="part-indicator" id="partIndicatorContainer">
-		{{-- Loop needs totalParts passed from parent --}}
 		@isset($totalParts)
 			@for ($i = 0; $i < $totalParts; $i++)
 				<div class="part-label" id="partLabel_{{ $i }}" data-part-index="{{ $i }}">
@@ -18,7 +16,6 @@
 	</div>
 </div>
 
-{{-- 2. Part Introduction Area (Video & Text) - Initially hidden/shown by JS --}}
 <div id="partIntroArea" class="d-none">
 	<div class="row align-items-center">
 		<div class="col-md-4 text-center mb-3 mb-md-0">
@@ -36,7 +33,7 @@
 			<p id="partIntroText" class="lead"></p>
 		</div>
 	</div>
-	<hr class="my-4"> {{-- Added margin --}}
+	<hr class="my-4">
 	<div class="text-center">
 		<button id="startPartQuestionButton" class="btn btn-primary btn-lg">
 			Start Part Question

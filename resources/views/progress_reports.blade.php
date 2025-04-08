@@ -45,7 +45,6 @@
 	</div>
 	
 	<div class="row">
-		{{-- Current Progress Card --}}
 		<div class="col-md-6 mb-4">
 			<div class="content-card h-100">
 				<h5><i class="fas fa-tasks me-2 text-primary"></i>Current Progress</h5>
@@ -70,7 +69,6 @@
 			</div>
 		</div>
 		
-		{{-- Archived Progress Card --}}
 		<div class="col-md-6 mb-4">
 			<div class="content-card h-100">
 				<h5><i class="fas fa-archive me-2 text-warning"></i>Archived Progress History</h5>
@@ -102,5 +100,4 @@
 @endsection
 
 @push('scripts')
-	{{-- No specific JS needed for this page currently --}}
 @endpush

@@ -46,7 +46,7 @@
 			$question = null;
 			Log::info("Initial State for Subject ID {$subject->id}: ", $state);
 
-			return view('question_interface', compact('subject', 'question', 'state', 'totalParts', 'allPartIntros'));
+			return view('lesson_interface', compact('subject', 'question', 'state', 'totalParts', 'allPartIntros'));
 		}
 
 		/**
