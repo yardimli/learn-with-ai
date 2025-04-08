@@ -1239,17 +1239,24 @@
 						throw new \Exception('OpenAI API key is not configured in .env');
 					}
 
-					//get word count of $text
-					$wordCount = str_word_count($text);
+					//check if $text contain non english characters
 					$prefix_str = '';
-					if ($wordCount < 2) {
-						$prefix_str = '... ';
-					}
-					//check if $text ends with a period
 					$suffix_str = '';
-					if (substr($text, -1) !== '.') {
-						$suffix_str = '.';
+					if (preg_match('/[^\x20-\x7E]/', $text)) {
+
+					} else {
+
+						//get word count of $text
+						$wordCount = str_word_count($text);
+						if ($wordCount < 2) {
+							$prefix_str = '... ';
+						}
+						//check if $text ends with a period
+						if (substr($text, -1) !== '.') {
+							$suffix_str = '.';
+						}
 					}
+					Log::info("OpenAI TTS: Prefix: {$prefix_str}, Suffix: {$suffix_str}");
 
 					$response = Http::withToken($apiKey)
 						->timeout(60) // Increased timeout for audio generation
