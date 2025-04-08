@@ -134,7 +134,7 @@ PROMPT;
 		{
 			// Validation rules simplified - only structure needed
 			$validator = Validator::make($request->all(), [
-				'lesson_name' => 'required|string|max:150',
+				'lesson_name' => 'required|string|max:512',
 				'preferred_llm' => 'required|string|max:100',
 				'tts_engine' => 'required|string|in:google,openai',
 				'tts_voice' => 'required|string|max:100',
