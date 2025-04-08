@@ -1168,7 +1168,7 @@
 
 			// Second pass: Remove silence from beginning and end
 			$silenceRemoveCommand = sprintf(
-				'ffmpeg -i  %s -af "silenceremove=start_periods=1:start_duration=1:start_threshold=-60dB:detection=peak,aformat=dblp,areverse,silenceremove=start_periods=1:start_duration=1:start_threshold=-60dB:detection=peak,aformat=dblp,areverse"  -b:a %s %s',
+				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse,silenceremove=start_periods=1:start_duration=0:start_threshold=-60dB:detection=peak,areverse -b:a %s %s',
 				escapeshellarg($tempFile),
 				$bitrate,
 				escapeshellarg($outputFile)
@@ -1178,9 +1178,9 @@
 			exec($silenceRemoveCommand, $output, $returnCode);
 
 			// Clean up the temporary file
-			if (file_exists($tempFile)) {
-				unlink($tempFile);
-			}
+//			if (file_exists($tempFile)) {
+//				unlink($tempFile);
+//			}
 
 			return $returnCode === 0;
 		}
@@ -1229,11 +1229,23 @@
 						throw new \Exception('OpenAI API key is not configured in .env');
 					}
 
+					//get word count of $text
+					$wordCount = str_word_count($text);
+					$prefix_str = '';
+					if ($wordCount < 2) {
+						$prefix_str = '[pause]';
+					}
+					//check if $text ends with a period
+					$suffix_str = '';
+					if (substr($text, -1) !== '.') {
+						$suffix_str = '.';
+					}
+
 					$response = Http::withToken($apiKey)
 						->timeout(60) // Increased timeout for audio generation
 						->post('https://api.openai.com/v1/audio/speech', [
 							'model' => $openAiModel,
-							'input' => $text,
+							'input' => $prefix_str.$text.$suffix_str,
 							'voice' => $openAiVoice,
 							'instructions' => 'Speak in a cheerful and positive tone.',
 							'response_format' => 'mp3', // Request MP3 format
