@@ -1,4 +1,3 @@
-// Helper function to format seconds into MM:SS or S.s format
 function formatTime(seconds) {
 	if (isNaN(seconds) || !isFinite(seconds)) {
 		return '--:--'; // Handle invalid duration
@@ -17,65 +16,54 @@ function formatTime(seconds) {
 
 // Function to fetch and display audio duration on a button
 function displayAudioDuration(buttonElement, audioUrl) {
-	if (!buttonElement || !audioUrl || !sharedAudioPlayer) return;
-	
+	if (!buttonElement || !audioUrl) return;
 	const durationSpan = buttonElement.querySelector('.audio-duration');
 	if (!durationSpan) {
 		console.warn("Button is missing the .audio-duration span", buttonElement);
 		return;
 	}
 	
-	// Show a temporary loading indicator? (Optional)
-	// durationSpan.textContent = '...';
+	// Show a temporary loading indicator
+	durationSpan.textContent = '(...)';
 	
-	// Use a clone of the shared player or a separate temporary one if worried about conflicts
-	// For simplicity, we'll reuse the shared one carefully
-	// It's crucial to use { once: true } for the event listeners
+	// Create a temporary audio element JUST for fetching metadata
+	const tempAudio = new Audio(); // Use the Audio constructor
 	
 	const handleMetadataLoaded = () => {
-		const duration = sharedAudioPlayer.duration;
+		const duration = tempAudio.duration;
 		durationSpan.textContent = `(${formatTime(duration)})`;
-		// Clean up temporary source to avoid state issues if needed
-		// sharedAudioPlayer.removeAttribute('src');
+		// No need to explicitly clean up the tempAudio object here,
+		// it will be garbage collected. Listeners are { once: true }.
 	};
 	
 	const handleLoadError = (e) => {
 		console.error(`Error loading metadata for ${audioUrl}:`, e);
 		durationSpan.textContent = '(Err)';
-		// Clean up temporary source
-		// sharedAudioPlayer.removeAttribute('src');
+		// Log the specific error detail if possible
+		if (tempAudio.error) {
+			console.error("MediaError details:", tempAudio.error);
+		}
 	};
 	
-	// Remove previous listeners before adding new ones, just in case
-	// (Though { once: true } should handle this, being extra safe)
-	// sharedAudioPlayer.removeEventListener('loadedmetadata', handleMetadataLoaded);
-	// sharedAudioPlayer.removeEventListener('error', handleLoadError);
+	// Add listeners *to the temporary audio element*
+	tempAudio.addEventListener('loadedmetadata', handleMetadataLoaded, { once: true });
+	tempAudio.addEventListener('error', handleLoadError, { once: true });
+	// Add stalled event listener for debugging network issues
+	tempAudio.addEventListener('stalled', () => {
+		console.warn(`Loading stalled for audio metadata: ${audioUrl}`);
+		// Optionally set error state if stalled persists?
+		// durationSpan.textContent = '(Stalled)';
+	}, { once: true });
 	
 	
-	// Add listeners that will fire only once for this specific load attempt
-	sharedAudioPlayer.addEventListener('loadedmetadata', handleMetadataLoaded, { once: true });
-	sharedAudioPlayer.addEventListener('error', handleLoadError, { once: true });
+	// Set the source on the temporary audio element to trigger loading
+	tempAudio.src = audioUrl;
 	
-	// Set the source to trigger loading
-	// Only set src if it's different from the current src to potentially avoid unnecessary reloads
-	// Note: This might prevent fetching duration if the same file is loaded consecutively for different buttons quickly.
-	// A dedicated temporary audio element might be safer if this becomes an issue.
-	if (sharedAudioPlayer.currentSrc !== audioUrl) {
-		sharedAudioPlayer.src = audioUrl;
-	} else {
-		// If src is the same, metadata *should* already be loaded if it ever was.
-		// Try to display duration immediately if available.
-		const duration = sharedAudioPlayer.duration;
-		if (!isNaN(duration) && isFinite(duration)) {
-			durationSpan.textContent = `(${formatTime(duration)})`;
-		} else {
-			// If duration isn't available, maybe force reload or show error?
-			// For now, let's assume it might load later or failed previously
-			// durationSpan.textContent = '(N/A)';
-			// Or retry loading
-			sharedAudioPlayer.src = audioUrl; // This will re-trigger listeners if they weren't {once:true} or if src was cleared
-		}
-	}
+	// Explicitly setting preload="metadata" might help some browsers prioritize
+	tempAudio.preload = 'metadata';
+	
+	// DO NOT use the sharedAudioPlayer here for metadata loading.
+	// Avoid calling tempAudio.load() unless necessary, setting src often suffices.
 }
 
 function playAudio(button, audioUrl) {
