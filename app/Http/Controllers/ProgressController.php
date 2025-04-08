@@ -3,7 +3,7 @@
 	namespace App\Http\Controllers;
 
 	use App\Models\Question;
-	use App\Models\Subject;
+	use App\Models\Lesson;
 	use App\Models\UserAnswer;
 	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
@@ -16,16 +16,16 @@
 		/**
 		 * Calculate the score based on first correct attempts without errors.
 		 *
-		 * @param int $subjectId
+		 * @param int $lessonId
 		 * @param bool $useArchive If true, calculates score from UserAnswerArchive table.
 		 * @param mixed $archiveBatchId Optional: Filter archive by a specific batch ID.
 		 * @return array ['score', 'total_questions']
 		 */
-		private static function calculateFirstAttemptScore(int $subjectId, bool $useArchive = false, ?string $archiveBatchId = null): array
+		private static function calculateFirstAttemptScore(int $lessonId, bool $useArchive = false, ?string $archiveBatchId = null): array
 		{
-			// Get all questions relevant FOR THIS SUBJECT at the time of calculation
+			// Get all questions relevant FOR THIS LESSON at the time of calculation
 			// It's better to count questions from the Questions table directly for consistency
-			$relevantQuestionIds = Question::where('subject_id', $subjectId)->pluck('id');
+			$relevantQuestionIds = Question::where('lesson_id', $lessonId)->pluck('id');
 			$totalQuestions = $relevantQuestionIds->count();
 
 			if ($totalQuestions === 0) {
@@ -36,7 +36,7 @@
 			$answerModel = $useArchive ? UserAnswerArchive::class : UserAnswer::class;
 
 			foreach ($relevantQuestionIds as $questionId) {
-				$queryBase = $answerModel::where('subject_id', $subjectId)
+				$queryBase = $answerModel::where('lesson_id', $lessonId)
 					->where('question_id', $questionId)
 					->where('attempt_number', 1);
 
@@ -62,23 +62,23 @@
 		}
 
 		/**
-		 * Display the progress page for a subject.
+		 * Display the progress page for a lesson.
 		 *
-		 * @param Subject $subject
+		 * @param Lesson $lesson
 		 * @return \Illuminate\View\View
 		 */
-		public function show(Subject $subject)
+		public function show(Lesson $lesson)
 		{
-			Log::info("Showing progress page for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+			Log::info("Showing progress page for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
 
 			// Calculate Current Progress Score
-			$currentProgress = self::calculateFirstAttemptScore($subject->id, false);
+			$currentProgress = self::calculateFirstAttemptScore($lesson->id, false);
 
 			// --- Calculate Archived Progress Scores (per batch) ---
 			$archivedProgressSets = [];
 
 			// Get distinct batch IDs and their corresponding archive date (using max is safe as they are archived together)
-			$archiveBatches = UserAnswerArchive::where('subject_id', $subject->id)
+			$archiveBatches = UserAnswerArchive::where('lesson_id', $lesson->id)
 				->select('archive_batch_id', DB::raw('MAX(archived_at) as archive_date'))
 				->whereNotNull('archive_batch_id') // Only consider batches with an ID
 				->groupBy('archive_batch_id')
@@ -89,7 +89,7 @@
 				foreach ($archiveBatches as $batch) {
 					if (empty($batch->archive_batch_id)) continue; // Skip if somehow null
 
-					$batchScoreData = self::calculateFirstAttemptScore($subject->id, true, $batch->archive_batch_id);
+					$batchScoreData = self::calculateFirstAttemptScore($lesson->id, true, $batch->archive_batch_id);
 
 					// Only add if there were questions associated with this score calculation
 					// (Handles cases where questions might have been deleted later)
@@ -102,11 +102,11 @@
 							'percentage' => round(($batchScoreData['score'] / $batchScoreData['total_questions']) * 100),
 						];
 					} else {
-						Log::warning("Skipping archive batch {$batch->archive_batch_id} for subject {$subject->id} as total_questions was 0 during score calculation.");
+						Log::warning("Skipping archive batch {$batch->archive_batch_id} for lesson {$lesson->id} as total_questions was 0 during score calculation.");
 					}
 				}
 			}
 
-			return view('progress_reports', compact('subject', 'currentProgress', 'archivedProgressSets'));
+			return view('progress_reports', compact('lesson', 'currentProgress', 'archivedProgressSets'));
 		}
 	}

@@ -6,7 +6,7 @@
 	use Illuminate\Database\Eloquent\Model;
 	use Illuminate\Support\Facades\Storage; // Needed for accessor
 
-	class Subject extends Model
+	class Lesson extends Model
 	{
 		use HasFactory;
 
@@ -18,6 +18,11 @@
 			'generated_image_id',
 			'lesson_parts',
 			'llm_used',
+			'ttsEngine',
+			'ttsVoice',
+			'ttsLanguageCode',
+			'preferredLlm',
+
 		];
 
 		protected $casts = [

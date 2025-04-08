@@ -3,7 +3,7 @@
 	@php
 		// Use optional chaining and null coalescing for template safety
 		$questionId = $question->id ?? 'TEMPLATE_QUESTION_ID';
-		$subjectId = $question->subject_id ?? 'TEMPLATE_SUBJECT_ID';
+		$lessonId = $question->lesson_id ?? 'TEMPLATE_lesson_id';
 		$partIndex = $question->lesson_part_index ?? 'TEMPLATE_PART_INDEX';
 		$image = $question->generatedImage ?? null;
 		$prompt = $question->image_prompt_idea ?? '';

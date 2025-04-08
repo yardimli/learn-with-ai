@@ -12,7 +12,7 @@
 		protected $fillable = [
 			'original_user_answer_id',
 			'question_id',
-			'subject_id',
+			'lesson_id',
 			'selected_answer_index',
 			'was_correct',
 			'attempt_number',
@@ -35,8 +35,8 @@
 			return $this->belongsTo(Question::class);
 		}
 
-		public function subject()
+		public function lesson()
 		{
-			return $this->belongsTo(Subject::class);
+			return $this->belongsTo(Lesson::class);
 		}
 	}

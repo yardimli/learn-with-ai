@@ -11,15 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('subjects', function (Blueprint $table) {
+        Schema::create('lessons', function (Blueprint $table) {
 	        $table->id();
 	        $table->string('session_id')->index(); // Track by session
-	        $table->string('name'); // User entered subject
+	        $table->string('name'); // User entered lesson
 	        $table->string('title')->nullable(); // Generated title
 	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
 	        $table->unsignedBigInteger('generated_image_id')->default(0);
 	        $table->json('lesson_parts')->nullable(); // Store structured lesson
 	        $table->string('llm_used')->nullable(); // Track which LLM
+	        $table->string('ttsEngine')->nullable();
+	        $table->string('ttsVoice')->nullable();
+	        $table->string('ttsLanguageCode')->nullable();
+	        $table->string('preferredLlm')->nullable();
+
 	        $table->timestamps();
         });
     }
@@ -29,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('subjects');
+        Schema::dropIfExists('lessons');
     }
 };

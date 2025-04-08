@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Lesson Assets: ' . $subject->title)
+@section('title', 'Edit Lesson Assets: ' . $lesson->title)
 
 @push('styles')
 	<style>
@@ -22,12 +22,12 @@
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
-		<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> Start Lesson</a>
+		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> Start Lesson</a>
 	</div>
 	
 	<div class="content-card mb-4">
-		<h1 class="mb-1">Edit Lesson: {{ $subject->title }}</h1>
-		<p class="text-muted mb-3">Subject: {{ $subject->name }} (ID: {{ $subject->id }}, Session: {{ $subject->session_id }})</p>
+		<h1 class="mb-1">Edit Lesson: {{ $lesson->title }}</h1>
+		<p class="text-muted mb-3">Lesson: {{ $lesson->name }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }})</p>
 		
 		<!-- New Settings Row -->
 		<div class="row mb-3 border-top pt-3">
@@ -81,8 +81,8 @@
 		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
-	@if (!empty($subject->lesson_parts))
-		@foreach($subject->lesson_parts as $partIndex => $part)
+	@if (!empty($lesson->lesson_parts))
+		@foreach($lesson->lesson_parts as $partIndex => $part)
 			<div class="content-card mb-4">
 				<h3 class="mb-3">Lesson Part {{ $partIndex + 1 }}: {{ $part['title'] }}</h3>
 				<p>{{ $part['text'] }}</p>
@@ -103,9 +103,9 @@
 					<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;"></div>
 					<div class="text-center video-button-area" id="video-button-area-{{ $partIndex }}">
 						<button class="btn btn-outline-info generate-part-video-btn"
-						        data-subject-id="{{ $subject->session_id }}"
+						        data-lesson-id="{{ $lesson->session_id }}"
 						        data-part-index="{{ $partIndex }}"
-						        data-generate-url="{{ route('lesson.part.generate.video', ['subject' => $subject->session_id, 'partIndex' => $partIndex]) }}">
+						        data-generate-url="{{ route('lesson.part.generate.video', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}">
 							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 							<i class="fas fa-video me-1"></i> {{ $videoExists ? 'Regenerate Video' : 'Generate Video' }}
 						</button>
@@ -124,10 +124,10 @@
 						<div class="btn-group" role="group" aria-label="Generate Question Buttons">
 							@foreach(['easy', 'medium', 'hard'] as $difficulty)
 								<button class="btn btn-outline-success add-question-batch-btn"
-								        data-subject-id="{{ $subject->session_id }}"
+								        data-lesson-id="{{ $lesson->session_id }}"
 								        data-part-index="{{ $partIndex }}"
 								        data-difficulty="{{ $difficulty }}"
-								        data-generate-url="{{ route('question.generate.batch', ['subject' => $subject->session_id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
+								        data-generate-url="{{ route('question.generate.batch', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
 								        data-target-list-id="question-list-{{ $difficulty }}-{{ $partIndex }}"
 								        data-error-area-id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}">
 									<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -162,7 +162,7 @@
 			</div> {{-- /.content-card for part --}}
 		@endforeach
 	@else
-		<div class="alert alert-warning">Lesson part data is missing or invalid for this subject. Cannot display edit options.</div>
+		<div class="alert alert-warning">Lesson part data is missing or invalid for this lesson. Cannot display edit options.</div>
 	@endif
 	
 	<template id="question-item-template">
@@ -178,7 +178,7 @@
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 				<div class="modal-body">
-					<input type="hidden" id="freepikModalQuestionId" value="{{$subject->id}}">
+					<input type="hidden" id="freepikModalQuestionId" value="{{$lesson->id}}">
 					<div class="input-group mb-3">
 						<input type="text" id="freepikSearchQuery" class="form-control" placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
 						<button class="btn btn-primary" type="button" id="freepikSearchExecuteBtn">

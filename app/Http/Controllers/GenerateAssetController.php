@@ -5,7 +5,7 @@
 	use App\Helpers\MyHelper;
 	use App\Models\GeneratedImage;
 	use App\Models\Question; // Keep Question model import
-	use App\Models\Subject;
+	use App\Models\Lesson;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Storage;
@@ -22,15 +22,15 @@
 	class GenerateAssetController extends Controller
 	{
 
-		public function generatePartVideoAjax(Request $request, Subject $subject, int $partIndex)
+		public function generatePartVideoAjax(Request $request, Lesson $lesson, int $partIndex)
 		{
 			// ... (Keep existing implementation) ...
-			Log::info("AJAX request to generate video for Subject ID: {$subject->id}, Part Index: {$partIndex}");
+			Log::info("AJAX request to generate video for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 			// Retrieve and decode lesson parts
-			$lessonParts = is_array($subject->lesson_parts) ? $subject->lesson_parts : json_decode($subject->lesson_parts, true);
+			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 			// Validate partIndex
 			if (!is_array($lessonParts) || !isset($lessonParts[$partIndex])) {
-				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Subject ID: {$subject->id}.");
+				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Lesson ID: {$lesson->id}.");
 				return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 			}
 			// Check if video already exists for this part
@@ -39,7 +39,7 @@
 //				$videoUrl = $lessonParts[$partIndex]['video_url'];
 //				// Ensure file actually exists before claiming success
 //				if (Storage::disk('public')->exists($relativePath)) {
-//					Log::warning("Video already exists for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}");
+//					Log::warning("Video already exists for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}");
 //					return response()->json([
 //						'success' => true, // Indicate it exists
 //						'message' => 'Video already exists for this part.',
@@ -47,7 +47,7 @@
 //						'video_path' => $relativePath
 //					], 200); // 200 OK is fine here
 //				} else {
-//					Log::warning("Video path/URL recorded but file missing for Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}. Will attempt regeneration.");
+//					Log::warning("Video path/URL recorded but file missing for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}. Will attempt regeneration.");
 //					// Allow generation to proceed
 //				}
 //			}
@@ -82,10 +82,10 @@
 					$lessonParts[$partIndex]['video_url'] = $videoUrl; // Store generated URL
 
 					// Save the modified array back to the model
-					$subject->lesson_parts = $lessonParts;
-					$subject->save();
+					$lesson->lesson_parts = $lessonParts;
+					$lesson->save();
 
-					Log::info("Part video generated and saved. Subject ID: {$subject->id}, Part Index: {$partIndex}. Path: {$relativePath}, URL: {$videoUrl}");
+					Log::info("Part video generated and saved. Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}, URL: {$videoUrl}");
 					return response()->json([
 						'success' => true,
 						'message' => 'Video generated successfully!',
@@ -94,14 +94,14 @@
 					]);
 				} else {
 					$errorMsg = $videoResult['message'] ?? 'Unknown video generation error';
-					Log::error("Part video generation failed for Subject ID {$subject->id}, Part {$partIndex}: " . $errorMsg, ['result' => $videoResult]);
+					Log::error("Part video generation failed for Lesson ID {$lesson->id}, Part {$partIndex}: " . $errorMsg, ['result' => $videoResult]);
 					return response()->json([
 						'success' => false,
 						'message' => 'Failed to generate video: ' . $errorMsg
 					], 500);
 				}
 			} catch (\Exception $e) {
-				Log::error("Exception during AJAX part video generation for Subject ID {$subject->id}, Part {$partIndex}: " . $e->getMessage());
+				Log::error("Exception during AJAX part video generation for Lesson ID {$lesson->id}, Part {$partIndex}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Server error during video generation.'], 500);
 			}
 		}
@@ -151,7 +151,7 @@
 //				$languageCode = 'en-US';
 
 				// More robust unique identifier
-				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
+				$questionIdentifier = "s{$question->lesson_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$outputFilenameBase = 'audio/question_q_' . $questionIdentifier; // Include path segment
 
 				$audioResult = MyHelper::text2speech(
@@ -235,7 +235,7 @@
 //				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
 //				$languageCode = 'en-US';
 
-				$questionIdentifier = "s{$question->subject_id}_p{$question->lesson_part_index}_q{$question->id}";
+				$questionIdentifier = "s{$question->lesson_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$filenamePrefix = 'audio/question_' . $questionIdentifier; // Include path segment
 
 				// Process answers using the static method in Question model
@@ -402,7 +402,7 @@
 			/** @var UploadedFile $uploadedFile */
 			$uploadedFile = $request->file('question_image');
 			$originalFilename = pathinfo($uploadedFile->getClientOriginalName(), PATHINFO_FILENAME);
-			$baseDir = 'uploads/question_images/' . $question->subject_id; // Organize by subject
+			$baseDir = 'uploads/question_images/' . $question->lesson_id; // Organize by lesson
 			$baseName = Str::slug($originalFilename) . '_' . time(); // Unique base name
 
 			DB::beginTransaction();
@@ -473,4 +473,4 @@
 		}
 
 
-	} // End of SubjectController
+	} // End of CreateLessonController

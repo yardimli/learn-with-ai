@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Question: ' . $subject->title)
+@section('title', 'Question: ' . $lesson->title)
 
 @push('styles')
 	<style>
@@ -47,14 +47,14 @@
 @endpush
 
 @section('content')
-	<input type="hidden" id="subjectSessionId" value="{{ $subject->session_id }}">
-	<input type="hidden" id="subjectId" value="{{ $subject->id }}">
+	<input type="hidden" id="lessonSessionId" value="{{ $lesson->session_id }}">
+	<input type="hidden" id="lessonId" value="{{ $lesson->id }}">
 	
 	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio>
 	<audio id="feedbackAudioPlayer" style="display: none;" preload="auto"></audio>
 	
 	<div class="question-card">
-		<h3 class="text-center mb-3" id="lessonTitle">{{ $subject->title }}</h3>
+		<h3 class="text-center mb-3" id="lessonTitle">{{ $lesson->title }}</h3>
 		
 		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
 		
@@ -85,7 +85,7 @@
 		<div id="completionMessage" class="d-none mt-4">
 			<h3 class="text-success"><i class="fas fa-check-circle me-2"></i>Lesson Complete!</h3>
 			<p>Congratulations, you've successfully answered the required questions for all parts of this lesson.</p>
-			<a href="{{ route('home') }}" class="btn btn-primary">Choose Another Subject</a>
+			<a href="{{ route('home') }}" class="btn btn-primary">Choose Another Lesson</a>
 		</div>
 		
 		<div id="partCompletionMessage" class="d-none mt-4">
@@ -154,8 +154,8 @@
 		let modalNextButton = null;
 		
 		// --- State Variables ---
-		let subjectSessionId = null;
-		let subjectId = null;
+		let lessonSessionId = null;
+		let lessonId = null;
 		let isAutoPlayEnabled = true;
 		let displayedPartIndex = -1;
 		
@@ -213,8 +213,8 @@
 			closeErrorButton = document.getElementById('closeErrorButton');
 			
 			// --- State Variables ---
-			subjectSessionId = document.getElementById('subjectSessionId').value;
-			subjectId = document.getElementById('subjectId').value;
+			lessonSessionId = document.getElementById('lessonSessionId').value;
+			lessonId = document.getElementById('lessonId').value;
 			
 			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
 			currentPartQuestions = [];

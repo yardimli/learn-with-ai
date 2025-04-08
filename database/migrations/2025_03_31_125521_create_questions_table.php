@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('questions', function (Blueprint $table) {
 	        $table->id();
-	        $table->integer('subject_id')->default(0)->index(); // Track by session
+	        $table->integer('lesson_id')->default(0)->index(); // Track by session
 	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
 	        $table->text('image_search_keywords')->nullable(); // Generated idea for image prompt
 	        $table->integer('generated_image_id')->default(0);

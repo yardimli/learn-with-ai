@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Progress Report: ' . $subject->title)
+@section('title', 'Progress Report: ' . $lesson->title)
 
 @push('styles')
 	<style>
@@ -33,9 +33,9 @@
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
-		<h1 class="h2">{{ $subject->title }} - Progress Report</h1>
+		<h1 class="h2">{{ $lesson->title }} - Progress Report</h1>
 		<div>
-			<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}" class="btn btn-success me-2">
+			<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-success me-2">
 				<i class="fas fa-play"></i> {{ $currentProgress['score'] > 0 || empty($archivedProgressSets) ? 'Continue Lesson' : 'Start Lesson Again' }}
 			</a>
 			<a href="{{ route('home') }}" class="btn btn-secondary">
@@ -60,7 +60,7 @@
 					</div>
 					<small class="text-muted">This score reflects questions answered right on the very first try *since the last archive*.</small>
 				@else
-					@if (App\Models\UserAnswer::where('subject_id', $subject->id)->exists())
+					@if (App\Models\UserAnswer::where('lesson_id', $lesson->id)->exists())
 						<p class="text-muted">You have started the current session, but haven't scored any points yet (remember, only first correct answers count).</p>
 					@else
 						<p class="text-muted">No progress recorded yet for the current session. Click "Start Lesson Again" to begin!</p>

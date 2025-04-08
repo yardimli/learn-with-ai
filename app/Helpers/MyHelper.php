@@ -2,7 +2,7 @@
 
 	namespace App\Helpers;
 
-	use App\Models\Subject;
+	use App\Models\Lesson;
 	use App\Models\Question;
 	use App\Models\GeneratedImage;
 	use App\Models\UserAnswer;
@@ -1252,7 +1252,7 @@
 							$prefix_str = '... ';
 						}
 						//check if $text ends with a period
-						if (substr($text, -1) !== '.') {
+						if (!str_ends_with($text, '.')) {
 							$suffix_str = '.';
 						}
 					}

@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Save LLM preference
 	updateLLMBtn.addEventListener('click', function () {
 		const selectedLLM = llmSelector.value;
-		const subjectId = document.querySelector('[data-subject-id]').dataset.subjectId;
+		const lessonId = document.querySelector('[data-lesson-id]').dataset.lessonId;
 		
 		// Add spinner to button
 		this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				'Content-Type': 'application/json',
 				'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
 			},
-			body: JSON.stringify({llm: selectedLLM, subject_id: subjectId})
+			body: JSON.stringify({llm: selectedLLM, lesson_id: lessonId})
 		})
 			.then(response => response.json())
 			.then(data => {

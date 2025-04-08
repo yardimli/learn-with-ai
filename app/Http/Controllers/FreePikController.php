@@ -169,7 +169,7 @@
 				}
 				$imageContent = $imageContentResponse->body();
 				$originalFilename = pathinfo($actualImageUrl, PATHINFO_FILENAME);
-				$baseDir = 'uploads/question_images/' . $question->subject_id; // Organize by subject
+				$baseDir = 'uploads/question_images/' . $question->lesson_id; // Organize by lesson
 				$baseName = Str::slug($originalFilename) . '_freepik_source_' . time(); // Unique base name
 				$imageExtension = pathinfo($actualImageUrl, PATHINFO_EXTENSION);
 				$imageExtension = $imageExtension ?: 'jpg'; // Default to jpg if no extension found

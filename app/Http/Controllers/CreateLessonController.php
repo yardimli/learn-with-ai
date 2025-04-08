@@ -3,7 +3,7 @@
 	namespace App\Http\Controllers;
 
 	use App\Helpers\MyHelper;
-	use App\Models\Subject;
+	use App\Models\Lesson;
 	use App\Models\UserAnswer;
 	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
@@ -18,10 +18,10 @@
 
 	use Exception; // Add Exception import
 
-	class SubjectController extends Controller
+	class CreateLessonController extends Controller
 	{
 		/**
-		 * Display the subject input form (Home Page).
+		 * Display the lesson input form (Home Page).
 		 *
 		 * @return \Illuminate\View\View
 		 */
@@ -29,8 +29,8 @@
 		{
 			$llms = MyHelper::checkLLMsJson();
 			// Eager load question count for potential display (optional)
-			$subjects = Subject::withCount('questions')->orderBy('created_at', 'desc')->get();
-			return view('create_lesson', compact('llms', 'subjects'));
+			$lessons = Lesson::withCount('questions')->orderBy('created_at', 'desc')->get();
+			return view('create_lesson', compact('llms', 'lessons'));
 		}
 
 		// --- Prompt for generating Lesson Structure ONLY ---
@@ -66,10 +66,10 @@ Constraints:
 - Generate content suitable for a general audience learning about the subject for the first time.
 PROMPT;
 
-		public static function generateLessonStructure(string $llm, string $userSubject, int $maxRetries = 1): array
+		public static function generateLessonStructure(string $llm, string $userLesson, int $maxRetries = 1): array
 		{
-			$chatHistoryLessonStructGen = [['role' => 'user', 'content' => $userSubject]];
-			Log::info("Requesting lesson structure generation for subject: '{$userSubject}' using LLM: {$llm}");
+			$chatHistoryLessonStructGen = [['role' => 'user', 'content' => $userLesson]];
+			Log::info("Requesting lesson structure generation for lesson: '{$userLesson}' using LLM: {$llm}");
 			return MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_LESSON_STRUCTURE, $chatHistoryLessonStructGen, true, $maxRetries);
 		}
 
@@ -92,7 +92,7 @@ PROMPT;
 		public function generatePlanPreview(Request $request)
 		{
 			$validator = Validator::make($request->all(), [
-				'subject' => 'required|string|max:150',
+				'lesson' => 'required|string|max:150',
 				'llm' => 'nullable|string|max:100',
 			]);
 
@@ -100,30 +100,30 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
 			}
 
-			$userSubject = $request->input('subject');
+			$userLesson = $request->input('lesson');
 			$llm = $request->input('llm', env('DEFAULT_LLM'));
 			if (empty($llm)) {
 				$llm = env('DEFAULT_LLM');
 			}
 			$maxRetries = 1; // Or get from config/request
 
-			Log::info("AJAX request received for plan preview. Subject: '{$userSubject}', LLM: {$llm}");
+			Log::info("AJAX request received for plan preview. Lesson: '{$userLesson}', LLM: {$llm}");
 
 			// --- Generate Lesson Structure ONLY ---
 			Log::info("Generating lesson structure...");
-			$planStructureResult = self::generateLessonStructure($llm, $userSubject, $maxRetries);
+			$planStructureResult = self::generateLessonStructure($llm, $userLesson, $maxRetries);
 
 			if (isset($planStructureResult['error'])) {
 				$errorMsg = $planStructureResult['error'];
-				Log::error("LLM Structure Gen Error: " . $errorMsg, ['subject' => $userSubject, 'llm' => $llm]);
+				Log::error("LLM Structure Gen Error: " . $errorMsg, ['lesson' => $userLesson, 'llm' => $llm]);
 				return response()->json(['success' => false, 'message' => 'Failed to generate lesson structure: ' . $errorMsg]);
 			}
 
 			// Validate the structure
 			if (!self::isValidLessonStructureResponse($planStructureResult)) {
 				$errorMsg = 'LLM returned an invalid lesson structure.';
-				Log::error($errorMsg, ['subject' => $userSubject, 'llm' => $llm, 'response' => $planStructureResult]);
-				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your subject or using a different model.']);
+				Log::error($errorMsg, ['lesson' => $userLesson, 'llm' => $llm, 'response' => $planStructureResult]);
+				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your lesson or using a different model.']);
 			}
 
 			Log::info("Lesson structure generated successfully for preview (no questions).");
@@ -136,7 +136,7 @@ PROMPT;
 		{
 			// Validation rules simplified - only structure needed
 			$validator = Validator::make($request->all(), [
-				'subject_name' => 'required|string|max:150',
+				'lesson_name' => 'required|string|max:150',
 				'llm_used' => 'required|string|max:100',
 				'plan' => 'required|array',
 				'plan.main_title' => 'required|string',
@@ -153,7 +153,7 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Invalid data received for lesson creation. ' . $validator->errors()->first()], 422);
 			}
 
-			$userSubject = $request->input('subject_name');
+			$userLesson = $request->input('lesson_name');
 			$llm = $request->input('llm_used');
 			$plan = $request->input('plan');
 
@@ -164,11 +164,11 @@ PROMPT;
 			}
 
 			$sessionId = Str::uuid()->toString(); // Generate a unique ID for this lesson session
-			Log::info("Confirmed creation request received. Saving structure ONLY. Session ID: {$sessionId}, Subject: '{$userSubject}'");
+			Log::info("Confirmed creation request received. Saving structure ONLY. Session ID: {$sessionId}, Lesson: '{$userLesson}'");
 
-			// --- 1. Create Subject Record (Store structured plan, NO QUIZZES) ---
-			$subject = Subject::create([
-				'name' => $userSubject,
+			// --- 1. Create Lesson Record (Store structured plan, NO QUIZZES) ---
+			$lesson = Lesson::create([
+				'name' => $userLesson,
 				'title' => $plan['main_title'],
 				'image_prompt_idea' => $plan['image_prompt_idea'],
 				'lesson_parts' => $plan['lesson_parts'], // Store parts array (no questions inside yet)
@@ -176,7 +176,7 @@ PROMPT;
 				'llm_used' => $llm,
 			]);
 
-			Log::info("Subject record created with ID: {$subject->id}, SessionID: {$sessionId}. No questions created at this stage.");
+			Log::info("Lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}. No questions created at this stage.");
 
 			// --- 2. NO Question Records Created Here ---
 
@@ -187,18 +187,18 @@ PROMPT;
 				'success' => true,
 				'message' => 'Lesson structure saved! Please use the edit screen to add questions and generate assets.',
 				// Redirect to EDIT screen instead of question interface
-				'redirectUrl' => route('lesson.edit', ['subject' => $sessionId])
+				'redirectUrl' => route('lesson.edit', ['lesson' => $sessionId])
 			]);
 		}
 
-		public function archiveProgress(Subject $subject)
+		public function archiveProgress(Lesson $lesson)
 		{
-			Log::info("Archive request received for Subject Session: {$subject->session_id} (ID: {$subject->id})");
+			Log::info("Archive request received for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
 
-			$userAnswers = UserAnswer::where('subject_id', $subject->id)->get();
+			$userAnswers = UserAnswer::where('lesson_id', $lesson->id)->get();
 
 			if ($userAnswers->isEmpty()) {
-				Log::info("No user answers found to archive for Subject ID: {$subject->id}.");
+				Log::info("No user answers found to archive for Lesson ID: {$lesson->id}.");
 				return response()->json(['success' => true, 'message' => 'No progress found to archive.'], 200);
 			}
 
@@ -212,7 +212,7 @@ PROMPT;
 					$archiveData[] = [
 						'original_user_answer_id' => $answer->id,
 						'question_id' => $answer->question_id,
-						'subject_id' => $answer->subject_id,
+						'lesson_id' => $answer->lesson_id,
 						'selected_answer_index' => $answer->selected_answer_index,
 						'was_correct' => $answer->was_correct,
 						'attempt_number' => $answer->attempt_number,
@@ -225,22 +225,22 @@ PROMPT;
 
 				// Bulk insert for efficiency
 				UserAnswerArchive::insert($archiveData);
-				Log::info("Successfully inserted {$userAnswers->count()} records into user_answer_archives for Subject ID: {$subject->id}.");
+				Log::info("Successfully inserted {$userAnswers->count()} records into user_answer_archives for Lesson ID: {$lesson->id}.");
 
 				// Delete original answers
-				$deletedCount = UserAnswer::where('subject_id', $subject->id)->delete();
-				Log::info("Successfully deleted {$deletedCount} original user answers for Subject ID: {$subject->id}.");
+				$deletedCount = UserAnswer::where('lesson_id', $lesson->id)->delete();
+				Log::info("Successfully deleted {$deletedCount} original user answers for Lesson ID: {$lesson->id}.");
 
 				DB::commit();
-				Log::info("Archiving completed for Subject ID: {$subject->id}.");
+				Log::info("Archiving completed for Lesson ID: {$lesson->id}.");
 
 				return response()->json(['success' => true, 'message' => 'Progress archived successfully.'], 200);
 
 			} catch (\Exception $e) {
 				DB::rollBack();
-				Log::error("Error archiving progress for Subject ID: {$subject->id} - " . $e->getMessage());
+				Log::error("Error archiving progress for Lesson ID: {$lesson->id} - " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Failed to archive progress. Please try again.'], 500);
 			}
 		}
 
-	} // End of SubjectController
+	} // End of CreateLessonController

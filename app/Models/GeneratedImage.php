@@ -33,9 +33,9 @@
 			'image_guid' => 'string', // Cast UUID if needed, though string is usually fine
 		];
 
-		public function subject()
+		public function lesson()
 		{
-			return $this->belongsTo(Subject::class);
+			return $this->belongsTo(Lesson::class);
 		}
 
 		public function question()

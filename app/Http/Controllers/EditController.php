@@ -7,7 +7,7 @@
 	use App\Models\Question;
 
 	// Keep Question model import
-	use App\Models\Subject;
+	use App\Models\Lesson;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Storage;
@@ -78,7 +78,7 @@ PROMPT;
 		 * @param string $lessonPartTitle Title of the current lesson part.
 		 * @param string $lessonPartText Text content of the current lesson part.
 		 * @param string $difficulty The target difficulty ('easy', 'medium', 'hard').
-		 * @param array $existingQuestionTexts Array of question texts already generated for the whole subject.
+		 * @param array $existingQuestionTexts Array of question texts already generated for the whole lesson.
 		 * @param int $maxRetries Maximum number of retries for the LLM call.
 		 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 		 */
@@ -157,22 +157,22 @@ PROMPT;
 		/**
 		 * Show the lesson edit page.
 		 */
-		public function edit(Subject $subject)
+		public function edit(Lesson $lesson)
 		{
 			// Eager load questions and their associated images
 			// Order them by part, then difficulty, then their own order/id
-			$subject->load(['questions' => function ($query) {
+			$lesson->load(['questions' => function ($query) {
 				$query->orderBy('lesson_part_index', 'asc')
 					->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")
 					->orderBy('order', 'asc') // Use the order field
 					->orderBy('id', 'asc');
 			}, 'questions.generatedImage']);
 
-			Log::info("Showing edit page for Subject ID: {$subject->id} (Session: {$subject->session_id})");
+			Log::info("Showing edit page for Lesson ID: {$lesson->id} (Session: {$lesson->session_id})");
 
 			// Group questions by part and difficulty for easier display in the view
 			$groupedQuestions = [];
-			foreach ($subject->questions as $question) {
+			foreach ($lesson->questions as $question) {
 				$partIndex = $question->lesson_part_index;
 				$difficulty = $question->difficulty_level;
 				if (!isset($groupedQuestions[$partIndex])) {
@@ -185,21 +185,21 @@ PROMPT;
 			}
 
 			// Decode lesson parts if needed (it should be auto-decoded by cast)
-			$lessonParts = $subject->lesson_parts;
+			$lessonParts = $lesson->lesson_parts;
 			if (is_string($lessonParts)) {
 				$lessonParts = json_decode($lessonParts, true);
 			}
 			// Ensure it's an array for the view
-			$subject->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
+			$lesson->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
 
 			// Get the default LLM (needed if generating questions on this page)
-			$llm = $subject->llm_used ?: env('DEFAULT_LLM');
+			$llm = $lesson->llm_used ?: env('DEFAULT_LLM');
 
 			// Get available LLMs
 			$llms = MyHelper::checkLLMsJson();
 
 			return view('edit_lesson', [
-				'subject' => $subject,
+				'lesson' => $lesson,
 				'groupedQuestions' => $groupedQuestions,
 				'llm' => $llm,
 				'llms' => $llms // Pass LLMs to view
@@ -209,9 +209,9 @@ PROMPT;
 		public function updateQuestionTextsAjax(Request $request, Question $question)
 		{
 			$questionId = $question->id;
-			$subjectId = $question->subject_id;
+			$lessonId = $question->lesson_id;
 
-			Log::info("AJAX request to update texts for Question ID: {$questionId} from Subject ID: {$subjectId}");
+			Log::info("AJAX request to update texts for Question ID: {$questionId} from Lesson ID: {$lessonId}");
 
 			// Validate the request
 			$validator = Validator::make($request->all(), [
@@ -315,14 +315,14 @@ PROMPT;
 		 * NEW: AJAX endpoint to generate a batch of 3 questions for a specific part and difficulty.
 		 *
 		 * @param Request $request
-		 * @param Subject $subject
+		 * @param Lesson $lesson
 		 * @param int $partIndex
 		 * @param string $difficulty ('easy', 'medium', 'hard')
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function generateQuestionBatchAjax(Request $request, Subject $subject, int $partIndex, string $difficulty)
+		public function generateQuestionBatchAjax(Request $request, Lesson $lesson, int $partIndex, string $difficulty)
 		{
-			Log::info("AJAX request to generate '{$difficulty}' question batch for Subject ID: {$subject->id}, Part Index: {$partIndex}");
+			Log::info("AJAX request to generate '{$difficulty}' question batch for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 
 			// Validate difficulty
 			if (!in_array($difficulty, ['easy', 'medium', 'hard'])) {
@@ -331,11 +331,11 @@ PROMPT;
 			}
 
 			// Retrieve and decode lesson parts
-			$lessonParts = is_array($subject->lesson_parts) ? $subject->lesson_parts : json_decode($subject->lesson_parts, true);
+			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 
 			// Validate partIndex and get part data
 			if (!is_array($lessonParts) || !isset($lessonParts[$partIndex])) {
-				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Subject ID: {$subject->id}.");
+				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Lesson ID: {$lesson->id}.");
 				return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 			}
 			$partData = $lessonParts[$partIndex];
@@ -348,15 +348,15 @@ PROMPT;
 			}
 
 			// Get LLM
-			$llm = session('preferred_llm', $subject->llm_used) ?: env('DEFAULT_LLM');
+			$llm = session('preferred_llm', $lesson->llm_used) ?: env('DEFAULT_LLM');
 			if (empty($llm)) {
-				Log::error("No LLM configured for subject {$subject->id} or as default.");
+				Log::error("No LLM configured for lesson {$lesson->id} or as default.");
 				return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);
 			}
 
-			// Fetch ALL existing question texts for THIS subject to prevent duplicates
-			$existingQuestionTexts = $subject->questions()->pluck('question_text')->toArray();
-			Log::debug("Found " . count($existingQuestionTexts) . " existing questions for subject {$subject->id}");
+			// Fetch ALL existing question texts for THIS lesson to prevent duplicates
+			$existingQuestionTexts = $lesson->questions()->pluck('question_text')->toArray();
+			Log::debug("Found " . count($existingQuestionTexts) . " existing questions for lesson {$lesson->id}");
 
 			$maxRetries = 1;
 			$questionResult = self::generateQuestionsForPartDifficulty(
@@ -373,7 +373,7 @@ PROMPT;
 			if (isset($questionResult['error'])) {
 				$errorMsg = $questionResult['error'];
 				$logMsg = "LLM Question Gen Error for Part {$partIndex}, Difficulty '{$difficulty}': " . $errorMsg;
-				Log::error($logMsg, ['subject' => $subject->id, 'llm' => $llm, 'part_title' => $partTitle]);
+				Log::error($logMsg, ['lesson' => $lesson->id, 'llm' => $llm, 'part_title' => $partTitle]);
 				return response()->json(['success' => false, 'message' => "Failed to generate {$difficulty} questions: " . $errorMsg], 500);
 			}
 
@@ -381,14 +381,14 @@ PROMPT;
 			// Validate the generated list of questions
 			if (!self::isValidQuestionListResponse($questionResult['questions'])) {
 				$errorMsg = "LLM returned an invalid {$difficulty} question structure for lesson part '{$partTitle}'.";
-				Log::error($errorMsg, ['subject' => $subject->id, 'llm' => $llm, 'part_title' => $partTitle, 'response' => $questionResult]);
+				Log::error($errorMsg, ['lesson' => $lesson->id, 'llm' => $llm, 'part_title' => $partTitle, 'response' => $questionResult]);
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try again.'], 500);
 			}
 
 			// Save the new questions
 			$createdQuestionsData = [];
 			// Determine the next order number
-			$maxOrder = Question::where('subject_id', $subject->id)->max('order') ?? -1;
+			$maxOrder = Question::where('lesson_id', $lesson->id)->max('order') ?? -1;
 			$nextOrder = $maxOrder + 1;
 
 			try {
@@ -405,7 +405,7 @@ PROMPT;
 					}
 
 					$newQuestion = Question::create([
-						'subject_id' => $subject->id,
+						'lesson_id' => $lesson->id,
 						'image_prompt_idea' => $questionQuestionData['image_prompt_idea'] ?? null,
 						'image_search_keywords' => $questionQuestionData['image_search_keywords'] ?? null,
 						'question_text' => $questionQuestionData['question'],
@@ -418,7 +418,7 @@ PROMPT;
 					// $newQuestion->load('generatedImage');
 					$createdQuestionsData[] = $newQuestion->toArray() + ['question_audio_url' => null]; // Add null audio URL initially
 				}
-				Log::info("Created " . count($createdQuestionsData) . " new '{$difficulty}' question records for Subject ID: {$subject->id}, Part: {$partIndex}");
+				Log::info("Created " . count($createdQuestionsData) . " new '{$difficulty}' question records for Lesson ID: {$lesson->id}, Part: {$partIndex}");
 
 				// Return the data for the newly created questions so the frontend can render them
 				return response()->json([
@@ -428,7 +428,7 @@ PROMPT;
 				]);
 
 			} catch (Exception $e) {
-				Log::error("Database error saving new questions for Subject ID {$subject->id}: " . $e->getMessage());
+				Log::error("Database error saving new questions for Lesson ID {$lesson->id}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Failed to save generated questions.'], 500);
 			}
 		}
@@ -442,8 +442,8 @@ PROMPT;
 		public function deleteQuestionAjax(Question $question)
 		{
 			$questionId = $question->id;
-			$subjectId = $question->subject_id;
-			Log::info("AJAX request to delete Question ID: {$questionId} from Subject ID: {$subjectId}");
+			$lessonId = $question->lesson_id;
+			Log::info("AJAX request to delete Question ID: {$questionId} from Lesson ID: {$lessonId}");
 
 			DB::beginTransaction(); // Use transaction for safety
 			try {

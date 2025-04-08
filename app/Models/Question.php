@@ -16,7 +16,7 @@
 		use HasFactory;
 
 		protected $fillable = [
-			'subject_id',
+			'lesson_id',
 			'image_prompt_idea',
 			'image_search_keywords',
 			'generated_image_id',
@@ -34,9 +34,9 @@
 			'order' => 'integer',
 		];
 
-		public function subject()
+		public function lesson()
 		{
-			return $this->belongsTo(Subject::class);
+			return $this->belongsTo(Lesson::class);
 		}
 
 		public function userAnswers()
