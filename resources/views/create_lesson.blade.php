@@ -59,12 +59,11 @@
 						<option value="tr-TR-Chirp3-HD-Aoede">tr-TR-Chirp3-HD-Aoede (Female)</option>
 						<option value="tr-TR-Chirp3-HD-Charon">tr-TR-Chirp3-HD-Charon (Male)</option>
 						<option value="tr-TR-Standard-A">tr-TR-Standard-A (Female)</option>
-						<option value="tr-TR-Standard-B	">tr-TR-Standard-B	</option>
+						<option value="tr-TR-Standard-B">tr-TR-Standard-B</option>
 						<option value="cmn-CN-Chirp3-HD-Aoede">cmn-CN-Chirp3-HD-Aoede (Female)</option>
 						<option value="cmn-CN-Chirp3-HD-Charon">cmn-CN-Chirp3-HD-Charon (Male)</option>
 						<option value="cmn-TW-Standard-A">cmn-TW-Standard-A (Female)</option>
 						<option value="cmn-TW-Standard-B">cmn-TW-Standard-B (Male)</option>
-selected --}}
 					</optgroup>
 				</select>
 			</div>
@@ -74,9 +73,9 @@ selected --}}
 				<label for="ttsLanguageCodeSelect" class="form-label">Speech Language:</label>
 				<select class="form-select" id="ttsLanguageCodeSelect" name="tts_language_code" required>
 					<option value="en-US" selected>English (United States)</option>
-					<option value="en-GB">English (United Kingdom)</option>
-					<option value="es-ES">Spanish (Spain)</option>
-					<option value="es-US">Spanish (United States)</option>
+					<option value="tr-TR">Turkce</option>
+					<option value="cmn-TW">Chinese (Taiwan)</option>
+					<option value="cmn-CN">Chinese (China)</option>
 					<option value="fr-FR">French (France)</option>
 					<option value="de-DE">German (Germany)</option>
 					<option value="it-IT">Italian (Italy)</option>

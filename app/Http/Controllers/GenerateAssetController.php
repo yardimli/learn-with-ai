@@ -56,13 +56,17 @@
 			$partData = $lessonParts[$partIndex];
 			$videoText = ($partData['title'] ?? 'Lesson Part') . ". \n" . ($partData['text'] ?? 'No content.');
 			$defaultFaceUrl = env('DEFAULT_FACE_URL', 'https://elooi.com/video/video1.mp4');
+			$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'google');
+			$ttsVoice = $lesson->ttsVoice; // Required from lesson
+			$ttsLanguageCode = $lesson->ttsLanguageCode; // Required from lesson
+
 			$videoResult = null;
 			try {
 				$useV2 = (stripos(env('APP_URL', ''), 'localhost') === false); // Prefer v2 unless on localhost
 				Log::info("Attempting video generation. Using " . ($useV2 ? "text2videov2 (OpenAI TTS + Gooey Lipsync)" : "text2video (Gooey Lipsync+Google TTS)"));
 
 				if ($useV2) {
-					$videoResult = MyHelper::text2videov2($videoText, $defaultFaceUrl);
+					$videoResult = MyHelper::text2videov2($videoText, $defaultFaceUrl, $ttsEngine, $ttsVoice, $ttsLanguageCode);
 				} else {
 					// Note: text2video might need specific Google voice/config from env
 					$googleVoice = env('GOOGLE_TTS_VOICE', 'en-US-Studio-O'); // Example Google Voice
@@ -133,22 +137,15 @@
 			}
 
 			try {
-				// Get preferences from session or default
-				$ttsEngine = session('preferred_tts_engine', env('DEFAULT_TTS_ENGINE', 'google'));
-				$ttsVoice = session('preferred_voice');
+				$lesson = $question->lesson;
+				$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'google');
+				$ttsVoice = $lesson->ttsVoice;
+				$ttsLanguageCode = $lesson->ttsLanguageCode;
 
-				// If no voice preference set, use defaults based on engine
-				if (empty($ttsVoice)) {
-					$ttsVoice = ($ttsEngine === 'openai')
-						? env('OPENAI_TTS_VOICE', 'alloy')
-						: env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				if (empty($ttsVoice) || empty($ttsLanguageCode)) {
+					Log::error("Missing TTS Voice or Language Code in Lesson {$lesson->id} for QID {$question->id}");
+					return response()->json(['success' => false, 'message' => 'Lesson TTS settings are incomplete.'], 400);
 				}
-
-				$languageCode = 'en-US';
-
-//				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
-//				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
-//				$languageCode = 'en-US';
 
 				// More robust unique identifier
 				$questionIdentifier = "s{$question->lesson_id}_p{$question->lesson_part_index}_q{$question->id}";
@@ -157,7 +154,7 @@
 				$audioResult = MyHelper::text2speech(
 					$question->question_text,
 					$ttsVoice,
-					$languageCode,
+					$ttsLanguageCode,
 					$outputFilenameBase,
 					$ttsEngine
 				);
@@ -218,22 +215,15 @@
 
 			try {
 				// Get preferences from session or default
-				$ttsEngine = session('preferred_tts_engine', env('DEFAULT_TTS_ENGINE', 'google'));
-				$ttsVoice = session('preferred_voice');
+				$lesson = $question->lesson;
+				$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'google');
+				$ttsVoice = $lesson->ttsVoice;
+				$ttsLanguageCode = $lesson->ttsLanguageCode;
 
-				// If no voice preference set, use defaults based on engine
-				if (empty($ttsVoice)) {
-					$ttsVoice = ($ttsEngine === 'openai')
-						? env('OPENAI_TTS_VOICE', 'alloy')
-						: env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
+				if (empty($ttsVoice) || empty($ttsLanguageCode)) {
+					Log::error("Missing TTS Voice or Language Code in Lesson {$lesson->id} for QID {$question->id} answers");
+					return response()->json(['success' => false, 'message' => 'Lesson TTS settings are incomplete.'], 400);
 				}
-
-
-				$languageCode = 'en-US';
-
-//				$ttsEngine = env('DEFAULT_TTS_ENGINE', 'google');
-//				$ttsVoice = ($ttsEngine === 'openai') ? env('OPENAI_TTS_VOICE', 'alloy') : env('GOOGLE_TTS_VOICE', 'en-US-Studio-O');
-//				$languageCode = 'en-US';
 
 				$questionIdentifier = "s{$question->lesson_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$filenamePrefix = 'audio/question_' . $questionIdentifier; // Include path segment
@@ -245,7 +235,7 @@
 					$filenamePrefix, // Identifier for filenames
 					$ttsEngine,
 					$ttsVoice,
-					$languageCode
+					$ttsLanguageCode
 				);
 
 				// Update the question's answers column

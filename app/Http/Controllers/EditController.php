@@ -154,6 +154,43 @@ PROMPT;
 		// EDITING AND ON-DEMAND GENERATION METHODS
 		// ==============================================
 
+		public function updateSettingsAjax(Request $request, Lesson $lesson)
+		{
+			$validator = Validator::make($request->all(), [
+				'preferred_llm' => 'required|string|max:100',
+				'tts_engine' => 'required|string|in:google,openai',
+				'tts_voice' => 'required|string|max:100',
+				'tts_language_code' => 'required|string|max:10',
+			]);
+
+			if ($validator->fails()) {
+				Log::warning("Lesson settings update validation failed for Lesson ID: {$lesson->id}", ['errors' => $validator->errors()]);
+				return response()->json([
+					'success' => false,
+					'message' => 'Validation failed: ' . $validator->errors()->first()
+				], 422);
+			}
+
+			try {
+				$lesson->preferredLlm = $request->input('preferred_llm');
+				$lesson->ttsEngine = $request->input('tts_engine');
+				$lesson->ttsVoice = $request->input('tts_voice');
+				$lesson->ttsLanguageCode = $request->input('tts_language_code');
+
+				$lesson->save();
+
+				Log::info("Updated lesson settings for Lesson ID: {$lesson->id}");
+				return response()->json(['success' => true, 'message' => 'Lesson settings updated successfully.']);
+
+			} catch (Exception $e) {
+				Log::error("Error updating lesson settings for Lesson ID {$lesson->id}: " . $e->getMessage());
+				return response()->json([
+					'success' => false,
+					'message' => 'Failed to update settings: ' . $e->getMessage()
+				], 500);
+			}
+		}
+
 		/**
 		 * Show the lesson edit page.
 		 */
@@ -192,11 +229,18 @@ PROMPT;
 			// Ensure it's an array for the view
 			$lesson->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
 
-			// Get the default LLM (needed if generating questions on this page)
-			$llm = $lesson->llm_used ?: env('DEFAULT_LLM');
-
 			// Get available LLMs
 			$llms = MyHelper::checkLLMsJson();
+
+			$llm = $lesson->preferredLlm;
+			if (empty($llm)) {
+				$llm = env('DEFAULT_LLM');
+				Log::warning("Lesson {$lesson->id} preferredLlm is empty, falling back to default.");
+				if (empty($llm)) {
+					Log::error("No LLM configured for lesson {$lesson->id} or as default.");
+					return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);
+				}
+			}
 
 			return view('edit_lesson', [
 				'lesson' => $lesson,
@@ -348,10 +392,14 @@ PROMPT;
 			}
 
 			// Get LLM
-			$llm = session('preferred_llm', $lesson->llm_used) ?: env('DEFAULT_LLM');
+			$llm = $lesson->preferredLlm;
 			if (empty($llm)) {
-				Log::error("No LLM configured for lesson {$lesson->id} or as default.");
-				return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);
+				$llm = env('DEFAULT_LLM');
+				Log::warning("Lesson {$lesson->id} preferredLlm is empty, falling back to default.");
+				if (empty($llm)) {
+					Log::error("No LLM configured for lesson {$lesson->id} or as default.");
+					return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);
+				}
 			}
 
 			// Fetch ALL existing question texts for THIS lesson to prevent duplicates

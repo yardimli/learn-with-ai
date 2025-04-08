@@ -363,212 +363,153 @@ function updateQuestionImageDisplay(questionId, imageUrls, prompt, successMessag
 	}
 }
 
-// Function to fetch and apply saved preferences
-function fetchUserPreferences() {
-	// Fetch the user's preferences from the server
-	fetch('/settings/get-preferences')
-		.then(response => response.json())
-		.then(data => {
-			// Apply LLM preference if available
-			if (data.preferred_llm) {
-				// First store the value to set after options are loaded
-				const preferredLlm = data.preferred_llm;
-				
-				// Update "Current" option text immediately
-				if (llmSelector.options.length > 0) {
-					llmSelector.options[0].textContent = `Current: ${preferredLlm}`;
-					llmSelector.options[0].value = preferredLlm;
-				}
-				
-				// We'll select the right option when the LLMs list loads
-			}
-			
-			// Apply TTS engine preference if available
-			if (data.preferred_tts_engine) {
-				for (let i = 0; i < ttsEngineSelector.options.length; i++) {
-					if (ttsEngineSelector.options[i].value === data.preferred_tts_engine) {
-						ttsEngineSelector.selectedIndex = i;
-						break;
-					}
-				}
-				
-				// Trigger the change event to update voice options
-				ttsEngineSelector.dispatchEvent(new Event('change'));
-			}
-			
-			// Apply voice preference if available (after engine is set)
-			if (data.preferred_voice) {
-				// Wait a brief moment for optgroups to be properly displayed/hidden
-				setTimeout(() => {
-					const options = voiceSelector.querySelectorAll('option');
-					for (let i = 0; i < options.length; i++) {
-						if (options[i].value === data.preferred_voice) {
-							options[i].selected = true;
-							break;
-						}
-					}
-				}, 50);
-			}
-		})
-		.catch(error => {
-			console.error('Error fetching user preferences:', error);
-		});
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-	// LLM and Voice Selector functionality
-	// --- LLM Selector ---
-	const llmSelector = document.getElementById('llmSelector');
-	const updateLLMBtn = document.getElementById('updateLLMBtn');
-	
-	// --- Voice Selector ---
-	const voiceSelector = document.getElementById('voiceSelector');
-	const ttsEngineSelector = document.getElementById('ttsEngineSelector');
-	const updateVoiceBtn = document.getElementById('updateVoiceBtn');
-	
-	fetchUserPreferences();
-	
-	// Load available LLMs via AJAX
-	fetch('/api/llms-list')
-		.then(response => response.json())
-		.then(data => {
-			if (data.llms && Array.isArray(data.llms)) {
-				// Keep the current selection
-				const currentValue = llmSelector.value;
+	// --- Settings Selectors ---
+	const preferredLlmSelect = document.getElementById('preferredLlmSelect');
+	const ttsEngineSelect = document.getElementById('ttsEngineSelect');
+	const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
+	const ttsLanguageCodeSelect = document.getElementById('ttsLanguageCodeSelect');
+	const updateSettingsBtn = document.getElementById('updateLessonSettingsBtn');
+
+// --- Voice Selector Logic ---
+	if (ttsEngineSelect && ttsVoiceSelect) {
+		function updateVoiceOptions() {
+			const engine = ttsEngineSelect.value;
+			const optgroups = ttsVoiceSelect.querySelectorAll('optgroup');
+			let firstVisibleOption = null;
+			let currentSelectedOption = ttsVoiceSelect.options[ttsVoiceSelect.selectedIndex];
+			
+			optgroups.forEach(group => {
+				const isVisible = (engine === 'google' && group.label === 'Google Voices') ||
+					(engine === 'openai' && group.label === 'OpenAI Voices');
+				group.style.display = isVisible ? '' : 'none';
 				
-				// Clear all but the first option (which shows current selection)
-				while (llmSelector.options.length > 1) {
-					llmSelector.remove(1);
-				}
-				
-				// Add LLMs to dropdown
-				data.llms.forEach(llm => {
-					const option = document.createElement('option');
-					option.value = llm.id;
-					option.textContent = `${llm.name} (${llm.id})`;
-					llmSelector.appendChild(option);
-				});
-				
-				// Restore current selection if it exists in the new options
-				if (currentValue) {
-					for (let i = 0; i < llmSelector.options.length; i++) {
-						if (llmSelector.options[i].value === currentValue) {
-							llmSelector.selectedIndex = i;
-							break;
-						}
+				if (isVisible) {
+					const options = group.querySelectorAll('option');
+					if (options.length > 0 && !firstVisibleOption) {
+						firstVisibleOption = options[0]; // Find the first option in the now visible group
 					}
 				}
+			});
+			
+			// If the currently selected option is now hidden, select the first available visible option
+			if (currentSelectedOption && currentSelectedOption.parentElement.style.display === 'none' && firstVisibleOption) {
+				firstVisibleOption.selected = true;
 			}
-		})
-		.catch(error => {
-			console.error('Error loading LLMs list:', error);
-		});
+		}
+		
+		ttsEngineSelect.addEventListener('change', updateVoiceOptions);
+		// Initial call on page load to ensure correct voices shown/selected
+		updateVoiceOptions();
+	}
 	
-	// Save LLM preference
-	updateLLMBtn.addEventListener('click', function () {
-		const selectedLLM = llmSelector.value;
-		const lessonId = document.querySelector('[data-lesson-id]').dataset.lessonId;
-		
-		// Add spinner to button
-		this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-		this.disabled = true;
-		
-		// Save LLM preference to session
-		fetch('/settings/llm-preference', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-			},
-			body: JSON.stringify({llm: selectedLLM, lesson_id: lessonId})
-		})
+	// --- LLM Selector Logic ---
+	if (preferredLlmSelect) {
+		// Load available LLMs via AJAX
+		fetch(llmsListUrl) // Use variable defined in script tag
 			.then(response => response.json())
 			.then(data => {
-				if (data.success) {
-					showToast('AI Model updated successfully', 'Preference Saved', 'success');
+				if (data.llms && Array.isArray(data.llms)) {
+					const currentLlmValue = preferredLlmSelect.value; // Get the value set by Blade
 					
-					// Update "Current" option
-					llmSelector.options[0].textContent = `Current: ${selectedLLM}`;
-					llmSelector.options[0].value = selectedLLM;
-				} else {
-					showToast('Failed to update AI Model preference', 'Error', 'error');
+					// Clear existing options except the first one (which shows current)
+					while (preferredLlmSelect.options.length > 1) {
+						preferredLlmSelect.remove(1);
+					}
+					
+					// Rebuild options list
+					data.llms.forEach(llm => {
+						// Don't add the 'current' one again if it's in the list
+						if (llm.id !== currentLlmValue) {
+							const option = document.createElement('option');
+							option.value = llm.id;
+							option.textContent = `${llm.name}`; // Simpler text
+							preferredLlmSelect.appendChild(option);
+						}
+					});
+					
+					// Ensure the first option text reflects the name correctly
+					const currentOption = preferredLlmSelect.options[0];
+					const matchingLlm = data.llms.find(llm => llm.id === currentLlmValue);
+					if (currentOption && matchingLlm) {
+						currentOption.textContent = `${matchingLlm.name}`; // Update display name
+					} else if (currentOption){
+						currentOption.textContent = currentLlmValue; // Fallback to ID if name not found
+					}
+					
 				}
 			})
 			.catch(error => {
-				console.error('Error saving LLM preference:', error);
-				showToast('Error saving preference', 'Error', 'error');
-			})
-			.finally(() => {
-				// Restore button
-				this.innerHTML = '<i class="fas fa-check"></i>';
-				this.disabled = false;
+				console.error('Error loading LLMs list:', error);
+				// Optionally show an error to the user
 			});
-	});
+	}
 	
-	// Handle engine change - update available voices
-	ttsEngineSelector.addEventListener('change', function () {
-		const engine = this.value;
-		
-		// Show only relevant voices based on selected engine
-		const optgroups = voiceSelector.querySelectorAll('optgroup');
-		optgroups.forEach(group => {
-			if ((engine === 'google' && group.label === 'Google Voices') ||
-				(engine === 'openai' && group.label === 'OpenAI Voices')) {
-				group.style.display = '';
-				// Select first option in this group if no option from this group is selected
-				let hasSelectedInGroup = false;
-				const options = group.querySelectorAll('option');
-				options.forEach(option => {
-					if (option.selected) hasSelectedInGroup = true;
+	// --- Save Lesson Settings Button ---
+	if (updateSettingsBtn) {
+		updateSettingsBtn.addEventListener('click', function () {
+			const selectedLlm = preferredLlmSelect.value;
+			const selectedEngine = ttsEngineSelect.value;
+			const selectedVoice = ttsVoiceSelect.value;
+			const selectedLang = ttsLanguageCodeSelect.value;
+			
+			// Add spinner to button
+			showSpinner(this, true);
+			
+			fetch(updateSettingsUrl, { // Use variable defined in script tag
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+					'Accept': 'application/json',
+				},
+				body: JSON.stringify({
+					preferred_llm: selectedLlm,
+					tts_engine: selectedEngine,
+					tts_voice: selectedVoice,
+					tts_language_code: selectedLang,
+					// No lesson_id needed here as it's in the URL
+				})
+			})
+				.then(response => response.json())
+				.then(data => {
+					if (data.success) {
+						showToast('Lesson settings updated successfully!', 'Settings Saved', 'success');
+						// Update the 'Current' display text for LLM selector if needed
+						const currentLlmOption = preferredLlmSelect.options[0];
+						if (currentLlmOption.value === selectedLlm) {
+							const selectedLlmText = preferredLlmSelect.options[preferredLlmSelect.selectedIndex].text;
+							currentLlmOption.textContent = `${selectedLlmText}`;
+						} else {
+							// Find the newly selected option and update the first option
+							for (let i = 0; i < preferredLlmSelect.options.length; i++) {
+								if (preferredLlmSelect.options[i].value === selectedLlm) {
+									preferredLlmSelect.options[0].value = selectedLlm;
+									preferredLlmSelect.options[0].textContent = preferredLlmSelect.options[i].textContent;
+									preferredLlmSelect.selectedIndex = 0; // Select the updated first option
+									break;
+								}
+							}
+						}
+						
+					} else {
+						showToast(data.message || 'Failed to update lesson settings.', 'Error', 'error');
+					}
+				})
+				.catch(error => {
+					console.error('Error saving lesson settings:', error);
+					showToast('An error occurred while saving settings.', 'Error', 'error');
+				})
+				.finally(() => {
+					// Restore button
+					showSpinner(this, false);
+					// Ensure the icon is visible if text was removed
+					if (!this.querySelector('i')) {
+						this.innerHTML = '<i class="fas fa-save me-1"></i>Save';
+					}
 				});
-				if (!hasSelectedInGroup && options.length > 0) {
-					options[0].selected = true;
-				}
-			} else {
-				group.style.display = 'none';
-			}
 		});
-	});
-	
-	// Initial update based on default engine
-	ttsEngineSelector.dispatchEvent(new Event('change'));
-	
-	// Save Voice preference
-	updateVoiceBtn.addEventListener('click', function () {
-		const selectedVoice = voiceSelector.value;
-		const selectedEngine = ttsEngineSelector.value;
-		
-		// Add spinner to button
-		this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-		this.disabled = true;
-		
-		// Save Voice preference to session
-		fetch('/settings/voice-preference', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-			},
-			body: JSON.stringify({voice: selectedVoice, engine: selectedEngine})
-		})
-			.then(response => response.json())
-			.then(data => {
-				if (data.success) {
-					showToast('Voice preference updated successfully', 'Preference Saved', 'success');
-				} else {
-					showToast('Failed to update voice preference', 'Error', 'error');
-				}
-			})
-			.catch(error => {
-				console.error('Error saving voice preference:', error);
-				showToast('Error saving preference', 'Error', 'error');
-			})
-			.finally(() => {
-				// Restore button
-				this.innerHTML = '<i class="fas fa-check"></i>';
-				this.disabled = false;
-			});
-	});
+	}
 	
 	// --- Image Modal (Keep as is) ---
 	imageModal = document.getElementById('imageModal');

@@ -104,7 +104,6 @@
 			string $languageCode = 'en-US'
 		): array
 		{
-			//dd($answers, $questionId, $filenamePrefix, $ttsEngine, $ttsVoice, $languageCode);
 			$processedAnswers = $answers;
 			foreach ($processedAnswers as $index => &$answer) {
 				$baseFilename = Str::slug(Str::limit($answer['text'], 20)) . '_' . $index; // Base on answer text + index
@@ -115,7 +114,7 @@
 					$answer['text'] ?? '',
 					$ttsVoice,
 					$languageCode,
-					$answerFilename, // Unique filename
+					$answerFilename,
 					$ttsEngine
 				);
 				if ($answerTtsResult && isset($answerTtsResult['storage_path'], $answerTtsResult['fileUrl'])) {

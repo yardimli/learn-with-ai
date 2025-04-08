@@ -4,81 +4,176 @@
 
 @push('styles')
 	<style>
-      audio { max-width: 250px; height: 35px; vertical-align: middle; }
-      .answer-list li { margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--bs-tertiary-bg); font-size: 0.95em; }
-      .answer-list li:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-      .answer-text-content, .feedback-text-content { display: inline; }
-      .asset-container h6 { font-size: 1em; }
-      .question-item p strong { display: inline; margin-bottom: 0; font-size: 1.05em; }
-      .question-item .question-line { margin-bottom: 0.75rem; }
-      .question-difficulty-group { border-left: 3px solid #eee; padding-left: 1rem; margin-top: 1.5rem; }
-      .dark-mode .question-difficulty-group { border-left-color: #444; }
-      .question-item { border: 1px solid var(--bs-border-color-translucent); border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem; background-color: var(--bs-body-bg); } /* Add background */
-      .question-list-container .placeholder-text { color: var(--bs-secondary-color); font-style: italic; margin-bottom: 1rem; } /* Style for empty list text */
-      .btn-delete-question { /* Ensure visibility */ }
+      audio {
+          max-width: 250px;
+          height: 35px;
+          vertical-align: middle;
+      }
+
+      .answer-list li {
+          margin-bottom: 0.5rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--bs-tertiary-bg);
+          font-size: 0.95em;
+      }
+
+      .answer-list li:last-child {
+          border-bottom: none;
+          margin-bottom: 0;
+          padding-bottom: 0;
+      }
+
+      .answer-text-content, .feedback-text-content {
+          display: inline;
+      }
+
+      .asset-container h6 {
+          font-size: 1em;
+      }
+
+      .question-item p strong {
+          display: inline;
+          margin-bottom: 0;
+          font-size: 1.05em;
+      }
+
+      .question-item .question-line {
+          margin-bottom: 0.75rem;
+      }
+
+      .question-difficulty-group {
+          border-left: 3px solid #eee;
+          padding-left: 1rem;
+          margin-top: 1.5rem;
+      }
+
+      .dark-mode .question-difficulty-group {
+          border-left-color: #444;
+      }
+
+      .question-item {
+          border: 1px solid var(--bs-border-color-translucent);
+          border-radius: 0.375rem;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          background-color: var(--bs-body-bg);
+      }
+
+      /* Add background */
+      .question-list-container .placeholder-text {
+          color: var(--bs-secondary-color);
+          font-style: italic;
+          margin-bottom: 1rem;
+      }
+
+      /* Style for empty list text */
+      .btn-delete-question { /* Ensure visibility */
+      }
 	</style>
 @endpush
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
-		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i class="fas fa-eye"></i> Start Lesson</a>
+		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i
+				class="fas fa-eye"></i> Start Lesson</a>
 	</div>
 	
 	<div class="content-card mb-4">
 		<h1 class="mb-1">Edit Lesson: {{ $lesson->title }}</h1>
-		<p class="text-muted mb-3">Lesson: {{ $lesson->name }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }})</p>
+		<p class="text-muted mb-3">Lesson: {{ $lesson->name }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
+			)</p>
 		
-		<!-- New Settings Row -->
 		<div class="row mb-3 border-top pt-3">
-			<div class="col-md-6 mb-2 mb-md-0">
+			{{-- Preferred LLM --}}
+			<div class="col-md-6 col-lg-4 mb-2 mb-lg-0">
 				<div class="d-flex align-items-center">
-					<label for="llmSelector" class="form-label me-2 mb-0"><i class="fas fa-robot text-primary me-1"></i>AI Model:</label>
-					<select id="llmSelector" class="form-select form-select-sm" style="max-width: 400px;">
-						<!-- This will be filled by JS using the $llms data passed to view -->
-						<option value="{{ $llm }}">Current: {{ $llm }}</option>
+					<label for="preferredLlmSelect" class="form-label me-2 mb-0 text-nowrap"><i
+							class="fas fa-robot text-primary me-1"></i>AI Model:</label>
+					<select id="preferredLlmSelect" class="form-select form-select-sm">
+						{{-- JS will load options, select current --}}
+						<option value="{{ $lesson->preferredLlm }}"
+						        selected>{{ $lesson->preferredLlm }}</option> {{-- Show current --}}
 					</select>
-					<button class="btn btn-sm btn-outline-secondary ms-2" id="updateLLMBtn" title="Apply AI Model change">
-						<i class="fas fa-check"></i>
-					</button>
 				</div>
 			</div>
-			<div class="col-md-6">
+			
+			{{-- TTS Engine --}}
+			<div class="col-md-6 col-lg-2 mb-2 mb-lg-0">
 				<div class="d-flex align-items-center">
-					<label for="voiceSelector" class="form-label me-2 mb-0"><i class="fas fa-microphone text-success me-1"></i>Voice:</label>
-					<select id="voiceSelector" class="form-select form-select-sm" style="max-width: 300px;">
-						<optgroup label="Google Voices">
-							<option value="en-US-Standard-A">en-US-Standard-A (Male)</option>
-							<option value="en-US-Standard-B">en-US-Standard-B (Male)</option>
-							<option value="en-US-Standard-C">en-US-Standard-C (Female)</option>
-							<option value="en-US-Standard-D">en-US-Standard-D (Male)</option>
-							<option value="en-US-Standard-E">en-US-Standard-E (Female)</option>
-							<option value="en-US-Standard-F">en-US-Standard-F (Female)</option>
-							<option value="en-US-Standard-G">en-US-Standard-G (Female)</option>
-							<option value="en-US-Standard-H">en-US-Standard-H (Female)</option>
-							<option value="en-US-Studio-O" selected>en-US-Studio-O (Female)</option>
-						</optgroup>
-						<optgroup label="OpenAI Voices">
-							<option value="alloy">Alloy (Neutral)</option>
-							<option value="echo">Echo (Male)</option>
-							<option value="fable">Fable (Male)</option>
-							<option value="onyx">Onyx (Male)</option>
-							<option value="nova">Nova (Female)</option>
-							<option value="shimmer">Shimmer (Female)</option>
-						</optgroup>
-					</select>
-					<button class="btn btn-sm btn-outline-secondary ms-2" id="updateVoiceBtn" title="Apply Voice change">
-						<i class="fas fa-check"></i>
-					</button>
-					<select id="ttsEngineSelector" class="form-select form-select-sm ms-2" style="max-width: 140px;">
-						<option value="google">Google</option>
-						<option value="openai">OpenAI</option>
+					<label for="ttsEngineSelect" class="form-label me-2 mb-0 text-nowrap"><i
+							class="fas fa-cogs text-info me-1"></i>Engine:</label>
+					<select id="ttsEngineSelect" class="form-select form-select-sm">
+						<option value="google" {{ $lesson->ttsEngine == 'google' ? 'selected' : '' }}>Google</option>
+						<option value="openai" {{ $lesson->ttsEngine == 'openai' ? 'selected' : '' }}>OpenAI</option>
 					</select>
 				</div>
+			</div>
+			
+			{{-- TTS Voice --}}
+			<div class="col-md-6 col-lg-3 mb-2 mb-md-0">
+				<div class="d-flex align-items-center">
+					<label for="ttsVoiceSelect" class="form-label me-2 mb-0 text-nowrap"><i
+							class="fas fa-microphone text-success me-1"></i>Voice:</label>
+					<select id="ttsVoiceSelect" class="form-select form-select-sm">
+						{{-- JS will filter, select current --}}
+						<optgroup label="Google Voices">
+							<option value="en-US-Studio-O" {{ $lesson->ttsVoice == 'en-US-Studio-O' ? 'selected' : '' }}>en-US-Studio-O (Female)</option>
+							<option value="en-US-Studio-Q" {{ $lesson->ttsVoice == 'en-US-Studio-Q' ? 'selected' : '' }}>en-US-Studio-Q (Male)</option>
+							<option value="tr-TR-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Aoede' ? 'selected' : '' }}>tr-TR-Chirp3-HD-Aoede (Female)</option>
+							<option value="tr-TR-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Charon' ? 'selected' : '' }}>tr-TR-Chirp3-HD-Charon (Male)</option>
+							<option value="tr-TR-Standard-A" {{ $lesson->ttsVoice == 'tr-TR-Standard-A' ? 'selected' : '' }}>tr-TR-Standard-A (Female)</option>
+							<option value="tr-TR-Standard-B" {{ $lesson->ttsVoice == 'tr-TR-Standard-B' ? 'selected' : '' }}>tr-TR-Standard-B</option>
+							<option value="cmn-CN-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Aoede' ? 'selected' : '' }}>cmn-CN-Chirp3-HD-Aoede (Female)</option>
+							<option value="cmn-CN-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Charon' ? 'selected' : '' }}>cmn-CN-Chirp3-HD-Charon (Male)</option>
+							<option value="cmn-TW-Standard-A" {{ $lesson->ttsVoice == 'cmn-TW-Standard-A' ? 'selected' : '' }}>cmn-TW-Standard-A (Female)</option>
+							<option value="cmn-TW-Standard-B" {{ $lesson->ttsVoice == 'cmn-TW-Standard-B' ? 'selected' : '' }}>cmn-TW-Standard-B (Male)</option>
+						</optgroup>
+						<optgroup label="OpenAI Voices">
+							<option value="alloy" {{ $lesson->ttsVoice == 'alloy' ? 'selected' : '' }}>Alloy (N)</option>
+							<option value="echo" {{ $lesson->ttsVoice == 'echo' ? 'selected' : '' }}>Echo (M)</option>
+							<option value="fable" {{ $lesson->ttsVoice == 'fable' ? 'selected' : '' }}>Fable (M)</option>
+							<option value="onyx" {{ $lesson->ttsVoice == 'onyx' ? 'selected' : '' }}>Onyx (M)</option>
+							<option value="nova" {{ $lesson->ttsVoice == 'nova' ? 'selected' : '' }}>Nova (F)</option>
+							<option value="shimmer" {{ $lesson->ttsVoice == 'shimmer' ? 'selected' : '' }}>Shimmer (F)</option>
+						</optgroup>
+					</select>
+				</div>
+			</div>
+			
+			{{-- TTS Language Code --}}
+			<div class="col-md-4 col-lg-2 mb-2 mb-md-0">
+				<div class="d-flex align-items-center">
+					<label for="ttsLanguageCodeSelect" class="form-label me-2 mb-0 text-nowrap"><i
+							class="fas fa-language text-warning me-1"></i>Lang:</label>
+					<select class="form-select form-select-sm" id="ttsLanguageCodeSelect">
+						<option value="en-US" {{ $lesson->ttsLanguageCode == 'en-US' ? 'selected' : '' }}>en-US</option>
+						<option value="tr-TR" {{ $lesson->ttsLanguageCode == 'tr-TR' ? 'selected' : '' }}>tr-TR</option>
+						<option value="cmn-TW" {{ $lesson->ttsLanguageCode == 'cmn-TW' ? 'selected' : '' }}>cmn-TW</option>
+						<option value="cmn-CN" {{ $lesson->ttsLanguageCode == 'cmn-CN' ? 'selected' : '' }}>cmn-CN</option>
+						<option value="fr-FR" {{ $lesson->ttsLanguageCode == 'fr-FR' ? 'selected' : '' }}>fr-FR</option>
+						<option value="de-DE" {{ $lesson->ttsLanguageCode == 'de-DE' ? 'selected' : '' }}>de-DE</option>
+						<option value="it-IT" {{ $lesson->ttsLanguageCode == 'it-IT' ? 'selected' : '' }}>it-IT</option>
+						<option value="ja-JP" {{ $lesson->ttsLanguageCode == 'ja-JP' ? 'selected' : '' }}>ja-JP</option>
+						<option value="ko-KR" {{ $lesson->ttsLanguageCode == 'ko-KR' ? 'selected' : '' }}>ko-KR</option>
+						{{-- Add other common languages as needed --}}
+					</select>
+				</div>
+			</div>
+			
+			{{-- Update Button --}}
+			<div class="col-md-2 col-lg-1 d-flex align-items-end justify-content-end">
+				<button class="btn btn-sm btn-primary" id="updateLessonSettingsBtn"
+				        title="Save AI Model and Voice Settings for this Lesson">
+					<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+					<i class="fas fa-save me-1"></i>Save
+				</button>
 			</div>
 		</div>
 		
-		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
+		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click
+				audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i
+					class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
 	@if (!empty($lesson->lesson_parts))
@@ -94,9 +189,12 @@
 						$videoUrl = $part['video_url'] ?? null;
 						$videoExists = $videoPath && $videoUrl && Storage::disk('public')->exists($videoPath);
 					@endphp
-					<div class="mb-2 text-center video-display-area" id="video-display-{{ $partIndex }}" style="{{ !$videoExists ? 'display: none;' : '' }}">
+					<div class="mb-2 text-center video-display-area" id="video-display-{{ $partIndex }}"
+					     style="{{ !$videoExists ? 'display: none;' : '' }}">
 						@if($videoExists)
-							<video controls preload="metadata" src="{{ $videoUrl }}" class="generated-video" style="max-width: 100%; max-height: 300px;"> Your browser does not support the video tag. </video>
+							<video controls preload="metadata" src="{{ $videoUrl }}" class="generated-video"
+							       style="max-width: 100%; max-height: 300px;"> Your browser does not support the video tag.
+							</video>
 							<p><small class="text-muted d-block mt-1">Video available. Path: {{ $videoPath }}</small></p>
 						@endif
 					</div>
@@ -109,9 +207,11 @@
 							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 							<i class="fas fa-video me-1"></i> {{ $videoExists ? 'Regenerate Video' : 'Generate Video' }}
 						</button>
-						<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}" style="display: none;"></div>
+						<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}"
+						     style="display: none;"></div>
 						@if(!$videoExists)
-							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's text.</small>
+							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's
+								text.</small>
 						@endif
 					</div>
 				</div>
@@ -136,7 +236,8 @@
 							@endforeach
 						</div>
 						@foreach(['easy', 'medium', 'hard'] as $difficulty)
-							<div class="asset-generation-error text-danger small mt-1" id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}" style="display: none;"></div>
+							<div class="asset-generation-error text-danger small mt-1"
+							     id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}" style="display: none;"></div>
 						@endforeach
 					</div>
 					
@@ -153,7 +254,8 @@
 								@forelse($questionsForDifficulty as $question)
 									@include('partials._question_edit_item', ['question' => $question])
 								@empty
-									<p class="placeholder-text" id="placeholder-{{ $difficulty }}-{{ $partIndex }}">No {{ $difficulty }} questions created yet for this part.</p>
+									<p class="placeholder-text" id="placeholder-{{ $difficulty }}-{{ $partIndex }}">No {{ $difficulty }}
+										questions created yet for this part.</p>
 								@endforelse
 							</div>
 						</div>
@@ -162,7 +264,9 @@
 			</div> {{-- /.content-card for part --}}
 		@endforeach
 	@else
-		<div class="alert alert-warning">Lesson part data is missing or invalid for this lesson. Cannot display edit options.</div>
+		<div class="alert alert-warning">Lesson part data is missing or invalid for this lesson. Cannot display edit
+			options.
+		</div>
 	@endif
 	
 	<template id="question-item-template">
@@ -170,7 +274,8 @@
 	</template>
 	
 	
-	<div class="modal fade" id="freepikSearchModal" tabindex="-1" aria-labelledby="freepikSearchModalLabel" aria-hidden="true" data-bs-backdrop="static">
+	<div class="modal fade" id="freepikSearchModal" tabindex="-1" aria-labelledby="freepikSearchModalLabel"
+	     aria-hidden="true" data-bs-backdrop="static">
 		<div class="modal-dialog modal-xl modal-dialog-scrollable">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -180,7 +285,8 @@
 				<div class="modal-body">
 					<input type="hidden" id="freepikModalQuestionId" value="{{$lesson->id}}">
 					<div class="input-group mb-3">
-						<input type="text" id="freepikSearchQuery" class="form-control" placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
+						<input type="text" id="freepikSearchQuery" class="form-control"
+						       placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
 						<button class="btn btn-primary" type="button" id="freepikSearchExecuteBtn">
 							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 							<i class="fas fa-search"></i> Search
@@ -188,7 +294,8 @@
 					</div>
 					<div id="freepikSearchError" class="alert alert-danger d-none" role="alert"></div>
 					
-					<div id="freepikSearchResults" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" style="min-height: 200px;">
+					<div id="freepikSearchResults" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3"
+					     style="min-height: 200px;">
 						<div class="col-12 text-center text-muted d-none" id="freepikSearchPlaceholder">
 							Enter a search term above to find images.
 						</div>
@@ -208,14 +315,16 @@
 				
 				</div>
 				<div class="modal-footer">
-					<small class="text-muted me-auto">Image search powered by Freepik. Ensure compliance with Freepik's terms.</small>
+					<small class="text-muted me-auto">Image search powered by Freepik. Ensure compliance with Freepik's
+						terms.</small>
 					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 				</div>
 			</div>
 		</div>
 	</div>
 	
-	<div class="modal fade" id="questionBatchSuccessModal" tabindex="-1" aria-labelledby="questionBatchSuccessModalLabel" aria-hidden="true">
+	<div class="modal fade" id="questionBatchSuccessModal" tabindex="-1" aria-labelledby="questionBatchSuccessModalLabel"
+	     aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -237,7 +346,8 @@
 		</div>
 	</div>
 	
-	<div class="modal fade" id="editTextsModal" tabindex="-1" aria-labelledby="editTextsModalLabel" aria-hidden="true" data-bs-backdrop="static">
+	<div class="modal fade" id="editTextsModal" tabindex="-1" aria-labelledby="editTextsModalLabel" aria-hidden="true"
+	     data-bs-backdrop="static">
 		<div class="modal-dialog modal-lg">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -280,6 +390,10 @@
 		let imageModal = null;
 		let currentlyPlayingButton = null;
 		let existingPlayButtons = null;
+		
+		const lessonSessionId = @json($lesson->session_id);
+		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->session_id]));
+		const llmsListUrl = @json(route('api.llms.list'));
 	
 	</script>
 	<script src="{{ asset('js/edit_lesson.js') }}"></script>

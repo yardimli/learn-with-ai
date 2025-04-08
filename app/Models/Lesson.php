@@ -17,7 +17,6 @@
 			'image_prompt_idea',
 			'generated_image_id',
 			'lesson_parts',
-			'llm_used',
 			'ttsEngine',
 			'ttsVoice',
 			'ttsLanguageCode',

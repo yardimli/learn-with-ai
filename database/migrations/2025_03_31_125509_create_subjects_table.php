@@ -19,7 +19,6 @@ return new class extends Migration
 	        $table->text('image_prompt_idea')->nullable(); // Generated idea for image prompt
 	        $table->unsignedBigInteger('generated_image_id')->default(0);
 	        $table->json('lesson_parts')->nullable(); // Store structured lesson
-	        $table->string('llm_used')->nullable(); // Track which LLM
 	        $table->string('ttsEngine')->nullable();
 	        $table->string('ttsVoice')->nullable();
 	        $table->string('ttsLanguageCode')->nullable();

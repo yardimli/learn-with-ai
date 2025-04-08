@@ -986,8 +986,13 @@
 		 * @param string $faceVideoUrl URL of the input face video (e.g., stored on GCS).
 		 * @return array Result array: ['success' => bool, 'message' => string, 'video_url' => string|null, 'gooey_run_id' => string|null, 'api_response' => array|null]
 		 */
-		public static function text2videov2(string $text, string $faceVideoUrl): array
-		{
+		public static function text2videov2(
+			string $text,
+			string $faceVideoUrl,
+			string $ttsEngine,
+			string $ttsVoice,
+			string $ttsLanguageCode
+		): array {
 			Log::info("Starting text2videov2 process for text: " . Str::limit($text, 50) . "...");
 
 			if (empty(trim($text))) {
@@ -1000,11 +1005,16 @@
 			}
 
 			// --- Step 1: Generate Audio using OpenAI TTS ---
-			$openaiVoice = env('OPENAI_TTS_VOICE', 'alloy'); // Default OpenAI voice
 			$filenameBase = 'video_audio_' . Str::slug(Str::limit($text, 30));
 
 			Log::info("Generating audio using OpenAI TTS (Voice: {$openaiVoice})...");
-			$ttsResult = self::text2speech($text, $openaiVoice, 'en-US', $filenameBase, 'openai'); // Force engine to 'openai'
+			$ttsResult = self::text2speech( // Call updated text2speech
+				$text,
+				$ttsVoice,
+				$ttsLanguageCode,
+				$filenameBase,
+				$ttsEngine
+			);
 
 			if (!$ttsResult['success'] || empty($ttsResult['fileUrl'])) {
 				Log::error("Failed to generate audio for video: " . ($ttsResult['message'] ?? 'Unknown TTS error'));

@@ -14,9 +14,13 @@
 	use Illuminate\Support\Str;
 
 	use Illuminate\Support\Facades\Http;
-	use Intervention\Image\Laravel\Facades\Image as InterventionImage; // For image resizing
+	use Intervention\Image\Laravel\Facades\Image as InterventionImage;
 
-	use Exception; // Add Exception import
+	// For image resizing
+
+	use Exception;
+
+	// Add Exception import
 
 	class CreateLessonController extends Controller
 	{
@@ -93,7 +97,7 @@ PROMPT;
 		{
 			$validator = Validator::make($request->all(), [
 				'lesson' => 'required|string|max:150',
-				'llm' => 'nullable|string|max:100',
+				'llm' => 'required|string|max:100',
 			]);
 
 			if ($validator->fails()) {
@@ -101,15 +105,11 @@ PROMPT;
 			}
 
 			$userLesson = $request->input('lesson');
-			$llm = $request->input('llm', env('DEFAULT_LLM'));
-			if (empty($llm)) {
-				$llm = env('DEFAULT_LLM');
-			}
-			$maxRetries = 1; // Or get from config/request
+			$llm = $request->input('llm');
 
+			$maxRetries = 1;
 			Log::info("AJAX request received for plan preview. Lesson: '{$userLesson}', LLM: {$llm}");
 
-			// --- Generate Lesson Structure ONLY ---
 			Log::info("Generating lesson structure...");
 			$planStructureResult = self::generateLessonStructure($llm, $userLesson, $maxRetries);
 
@@ -119,7 +119,6 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Failed to generate lesson structure: ' . $errorMsg]);
 			}
 
-			// Validate the structure
 			if (!self::isValidLessonStructureResponse($planStructureResult)) {
 				$errorMsg = 'LLM returned an invalid lesson structure.';
 				Log::error($errorMsg, ['lesson' => $userLesson, 'llm' => $llm, 'response' => $planStructureResult]);
@@ -127,17 +126,19 @@ PROMPT;
 			}
 
 			Log::info("Lesson structure generated successfully for preview (no questions).");
-
-			// Return the structure data
 			return response()->json(['success' => true, 'plan' => $planStructureResult]);
 		}
+
 
 		public function createLesson(Request $request)
 		{
 			// Validation rules simplified - only structure needed
 			$validator = Validator::make($request->all(), [
 				'lesson_name' => 'required|string|max:150',
-				'llm_used' => 'required|string|max:100',
+				'preferred_llm' => 'required|string|max:100',
+				'tts_engine' => 'required|string|in:google,openai',
+				'tts_voice' => 'required|string|max:100',
+				'tts_language_code' => 'required|string|max:10',
 				'plan' => 'required|array',
 				'plan.main_title' => 'required|string',
 				'plan.image_prompt_idea' => 'required|string',
@@ -145,7 +146,6 @@ PROMPT;
 				'plan.lesson_parts.*.title' => 'required|string',
 				'plan.lesson_parts.*.text' => 'required|string',
 				'plan.lesson_parts.*.image_prompt_idea' => 'required|string',
-				// No 'questions' validation needed here
 			]);
 
 			if ($validator->fails()) {
@@ -154,7 +154,10 @@ PROMPT;
 			}
 
 			$userLesson = $request->input('lesson_name');
-			$llm = $request->input('llm_used');
+			$preferredLlm = $request->input('preferred_llm');
+			$ttsEngine = $request->input('tts_engine');
+			$ttsVoice = $request->input('tts_voice');
+			$ttsLanguageCode = $request->input('tts_language_code');
 			$plan = $request->input('plan');
 
 			// Double-check plan validity using the structure validator
@@ -173,20 +176,17 @@ PROMPT;
 				'image_prompt_idea' => $plan['image_prompt_idea'],
 				'lesson_parts' => $plan['lesson_parts'], // Store parts array (no questions inside yet)
 				'session_id' => $sessionId,
-				'llm_used' => $llm,
+				'preferredLlm' => $preferredLlm,
+				'ttsEngine' => $ttsEngine,
+				'ttsVoice' => $ttsVoice,
+				'ttsLanguageCode' => $ttsLanguageCode,
 			]);
 
 			Log::info("Lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}. No questions created at this stage.");
 
-			// --- 2. NO Question Records Created Here ---
-
-			// --- 3. Respond / Redirect ---
-			// Assets (video, audio, images) will be generated on first access or via edit screen/background job.
-			Log::info("Lesson structure saved successfully. Redirecting user to edit screen.");
 			return response()->json([
 				'success' => true,
-				'message' => 'Lesson structure saved! Please use the edit screen to add questions and generate assets.',
-				// Redirect to EDIT screen instead of question interface
+				'message' => 'Lesson created! Edit questions and generate assets.',
 				'redirectUrl' => route('lesson.edit', ['lesson' => $sessionId])
 			]);
 		}
