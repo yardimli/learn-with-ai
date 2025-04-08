@@ -96,7 +96,7 @@ PROMPT;
 		public function generatePlanPreview(Request $request)
 		{
 			$validator = Validator::make($request->all(), [
-				'lesson' => 'required|string|max:150',
+				'lesson' => 'required|string|max:1024',
 				'llm' => 'required|string|max:100',
 			]);
 
