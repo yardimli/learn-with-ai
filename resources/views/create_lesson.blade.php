@@ -11,7 +11,7 @@
 			{{-- Lesson Subject --}}
 			<div class="mb-3">
 				<label for="lessonInput" class="form-label fs-5">Enter a Lesson Subject:</label>
-				<input type="text" class="form-control form-control-lg" id="lessonInput" name="lesson" placeholder="e.g., Quantum Physics, Photosynthesis" value="cats" required>
+				<textarea type="text" class="form-control form-control-lg" id="lessonInput" name="lesson" placeholder="e.g., Quantum Physics, Photosynthesis" value="cats" required></textarea>
 			</div>
 			
 			{{-- LLM Selection --}}
