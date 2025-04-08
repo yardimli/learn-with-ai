@@ -1243,7 +1243,7 @@
 					$wordCount = str_word_count($text);
 					$prefix_str = '';
 					if ($wordCount < 2) {
-						$prefix_str = '[pause]';
+						$prefix_str = '... ';
 					}
 					//check if $text ends with a period
 					$suffix_str = '';
