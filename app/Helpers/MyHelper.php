@@ -1136,6 +1136,7 @@
 		{
 			// Check if input file exists
 			if (!file_exists($inputFile)) {
+				Log::error("amplify: Input file does not exist: {$inputFile}");
 				return false;
 			}
 
@@ -1144,7 +1145,7 @@
 			$bitrate = '128k';
 
 			// Create a temporary file for the intermediate step
-			$tempFile = str_replace('.mp3', '_temp.mp3', $outputFile);
+			$tempFile = str_replace('.mp3', '_temp.mp3', $inputFile);
 
 			// First pass: Amplify volume
 			$amplifyCommand = sprintf(
@@ -1160,6 +1161,7 @@
 
 			if ($returnCode !== 0) {
 				// Clean up if the first pass failed
+				Log::error("amplify: Failed to amplify volume. Command: {$amplifyCommand}, Return Code: {$returnCode}");
 				if (file_exists($tempFile)) {
 					unlink($tempFile);
 				}
@@ -1173,6 +1175,8 @@
 				$bitrate,
 				escapeshellarg($outputFile)
 			);
+
+			Log::info("Executing silence removal command: {$silenceRemoveCommand}");
 
 			// Execute silence removal command
 			exec($silenceRemoveCommand, $output, $returnCode);
