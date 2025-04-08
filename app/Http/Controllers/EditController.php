@@ -82,8 +82,9 @@ PROMPT;
 		 * @param int $maxRetries Maximum number of retries for the LLM call.
 		 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 		 */
-		public static function generateQuestionsForPartDifficulty(string $llm, string $lessonPartTitle, string $lessonPartText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
+		public static function generateQuestionsForPartDifficulty(string $llm, string $lessonPrompt, string $lessonPartTitle, string $lessonPartText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
 		{
+			$userContent = "Initial Lesson Prompt: " . $lessonPrompt . "\n\n";
 			$userContent = "Current Lesson Part Title: " . $lessonPartTitle . "\n\n";
 			$userContent .= "Current Lesson Part Text: " . $lessonPartText . "\n\n";
 			$userContent .= "Target Difficulty: " . $difficulty . "\n\n"; // Add target difficulty
@@ -374,6 +375,8 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Invalid difficulty level provided.'], 400);
 			}
 
+			$lessonPrompt = $lesson->name;
+
 			// Retrieve and decode lesson parts
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 
@@ -409,6 +412,7 @@ PROMPT;
 			$maxRetries = 1;
 			$questionResult = self::generateQuestionsForPartDifficulty(
 				$llm,
+				$lessonPrompt,
 				$partTitle,
 				$partText,
 				$difficulty, // Pass difficulty
