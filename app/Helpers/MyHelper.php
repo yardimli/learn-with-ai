@@ -1173,8 +1173,8 @@
 			// - silence_start_duration: 0.1 seconds of silence to trigger start trimming
 			// - silence_end_duration: 0.1 seconds of silence to trigger end trimming
 			$silenceRemoveCommand = sprintf(
-				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_threshold=-20dB:start_silence=0.1:' .
-				'detection=peak,silenceremove=stop_periods=1:stop_threshold=-20dB:stop_silence=0.1:' .
+				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_threshold=-10dB:start_silence=0.1:' .
+				'detection=peak,silenceremove=stop_periods=1:stop_threshold=-10dB:stop_silence=0.1:' .
 				'detection=peak" -c:a libmp3lame -b:a %s %s',
 				escapeshellarg($tempFile),
 				$bitrate,
