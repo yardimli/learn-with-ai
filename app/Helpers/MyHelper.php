@@ -1143,29 +1143,51 @@
 			$volumeLevel = max(0, (float)$volumeLevel);
 			$bitrate = '128k';
 
-			// Silence detection parameters
-			// - silence_start_threshold: noise level below which is considered silence (in dB)
-			// - silence_end_threshold: noise level above which is considered non-silence (in dB)
-			// - silence_duration: minimum silence duration to detect (in seconds)
-			$silenceStartThreshold = '-50dB';
-			$silenceEndThreshold = '-50dB';
-			$silenceDuration = 0.1;
+			// Create a temporary file for the intermediate step
+			$tempFile = str_replace('.mp3', '_temp.mp3', $outputFile);
 
-			// Construct FFmpeg command with silenceremove and volume filters
-			$command = sprintf(
-				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_threshold=%s:start_silence=%s:detection=peak,silenceremove=stop_periods=1:stop_threshold=%s:stop_silence=%s:detection=peak,volume=%.2f" -c:a libmp3lame -b:a %s %s',
+			// First pass: Amplify volume
+			$amplifyCommand = sprintf(
+				'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
 				escapeshellarg($inputFile),
-				$silenceStartThreshold,
-				$silenceDuration,
-				$silenceEndThreshold,
-				$silenceDuration,
 				$volumeLevel,
+				$bitrate,
+				escapeshellarg($tempFile)
+			);
+
+			// Execute amplify command
+			exec($amplifyCommand, $output, $returnCode);
+
+			if ($returnCode !== 0) {
+				// Clean up if the first pass failed
+				if (file_exists($tempFile)) {
+					unlink($tempFile);
+				}
+				return false;
+			}
+
+			// Second pass: Remove silence from beginning and end
+			// Parameters:
+			// - silence_start_threshold: -60dB (adjust this value based on your needs)
+			// - silence_end_threshold: -60dB
+			// - silence_start_duration: 0.1 seconds of silence to trigger start trimming
+			// - silence_end_duration: 0.1 seconds of silence to trigger end trimming
+			$silenceRemoveCommand = sprintf(
+				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_threshold=-60dB:start_silence=0.1:' .
+				'detection=peak,silenceremove=stop_periods=1:stop_threshold=-60dB:stop_silence=0.1:' .
+				'detection=peak" -c:a libmp3lame -b:a %s %s',
+				escapeshellarg($tempFile),
 				$bitrate,
 				escapeshellarg($outputFile)
 			);
 
-			// Execute command
-			exec($command, $output, $returnCode);
+			// Execute silence removal command
+			exec($silenceRemoveCommand, $output, $returnCode);
+
+			// Clean up the temporary file
+			if (file_exists($tempFile)) {
+				unlink($tempFile);
+			}
 
 			return $returnCode === 0;
 		}
