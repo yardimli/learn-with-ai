@@ -1147,6 +1147,10 @@
 			// Create a temporary file for the intermediate step
 			$tempFile = str_replace('.mp3', '_temp.mp3', $inputFile);
 
+			if (file_exists($tempFile)) {
+				unlink($tempFile); // Remove temp file if it exists
+			}
+
 			// First pass: Amplify volume
 			$amplifyCommand = sprintf(
 				'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
