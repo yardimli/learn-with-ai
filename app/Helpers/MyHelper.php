@@ -1007,7 +1007,7 @@
 			// --- Step 1: Generate Audio using OpenAI TTS ---
 			$filenameBase = 'video_audio_' . Str::slug(Str::limit($text, 30));
 
-			Log::info("Generating audio using OpenAI TTS (Voice: {$openaiVoice})...");
+			Log::info("Generating audio using OpenAI TTS (Voice: {$ttsVoice})...");
 			$ttsResult = self::text2speech( // Call updated text2speech
 				$text,
 				$ttsVoice,
