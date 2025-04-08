@@ -1143,10 +1143,22 @@
 			$volumeLevel = max(0, (float)$volumeLevel);
 			$bitrate = '128k';
 
-			// Construct FFmpeg command
+			// Silence detection parameters
+			// - silence_start_threshold: noise level below which is considered silence (in dB)
+			// - silence_end_threshold: noise level above which is considered non-silence (in dB)
+			// - silence_duration: minimum silence duration to detect (in seconds)
+			$silenceStartThreshold = '-50dB';
+			$silenceEndThreshold = '-50dB';
+			$silenceDuration = 0.1;
+
+			// Construct FFmpeg command with silenceremove and volume filters
 			$command = sprintf(
-				'ffmpeg -i %s -filter:a "volume=%.2f" -c:a libmp3lame -b:a %s %s',
+				'ffmpeg -i %s -af "silenceremove=start_periods=1:start_threshold=%s:start_silence=%s:detection=peak,silenceremove=stop_periods=1:stop_threshold=%s:stop_silence=%s:detection=peak,volume=%.2f" -c:a libmp3lame -b:a %s %s',
 				escapeshellarg($inputFile),
+				$silenceStartThreshold,
+				$silenceDuration,
+				$silenceEndThreshold,
+				$silenceDuration,
 				$volumeLevel,
 				$bitrate,
 				escapeshellarg($outputFile)

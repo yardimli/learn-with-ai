@@ -63,15 +63,16 @@
 	@if(!isset($subjects) || $subjects->isEmpty())
 		<p class="text-center text-muted">No lessons created yet.</p>
 	@else
-		<div class="list-group">
+ 		<div class="list-group">
 			@foreach($subjects as $subject)
-				<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-					<div>
+				<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center row p-1">
+					<div class="col-lg-8">
 						<h5 class="mb-1">{{ $subject->title }}</h5>
 						<p class="mb-1"><small class="text-muted">Subject: {{ $subject->name }} |
 								Created: {{ $subject->created_at->format('M d, Y H:i') }}</small></p>
 					</div>
-					<div>
+					<div class="col-lg-4 text-end">
+						{{-- Add a button to preview the lesson --}}
 						<a href="{{ route('question.interface', ['subject' => $subject->session_id]) }}"
 						   class="btn btn-sm btn-outline-success me-2" title="Start Learning">
 							<i class="fas fa-eye"></i> Start Learning
