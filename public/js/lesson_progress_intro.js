@@ -1,24 +1,62 @@
 function setupIntroEventListeners() {
 	startPartQuestionButton.addEventListener('click', () => {
 		if (!isLoading && !interactionsDisabled) {
-			console.log("Start Part Question button clicked for Part:", currentState.partIndex, "Difficulty:", currentState.difficulty);
-			if (currentState.partIndex === null || currentState.difficulty === null) {
-				setErrorState("Cannot start question: Invalid state (part or difficulty missing).");
+			// Don't proceed if video hasn't finished playing
+			if (!hasIntroVideoPlayed) {
+				// Show a message to the user
+				setErrorState("Please watch the video before proceeding.");
+				
+				// Try to play the video if it's not playing
+				if (partIntroVideo && partIntroVideo.paused && isAutoPlayEnabled) {
+					partIntroVideo.play().catch(err => {
+						console.error("Could not play video:", err);
+						// If we can't play the video, allow them to continue anyway
+						hasIntroVideoPlayed = true;
+						setErrorState(null);
+					});
+				}
 				return;
 			}
-			// Load questions for the current state's part/difficulty
-			loadQuestionsForLevel(currentState.partIndex, currentState.difficulty);
+			
+			// Existing code for starting questions
+			console.log("Start Part Question button clicked for Part:", currentState.partIndex);
+			if (currentState.partIndex === null) {
+				setErrorState("Cannot start question: Invalid state (part missing).");
+				return;
+			}
+			
+			// Load questions for the current state's part
+			loadQuestionsForLevel(currentState.partIndex);
 		}
 	});
 	
 	partIndicatorContainer.addEventListener('click', handlePartLabelClick);
 	
 	if (partIntroVideo) {
-		partIntroVideo.addEventListener('play', () => hasIntroVideoPlayed = true);
-	} else {
-		console.warn("Part intro video element not found during event listener setup.");
-		// If there's no video element, assume it's "played" or doesn't matter
-		hasIntroVideoPlayed = true;
+		// Update existing play event handler to enable button
+		partIntroVideo.addEventListener('play', () => {
+			console.log("Video started playing");
+		});
+		
+		// Add ended event to enable the start button
+		partIntroVideo.addEventListener('ended', () => {
+			console.log("Video finished playing");
+			hasIntroVideoPlayed = true;
+			if (startPartQuestionButton) {
+				startPartQuestionButton.disabled = false;
+				startPartQuestionButton.innerHTML = `Start Part ${displayedPartIndex + 1} Question`;
+			}
+		});
+		
+		// Handle video errors - don't block progress if video fails
+		partIntroVideo.addEventListener('error', () => {
+			console.warn("Video playback error - enabling continue button");
+			hasIntroVideoPlayed = true;
+			if (startPartQuestionButton) {
+				startPartQuestionButton.disabled = false;
+				startPartQuestionButton.innerHTML = `Start Part ${displayedPartIndex + 1} Question`;
+			}
+		});
 	}
 }
 
@@ -98,16 +136,16 @@ function showPartIntro(partIndexToShow) {
 		return;
 	}
 	
-	stopPlaybackSequence(true); // Stop question audio and enable interactions
-	feedbackData = null; // Clear any lingering feedback
+	stopPlaybackSequence(true);
+	feedbackData = null;
 	isPartIntroVisible = true;
-	hasIntroVideoPlayed = false; // Reset video played flag
-	currentPartQuestions = []; // Clear questions from previous part
+	hasIntroVideoPlayed = false;
+	currentPartQuestions = [];
 	currentQuestionIndex = -1;
 	currentQuestion = null;
 	displayedPartIndex = partIndexToShow;
 	currentState.partIndex = partIndexToShow;
-	currentState.difficulty = 'easy'; // Reset difficulty to easy for intro
+	currentState.difficulty = 'easy';
 	
 	
 	// Hide Question Area, Show Intro Area
@@ -130,23 +168,40 @@ function showPartIntro(partIndexToShow) {
 		startPartQuestionButton.disabled = false; // Should be enabled by default
 	}
 	
-	// Handle Video Element Existence and Content
-	if (partIntroVideo) { // Check if the element exists first
+	if (partIntroVideo) {
 		if (introVideoUrl) {
 			partIntroVideo.src = introVideoUrl;
 			toggleElement(partIntroVideo, true);
 			if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, false);
+			
+			// Set video to auto-play when auto-play is enabled
+			if (isAutoPlayEnabled) {
+				partIntroVideo.autoplay = true;
+				// Disable start button until video completes
+				if (startPartQuestionButton) {
+					startPartQuestionButton.disabled = true;
+					startPartQuestionButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Please watch the video';
+					partIntroVideo.play().catch(err => {
+						console.error("Could not play video:", err);
+						// If we can't play the video, allow them to continue anyway
+						hasIntroVideoPlayed = true;
+						setErrorState(null);
+					});
+				}
+			} else {
+				partIntroVideo.autoplay = false;
+				hasIntroVideoPlayed = true; // Skip requirement if auto-play is off
+			}
 		} else {
-			partIntroVideo.src = ''; // Clear src if no video
+			// No video exists
+			partIntroVideo.src = '';
 			toggleElement(partIntroVideo, false);
 			if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, true);
-			hasIntroVideoPlayed = true; // No video, treat as played
+			hasIntroVideoPlayed = true; // No video to play
 		}
 	} else {
-		// Video element doesn't exist, ensure placeholder is shown if it exists
-		if (partIntroVideoPlaceholder) toggleElement(partIntroVideoPlaceholder, true);
-		hasIntroVideoPlayed = true; // No video element, treat as played
-		console.warn("partIntroVideo element not found. Cannot display video.");
+		// Video element doesn't exist
+		hasIntroVideoPlayed = true;
 	}
 	
 	updateProgressBar(); // Update progress bar for the new part

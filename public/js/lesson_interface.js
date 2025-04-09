@@ -306,6 +306,8 @@ function showFeedbackModal(feedbackResult) {
 	
 	const isCorrect = feedbackResult.was_correct;
 	
+	let feedbackAudioCompleted = !feedbackResult.feedback_audio_url; // True if no audio to play
+	
 	// Update modal content
 	feedbackModalLabel.textContent = isCorrect ? 'Correct!' : 'Not Quite...';
 	feedbackModalLabel.className = isCorrect ? 'modal-title text-success' : 'modal-title text-danger'; // Add color
@@ -327,24 +329,35 @@ function showFeedbackModal(feedbackResult) {
 		}
 	});
 	
+	toggleElement(modalTryAgainButton, !isCorrect); // Show "Try Again" if incorrect
+	toggleElement(modalNextButton, isCorrect); // Show "Next Question" if correct
+	
 	
 	// Configure feedback audio button
 	if (feedbackResult.feedback_audio_url) {
 		playFeedbackModalButton.dataset.audioUrl = feedbackResult.feedback_audio_url;
 		toggleElement(playFeedbackModalButton, true);
-		playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio'; // Reset icon/text
-		toggleElement(feedbackAudioError, false); // Hide error initially
+		playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+		toggleElement(feedbackAudioError, false);
+		
+		// Disable next/try again buttons initially if auto-play is enabled
+		if (isAutoPlayEnabled) {
+			if (modalTryAgainButton) modalTryAgainButton.disabled = true;
+			if (modalNextButton) modalNextButton.disabled = true;
+			
+			// Auto-play the feedback audio
+			setTimeout(() => {
+				playFeedbackModalButton.click();
+			}, 300);
+		}
 	} else {
 		toggleElement(playFeedbackModalButton, false);
 		playFeedbackModalButton.dataset.audioUrl = '';
+		
+		// No audio, so buttons should be enabled
+		if (modalTryAgainButton) modalTryAgainButton.disabled = false;
+		if (modalNextButton) modalNextButton.disabled = false;
 	}
-	
-	//call click on playFeedbackModalButton
-	playFeedbackModalButton.click();
-	
-	// Configure footer buttons
-	toggleElement(modalTryAgainButton, !isCorrect); // Show "Try Again" if incorrect
-	toggleElement(modalNextButton, isCorrect); // Show "Next Question" if correct
 	
 	// Show the modal
 	feedbackModalInstance.show();
@@ -528,33 +541,63 @@ function setupModalEventListeners() {
 	if (playFeedbackModalButton && feedbackAudioPlayer) {
 		playFeedbackModalButton.addEventListener('click', () => {
 			const audioUrl = playFeedbackModalButton.dataset.audioUrl;
-			toggleElement(feedbackAudioError, false); // Hide previous error
+			toggleElement(feedbackAudioError, false);
+			
 			if (audioUrl) {
 				if (!feedbackAudioPlayer.paused) {
 					feedbackAudioPlayer.pause();
 					feedbackAudioPlayer.currentTime = 0;
+					
+					// If user manually stops, enable buttons
+					if (modalTryAgainButton) modalTryAgainButton.disabled = false;
+					if (modalNextButton) modalNextButton.disabled = false;
 				} else {
+					// Disable buttons when starting playback
+					if (isAutoPlayEnabled) {
+						if (modalTryAgainButton) modalTryAgainButton.disabled = true;
+						if (modalNextButton) modalNextButton.disabled = true;
+					}
+					
 					feedbackAudioPlayer.src = audioUrl;
 					feedbackAudioPlayer.play().catch(e => {
 						console.error("Feedback audio playback error:", e);
 						feedbackAudioError.textContent = 'Audio playback error.';
 						toggleElement(feedbackAudioError, true);
+						
+						// Enable buttons if playback fails
+						if (modalTryAgainButton) modalTryAgainButton.disabled = false;
+						if (modalNextButton) modalNextButton.disabled = false;
 					});
 				}
 			}
 		});
 		
-		// Optional: Update button text/icon during playback
+		// Update event listeners for feedback audio player
+		feedbackAudioPlayer.onended = () => {
+			console.log('Feedback audio ended.');
+			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+			
+			// Enable buttons after audio completes
+			if (modalTryAgainButton) modalTryAgainButton.disabled = false;
+			if (modalNextButton) modalNextButton.disabled = false;
+		};
+		
+		feedbackAudioPlayer.onpause = () => {
+			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
+		};
+		
 		feedbackAudioPlayer.onplaying = () => {
 			playFeedbackModalButton.innerHTML = '<i class="fas fa-pause me-1"></i> Pause Feedback';
 		};
-		feedbackAudioPlayer.onpause = () => { // Covers ended and manual pause
-			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
-		};
+		
 		feedbackAudioPlayer.onerror = () => {
 			playFeedbackModalButton.innerHTML = '<i class="fas fa-volume-up me-1"></i> Play Feedback Audio';
 			feedbackAudioError.textContent = 'Audio playback error.';
 			toggleElement(feedbackAudioError, true);
-		}
+			
+			// Enable buttons if there's an error
+			if (modalTryAgainButton) modalTryAgainButton.disabled = false;
+			if (modalNextButton) modalNextButton.disabled = false;
+		};
 	}
 }
