@@ -118,3 +118,9 @@ function showToast(message, title = 'Notification', type = 'info') {
 	const bsToast = new bootstrap.Toast(toast);
 	bsToast.show();
 }
+
+function escapeHtml(text) {
+	const div = document.createElement('div');
+	div.textContent = text;
+	return div.innerHTML;
+}

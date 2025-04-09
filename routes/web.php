@@ -25,6 +25,9 @@
 // --- Lesson Editing & Asset Management ---
 	Route::get('/lesson/{lesson}/edit', [EditController::class, 'edit'])->name('lesson.edit');
 	Route::post('/lesson/{lesson}/update-settings', [EditController::class, 'updateSettingsAjax'])->name('lesson.update.settings');
+	Route::post('/lesson/{lesson}/part/{partIndex}/update-text', [EditController::class, 'updatePartTextAjax'])
+		->where('partIndex', '[0-9]+')
+		->name('lesson.part.update.text');
 
 // Generate Question Batch
 	Route::post('/lesson/{lesson}/part/{partIndex}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])

@@ -357,7 +357,7 @@ PROMPT;
 
 
 		/**
-		 * NEW: AJAX endpoint to generate a batch of 3 questions for a specific part and difficulty.
+		 * AJAX endpoint to generate a batch of 3 questions for a specific part and difficulty.
 		 *
 		 * @param Request $request
 		 * @param Lesson $lesson
@@ -486,7 +486,7 @@ PROMPT;
 		}
 
 		/**
-		 * NEW: AJAX endpoint to delete a specific question.
+		 * AJAX endpoint to delete a specific question.
 		 *
 		 * @param Question $question Route model binding
 		 * @return \Illuminate\Http\JsonResponse
@@ -549,6 +549,76 @@ PROMPT;
 				DB::rollBack(); // Rollback on error
 				Log::error("Error deleting Question ID {$questionId}: " . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'Failed to delete question.'], 500);
+			}
+		}
+
+
+		/**
+		 * AJAX endpoint to update the title and text of a specific lesson part.
+		 *
+		 * @param Request $request
+		 * @param Lesson $lesson
+		 * @param int $partIndex
+		 * @return \Illuminate\Http\JsonResponse
+		 */
+		public function updatePartTextAjax(Request $request, Lesson $lesson, int $partIndex)
+		{
+			Log::info("AJAX request to update text for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
+
+			$validator = Validator::make($request->all(), [
+				'part_title' => 'required|string|max:255',
+				'part_text' => 'required|string|min:10|max:2000', // Adjust max length as needed
+			]);
+
+			if ($validator->fails()) {
+				Log::warning("Lesson part text update validation failed for Lesson ID: {$lesson->id}, Part Index: {$partIndex}", ['errors' => $validator->errors()]);
+				return response()->json([
+					'success' => false,
+					'message' => 'Validation failed: ' . $validator->errors()->first()
+				], 422);
+			}
+
+			DB::beginTransaction();
+			try {
+				// Retrieve the current lesson parts (should be auto-decoded by cast)
+				$lessonParts = $lesson->lesson_parts;
+
+				// Check if it's an array and the index exists
+				if (!is_array($lessonParts) || !isset($lessonParts[$partIndex])) {
+					DB::rollBack();
+					Log::error("Invalid part index ({$partIndex}) or lesson parts data for update. Lesson ID: {$lesson->id}.");
+					return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
+				}
+
+				// Update the specific part's title and text
+				$lessonParts[$partIndex]['title'] = $request->input('part_title');
+				$lessonParts[$partIndex]['text'] = $request->input('part_text');
+				// Keep other potential keys like 'image_prompt_idea', 'video_url', etc., untouched
+
+				// Save the modified array back to the lesson
+				$lesson->lesson_parts = $lessonParts;
+				$lesson->save();
+
+				DB::commit();
+				Log::info("Successfully updated text for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
+
+				return response()->json([
+					'success' => true,
+					'message' => 'Lesson part updated successfully.',
+					'updated_part' => [ // Send back updated data for JS
+						'index' => $partIndex,
+						'title' => $lessonParts[$partIndex]['title'],
+						'text' => $lessonParts[$partIndex]['text'],
+					]
+				]);
+
+			} catch (Exception $e) {
+				DB::rollBack();
+				Log::error("Error updating lesson part text for Lesson ID {$lesson->id}, Part Index {$partIndex}: " . $e->getMessage());
+				return response()->json([
+					'success' => false,
+					'message' => 'Failed to update lesson part: ' . $e->getMessage()
+				], 500);
 			}
 		}
 

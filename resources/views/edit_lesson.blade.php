@@ -118,16 +118,40 @@
 					<select id="ttsVoiceSelect" class="form-select form-select-sm">
 						{{-- JS will filter, select current --}}
 						<optgroup label="Google Voices">
-							<option value="en-US-Studio-O" {{ $lesson->ttsVoice == 'en-US-Studio-O' ? 'selected' : '' }}>en-US-Studio-O (Female)</option>
-							<option value="en-US-Studio-Q" {{ $lesson->ttsVoice == 'en-US-Studio-Q' ? 'selected' : '' }}>en-US-Studio-Q (Male)</option>
-							<option value="tr-TR-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Aoede' ? 'selected' : '' }}>tr-TR-Chirp3-HD-Aoede (Female)</option>
-							<option value="tr-TR-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Charon' ? 'selected' : '' }}>tr-TR-Chirp3-HD-Charon (Male)</option>
-							<option value="tr-TR-Standard-A" {{ $lesson->ttsVoice == 'tr-TR-Standard-A' ? 'selected' : '' }}>tr-TR-Standard-A (Female)</option>
-							<option value="tr-TR-Standard-B" {{ $lesson->ttsVoice == 'tr-TR-Standard-B' ? 'selected' : '' }}>tr-TR-Standard-B</option>
-							<option value="cmn-CN-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Aoede' ? 'selected' : '' }}>cmn-CN-Chirp3-HD-Aoede (Female)</option>
-							<option value="cmn-CN-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Charon' ? 'selected' : '' }}>cmn-CN-Chirp3-HD-Charon (Male)</option>
-							<option value="cmn-TW-Standard-A" {{ $lesson->ttsVoice == 'cmn-TW-Standard-A' ? 'selected' : '' }}>cmn-TW-Standard-A (Female)</option>
-							<option value="cmn-TW-Standard-B" {{ $lesson->ttsVoice == 'cmn-TW-Standard-B' ? 'selected' : '' }}>cmn-TW-Standard-B (Male)</option>
+							<option value="en-US-Studio-O" {{ $lesson->ttsVoice == 'en-US-Studio-O' ? 'selected' : '' }}>
+								en-US-Studio-O (Female)
+							</option>
+							<option value="en-US-Studio-Q" {{ $lesson->ttsVoice == 'en-US-Studio-Q' ? 'selected' : '' }}>
+								en-US-Studio-Q (Male)
+							</option>
+							<option
+								value="tr-TR-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Aoede' ? 'selected' : '' }}>
+								tr-TR-Chirp3-HD-Aoede (Female)
+							</option>
+							<option
+								value="tr-TR-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'tr-TR-Chirp3-HD-Charon' ? 'selected' : '' }}>
+								tr-TR-Chirp3-HD-Charon (Male)
+							</option>
+							<option value="tr-TR-Standard-A" {{ $lesson->ttsVoice == 'tr-TR-Standard-A' ? 'selected' : '' }}>
+								tr-TR-Standard-A (Female)
+							</option>
+							<option value="tr-TR-Standard-B" {{ $lesson->ttsVoice == 'tr-TR-Standard-B' ? 'selected' : '' }}>
+								tr-TR-Standard-B
+							</option>
+							<option
+								value="cmn-CN-Chirp3-HD-Aoede" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Aoede' ? 'selected' : '' }}>
+								cmn-CN-Chirp3-HD-Aoede (Female)
+							</option>
+							<option
+								value="cmn-CN-Chirp3-HD-Charon" {{ $lesson->ttsVoice == 'cmn-CN-Chirp3-HD-Charon' ? 'selected' : '' }}>
+								cmn-CN-Chirp3-HD-Charon (Male)
+							</option>
+							<option value="cmn-TW-Standard-A" {{ $lesson->ttsVoice == 'cmn-TW-Standard-A' ? 'selected' : '' }}>
+								cmn-TW-Standard-A (Female)
+							</option>
+							<option value="cmn-TW-Standard-B" {{ $lesson->ttsVoice == 'cmn-TW-Standard-B' ? 'selected' : '' }}>
+								cmn-TW-Standard-B (Male)
+							</option>
 						</optgroup>
 						<optgroup label="OpenAI Voices">
 							<option value="alloy" {{ $lesson->ttsVoice == 'alloy' ? 'selected' : '' }}>Alloy (N)</option>
@@ -178,9 +202,21 @@
 	
 	@if (!empty($lesson->lesson_parts))
 		@foreach($lesson->lesson_parts as $partIndex => $part)
+			@php
+				$partTitle = $part['title'] ?? 'Part ' . ($partIndex + 1);
+				$partText = $part['text'] ?? '';
+			@endphp
 			<div class="content-card mb-4">
-				<h3 class="mb-3">Lesson Part {{ $partIndex + 1 }}: {{ $part['title'] }}</h3>
-				<p>{{ $part['text'] }}</p>
+				<h3 class="mb-3 d-flex justify-content-between align-items-center">
+					<span>Lesson Part {{ $partIndex + 1 }}: {{ $partTitle }}</span>
+					<button class="btn btn-sm btn-outline-secondary edit-part-text-btn"
+					        data-bs-toggle="modal" data-bs-target="#editPartModal"
+					        data-part-index="{{ $partIndex }}" data-part-title="{{ $partTitle }}"
+					        title="Edit Part Title & Text">
+						<i class="fas fa-edit"></i> Edit Part
+					</button>
+				</h3>
+				<p id="part-text-display-{{ $partIndex }}">{{ $partText }}</p>
 				
 				<div class="asset-container mb-4 generated-video-container border-top pt-3 mt-3">
 					<h6><i class="fas fa-film me-2 text-primary"></i>Part Video</h6>
@@ -381,6 +417,42 @@
 			</div>
 		</div>
 	</div>
+	
+	<!-- Edit Part Modal -->
+	<div class="modal fade" id="editPartModal" tabindex="-1" aria-labelledby="editPartModalLabel" aria-hidden="true"
+	     data-bs-backdrop="static">
+		<div class="modal-dialog modal-lg">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="editPartModalLabel">Edit Lesson Part</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<form id="editPartForm">
+						<input type="hidden" id="editPartIndex" value="">
+						<div class="mb-3">
+							<label for="editPartTitle" class="form-label">Part Title</label>
+							<input type="text" class="form-control" id="editPartTitle" required>
+							<div class="invalid-feedback">Part title is required.</div>
+						</div>
+						<div class="mb-3">
+							<label for="editPartText" class="form-label">Part Text</label>
+							<textarea class="form-control" id="editPartText" rows="8" required></textarea>
+							<div class="invalid-feedback">Part text is required (minimum 10 characters)</div>
+						</div>
+					</form>
+					<div id="editPartError" class="alert alert-danger mt-3 d-none"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+					<button type="button" class="btn btn-primary" id="savePartBtn">
+						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+						Save Changes
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
 
 @endsection
 
@@ -391,12 +463,19 @@
 		let currentlyPlayingButton = null;
 		let existingPlayButtons = null;
 		
+		let preferredLlmSelect = null;
+		let ttsEngineSelect = null;
+		let ttsLanguageCodeSelect = null;
+		let updateSettingsBtn = null;
+		
 		const lessonSessionId = @json($lesson->session_id);
 		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->session_id]));
 		const llmsListUrl = @json(route('api.llms.list'));
 	
 	</script>
 	<script src="{{ asset('js/edit_lesson.js') }}"></script>
+	<script src="{{ asset('js/edit_lesson_top_settings.js') }}"></script>
+	<script src="{{ asset('js/edit_lesson_question.js') }}"></script>
 	<script src="{{ asset('js/edit_lesson_audio.js') }}"></script>
 	<script src="{{ asset('js/edit_lesson_freepik_functions.js') }}"></script>
 @endpush
