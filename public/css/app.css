@@ -43,7 +43,7 @@ body {
 }
 
 .answer-btn.correct {
-    background-color: #d1e7dd !important;
+    background-color: #a1ffad !important;
     border-color: #badbcc !important;
     color: #0f5132 !important;
 }
@@ -260,15 +260,6 @@ body {
     background-color: #a0a0a5;
     color: #1c1c1e;
 }
-.dark-mode .btn-success {
-    /* Adjust if needed */
-}
-.dark-mode .btn-info {
-    /* Adjust if needed */
-}
-.dark-mode .btn-danger {
-    /* Adjust if needed */
-}
 
 .dark-mode .alert-danger {
     background-color: #5e1e23;
@@ -303,9 +294,9 @@ body {
     color: white;
 }
 .dark-mode .answer-btn.correct {
-    background-color: #198754; /* Success color */
+    background-color: #a1ffad; /* Success color */
     border-color: #198754;
-    color: white;
+    color: black;
 }
 .dark-mode .answer-btn.incorrect {
     background-color: #dc3545; /* Danger color */

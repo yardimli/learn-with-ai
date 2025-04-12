@@ -206,5 +206,5 @@ function showPartIntro(partIndexToShow) {
 	
 	updateProgressBar(); // Update progress bar for the new part
 	setInteractionsDisabled(false); // Ensure interactions are enabled for intro screen
-	updateButtonStates(); // Update button enabled/disabled
+	updateButtonStates(11);
 }

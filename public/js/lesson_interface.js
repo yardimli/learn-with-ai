@@ -122,13 +122,6 @@ function displayQuestionAtIndex(index) {
 	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber})`);
 	
 	updateUIForQuestion();
-	
-	// Reset button styles from previous feedback
-	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
-		button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
-		button.classList.add('btn-outline-primary');
-	});
-	
 	setInteractionsDisabled(true);
 	buildPlaybackQueue(currentQuestion);
 	startPlaybackSequence();
@@ -184,7 +177,7 @@ function updateUIForQuestion() {
 	console.log("Answer buttons created and shuffled.");
 	
 	
-	updateButtonStates();
+	updateButtonStates(4);
 }
 
 function checkStateAndTransition() {
@@ -224,9 +217,11 @@ function checkStateAndTransition() {
 		console.log("Wrong answer. Allowing another attempt on the same question.");
 		// Reset the buttons for another attempt
 		questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
-			button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger');
-			button.classList.add('btn-outline-primary');
-			button.disabled = false;
+			if (!button.classList.contains('incorrect')) {
+				button.classList.remove('selected'); //'correct',
+				button.classList.add('btn-outline-primary');
+				button.disabled = false;
+			}
 		});
 		setInteractionsDisabled(false);
 	}
@@ -243,16 +238,6 @@ function submitAnswer(index) {
 	selectedIndex = index;
 	setLoadingState(true, 'Checking answer...');
 	setErrorState(null);
-	
-	// Update button visually immediately
-	console.log(`Submitting answer index ${index} for question ID ${currentQuestion.id} and disabling buttons`);
-	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => {
-		btn.classList.remove('selected');
-		if (parseInt(btn.dataset.index) === index) {
-			btn.classList.add('selected');
-		}
-		btn.disabled = true;
-	});
 	
 	fetch(`/question/${currentQuestion.id}/submit`, {
 		method: 'POST',
@@ -316,14 +301,15 @@ function showFeedbackModal(feedbackResult) {
 	// Update answer button styles based on feedback BEFORE showing modal
 	console.log("Updating answer button styles based on feedback, and disabling them");
 	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+		if (button.classList.contains('incorrect')) return;
 		const btnIndex = parseInt(button.dataset.index);
 		button.classList.remove('selected', 'correct', 'incorrect', 'btn-outline-primary', 'btn-primary', 'btn-outline-secondary');
 		button.disabled = true; // Keep disabled
 		
 		if (btnIndex === feedbackResult.correct_index) {
-			// button.classList.add('correct', 'btn-success'); // Solid green for correct
+			button.classList.add('correct'); // Solid green for correct
 		} else if (btnIndex === selectedIndex) { // User's incorrect selection
-			button.classList.add('incorrect', 'btn-danger'); // Solid red for selected incorrect
+			button.classList.add('incorrect'); // Solid red for selected incorrect
 		} else {
 			button.classList.add('btn-outline-secondary'); // Muted outline for others
 		}
@@ -399,7 +385,7 @@ function showCompletionScreen() {
 	
 	updateProgressBar(); // Ensure progress bar shows 100%
 	setInteractionsDisabled(false); // Ensure interactions enabled on final screen
-	updateButtonStates();
+	updateButtonStates(5);
 }
 
 function updateUI() {
@@ -407,7 +393,7 @@ function updateUI() {
 	
 	// If intro is visible, only update its buttons and return
 	if (isPartIntroVisible) {
-		updateButtonStates();
+		updateButtonStates(6);
 		return;
 	}
 	
@@ -418,11 +404,11 @@ function updateUI() {
 	}
 	
 	if (questionArea.classList.contains('d-none') || !currentQuestion) {
-		updateButtonStates();
+		updateButtonStates(7);
 		return;
 	}
 
-	updateButtonStates();
+	updateButtonStates(8);
 }
 
 // --- Event Listeners ---
@@ -490,16 +476,6 @@ function setupModalEventListeners() {
 			console.log('Try Again clicked');
 			feedbackModalInstance.hide();
 			selectedIndex = null; // Clear selection
-			
-			// Reset answer button styles and re-enable them
-			console.log("Resetting answer button styles for another attempt, enabling them");
-			questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
-				button.classList.remove('selected', 'correct', 'incorrect', 'btn-success', 'btn-danger', 'btn-outline-secondary');
-				button.classList.add('btn-outline-primary');
-				button.disabled = false; // Re-enable
-			});
-			// No state transition, just allow another attempt on the same question.
-			// Interactions should be re-enabled by the 'hidden.bs.modal' listener if not loading.
 		});
 	}
 	
@@ -519,14 +495,15 @@ function setupModalEventListeners() {
 				console.log('Modal closed, re-enabling interactions');
 				setInteractionsDisabled(false);
 			}
+			
 			console.log('Modal closed, refreshing button states');
-			updateButtonStates(); // Refresh button states after modal closes
+			updateButtonStates(9);
 			checkStateAndTransition();
 		});
 		feedbackModal.addEventListener('shown.bs.modal', () => {
 			isModalVisible = true;
 			setInteractionsDisabled(true); // Ensure interactions are off while modal is shown
-			updateButtonStates(); // Refresh button states after modal opens
+			updateButtonStates(10);
 		});
 	}
 	

@@ -19,7 +19,7 @@ function setLoadingState(loading, message = 'Loading...') {
 	if (startPartQuestionButton) startPartQuestionButton.disabled = loading || interactionsDisabled;
 	
 	// Update button states after loading state changes, as it affects interactionsDisabled
-	if(wasLoading !== isLoading) updateButtonStates();
+	if(wasLoading !== isLoading) updateButtonStates(1);
 }
 
 function setErrorState(message) {
@@ -35,14 +35,15 @@ function setInteractionsDisabled(disabled) {
 	// console.log(`Interactions Disabled: ${interactionsDisabled} (Req: ${disabled}, Load: ${isLoading}, AutoPlay: ${isAutoPlaying})`);
 	if (changed) {
 		// Update button states etc. based on this change
-		updateButtonStates();
+		updateButtonStates(2);
 	}
 }
 
-function updateButtonStates() {
+function updateButtonStates(callerId) {
 	// Update Answer Buttons enabled/disabled state
-	console.log("Updating button states... state:", interactionsDisabled);
+	console.log("Updating button states... state:", interactionsDisabled, "callerId:", callerId);
 	questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+		if (button.classList.contains('incorrect') && !interactionsDisabled) return; // Skip the buttons flagged as incorrect
 		button.disabled = interactionsDisabled;
 		//console.log(`Button ${button.textContent} disabled: ${button.disabled}`);
 	});
