@@ -1,9 +1,14 @@
 @extends('layouts.app')
-@section('title', 'Enter Lesson - Learn with AI')
+@section('title', 'Create New Lesson - Learn with AI')
 @section('content')
-	<h1 class="text-center mb-4">Learn Something New with AI</h1>
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<h1 class="mb-0">Learn Something New with AI</h1>
+		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
+			<i class="fas fa-list"></i> View Existing Lessons
+		</a>
+	</div>
 	
-	<div class="content-card">
+	<div class="content-card shadow-sm">
 		<form id="lessonForm" action="{{ route('lesson.generate.structure') }}" method="POST">
 			@csrf
 			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}">
@@ -96,45 +101,6 @@
 		</form>
 	</div>
 	
-	<hr>
-	
-	<h2 class="text-center my-4">Existing Lessons</h2>
-	{{-- Rest of the existing lessons list remains the same --}}
-	@if(!isset($lessons) || $lessons->isEmpty())
-		<p class="text-center text-muted">No lessons created yet.</p>
-	@else
-		<div class="list-group">
-			@foreach($lessons as $lesson)
-				<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center row p-1">
-					<div class="col-lg-8">
-						<h5 class="mb-1">{{ $lesson->title }}</h5>
-						<p class="mb-1"><small class="text-muted">Lesson: {{ $lesson->name }} | Created: {{ $lesson->created_at->format('M d, Y H:i') }}</small></p>
-						{{-- Optionally display saved settings --}}
-						<p class="mb-1"><small class="text-muted">
-								Model: {{ $lesson->preferredLlm }} | Voice: {{ $lesson->ttsEngine }}/{{ $lesson->ttsVoice }} ({{ $lesson->ttsLanguageCode }})
-							</small></p>
-					</div>
-					<div class="col-lg-4 text-end">
-						<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-sm btn-outline-success me-2" title="Start Learning">
-							<i class="fas fa-eye"></i> <span class="d-none d-md-inline">Learn</span>
-						</a>
-						<a href="{{ route('lesson.edit', ['lesson' => $lesson->session_id]) }}" class="btn btn-sm btn-outline-primary" title="Edit">
-							<i class="fas fa-edit"></i> <span class="d-none d-md-inline">Edit</span>
-						</a>
-						<a href="{{ route('progress.show', ['lesson' => $lesson->session_id]) }}" class="btn btn-sm btn-outline-info" title="View Progress">
-							<i class="fas fa-chart-line"></i> <span class="d-none d-md-inline">Progress</span>
-						</a>
-						{{-- Add Delete button later if needed --}}
-						<button type="button" class="btn btn-sm btn-outline-warning archive-progress-btn" title="Archive Progress & Reset"
-						        data-lesson-session-id="{{ $lesson->session_id }}"
-						        data-archive-url="{{ route('lesson.archive', ['lesson' => $lesson->session_id]) }}">
-							<i class="fas fa-archive"></i> <span class="d-none d-md-inline">Archive</span>
-						</button>
-					</div>
-				</div>
-			@endforeach
-		</div>
-	@endif
 	
 	<!-- Lesson Plan Preview Modal -->
 	{{-- Modal remains the same - it only shows the plan structure --}}

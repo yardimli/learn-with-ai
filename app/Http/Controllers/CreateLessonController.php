@@ -37,6 +37,13 @@
 			return view('create_lesson', compact('llms', 'lessons'));
 		}
 
+		public function listLessons()
+		{
+			// Eager load question count for potential display (optional)
+			$lessons = Lesson::withCount('questions')->orderBy('created_at', 'desc')->get();
+			return view('lessons_list', compact('lessons')); // Return the new view
+		}
+
 		// --- Prompt for generating Lesson Structure ONLY ---
 		private const SYSTEM_PROMPT_LESSON_STRUCTURE = <<<PROMPT
 You are an AI assistant specialized in creating the structure for educational micro-lessons.

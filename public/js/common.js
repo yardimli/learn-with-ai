@@ -29,6 +29,56 @@ document.addEventListener('DOMContentLoaded', () => {
 		localStorage.setItem('darkModeEnabled', isDarkMode);
 		updateIcons(isDarkMode);
 	});
+	
+	document.querySelectorAll('.archive-progress-btn').forEach(button => {
+		button.addEventListener('click', async (event) => {
+			const lessonId = event.currentTarget.dataset.lessonSessionId;
+			const archiveUrl = event.currentTarget.dataset.archiveUrl;
+			
+			if (!lessonId || !archiveUrl) {
+				showToast('Error: Could not find lesson information for archiving.', 'Error', 'error');
+				return;
+			}
+			
+			if (!confirm('Are you sure you want to archive the current progress for this lesson? This will allow you to retake it from the beginning, but your previous answers will be saved.')) {
+				return;
+			}
+			
+			// Simple loading indicator on the button
+			const originalHtml = button.innerHTML;
+			button.disabled = true;
+			button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Archiving...`;
+			
+			try {
+				const response = await fetch(archiveUrl, {
+					method: 'POST',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					}
+				});
+				
+				const result = await response.json();
+				
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				
+				showToast(result.message || 'Progress archived successfully!', 'Success', 'success');
+				// Optional: You might want to visually update the state or refresh part of the page
+				// For now, just show a toast. The user can then click 'View' to start fresh.
+				
+			} catch (error) {
+				console.error('Error archiving progress:', error);
+				showToast(`Archiving failed: ${error.message}`, 'Error', 'error');
+			} finally {
+				// Restore button state
+				button.disabled = false;
+				button.innerHTML = originalHtml;
+			}
+		});
+	});
+	
 });
 
 

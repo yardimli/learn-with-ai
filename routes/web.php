@@ -15,6 +15,7 @@
 	Route::post('/lesson/save-structure', [CreateLessonController::class, 'createLesson'])->name('lesson.save.structure');
 	Route::post('/lesson/{lesson}/archive', [CreateLessonController::class, 'archiveProgress'])->name('lesson.archive');
 	Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
+	Route::get('/lessons', [CreateLessonController::class, 'listLessons'])->name('lessons.list');
 
 
 	Route::get('/api/llms-list', function () {
