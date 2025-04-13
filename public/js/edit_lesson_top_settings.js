@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	ttsEngineSelect = document.getElementById('ttsEngineSelect');
 	ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
 	ttsLanguageCodeSelect = document.getElementById('ttsLanguageCodeSelect');
+	editCategorySelect = document.getElementById('editCategorySelect');
+	editLanguageSelect = document.getElementById('editLanguageSelect');
 	updateSettingsBtn = document.getElementById('updateLessonSettingsBtn');
 
 // --- Voice Selector Logic ---
@@ -86,7 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedLlm = preferredLlmSelect.value;
 			const selectedEngine = ttsEngineSelect.value;
 			const selectedVoice = ttsVoiceSelect.value;
-			const selectedLang = ttsLanguageCodeSelect.value;
+			const selectedLangCode = ttsLanguageCodeSelect.value;
+			const selectedCategory = editCategorySelect.value;    // <-- Get Category ID
+			const selectedLanguage = editLanguageSelect.value;    // <-- Get Lesson Language
+			
+			if (!selectedCategory || !selectedLanguage) {
+				showToast('Please select a category and language.', 'Missing Selection', 'warning');
+				return;
+			}
 			
 			// Add spinner to button
 			showSpinner(this, true);
@@ -102,8 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					preferred_llm: selectedLlm,
 					tts_engine: selectedEngine,
 					tts_voice: selectedVoice,
-					tts_language_code: selectedLang,
-					// No lesson_id needed here as it's in the URL
+					tts_language_code: selectedLangCode,
+					category_id: selectedCategory,
+					language: selectedLanguage
 				})
 			})
 				.then(response => response.json())

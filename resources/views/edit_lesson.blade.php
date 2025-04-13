@@ -67,14 +67,18 @@
       }
 
       /* Style for empty list text */
-      .btn-delete-question { /* Ensure visibility */
+      .btn-delete-question {
+		      /* Ensure visibility */
       }
+
+      .settings-row .d-flex { height: 100%; }
 	</style>
 @endpush
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
-		<a href="{{ route('home') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Home</a>
+		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Lessons</a>
+		<a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
 		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i
 				class="fas fa-eye"></i> Start Lesson</a>
 	</div>
@@ -84,7 +88,54 @@
 		<p class="text-muted mb-3">Lesson: {{ $lesson->name }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
 			)</p>
 		
-		<div class="row mb-3 border-top pt-3">
+		<div class="row mb-3 border-top pt-3 settings-row g-2"> {{-- Use g-2 for gutters --}}
+			
+			{{-- Category --}}
+			<div class="col-md-6 col-lg-3 mb-2">
+				<div class="d-flex align-items-center">
+					<label for="editCategorySelect" class="form-label me-2 mb-0 text-nowrap">
+						<i class="fas fa-tags text-info me-1"></i>Category:
+					</label>
+					<select id="editCategorySelect" class="form-select form-select-sm" required>
+						@if($categories->isEmpty())
+							<option value="" disabled selected>No categories available</option>
+						@else
+							@foreach ($categories as $category)
+								<option value="{{ $category->id }}" {{ $lesson->category_id == $category->id ? 'selected' : '' }}>
+									{{ $category->name }}
+								</option>
+							@endforeach
+							{{-- Add placeholder if no category is selected AND categories exist --}}
+							@if (is_null($lesson->category_id) && !$categories->isEmpty())
+								<option value="" disabled selected>Select Category</option>
+							@endif
+						@endif
+					</select>
+				</div>
+			</div>
+			
+			{{-- Language --}}
+			<div class="col-md-6 col-lg-2 mb-2">
+				<div class="d-flex align-items-center">
+					<label for="editLanguageSelect" class="form-label me-2 mb-0 text-nowrap">
+						<i class="fas fa-globe text-secondary me-1"></i>Lang:
+					</label>
+					<select id="editLanguageSelect" class="form-select form-select-sm" required>
+						{{-- Match languages from create_lesson.blade.php --}}
+						<option value="English" {{ $lesson->language == 'English' ? 'selected' : '' }}>English</option>
+						<option value="Türkçe" {{ $lesson->language == 'Türkçe' ? 'selected' : '' }}>Türkçe</option>
+						<option value="Deutsch" {{ $lesson->language == 'Deutsch' ? 'selected' : '' }}>Deutsch</option>
+						<option value="Français" {{ $lesson->language == 'Français' ? 'selected' : '' }}>Français</option>
+						<option value="Español" {{ $lesson->language == 'Español' ? 'selected' : '' }}>Español</option>
+						<option value="繁體中文" {{ $lesson->language == '繁體中文' ? 'selected' : '' }}>繁體中文</option>
+						{{-- Add other languages as needed --}}
+						@if (is_null($lesson->language))
+							<option value="" disabled selected>Select</option>
+						@endif
+					</select>
+				</div>
+			</div>
+			
 			{{-- Preferred LLM --}}
 			<div class="col-md-6 col-lg-4 mb-2 mb-lg-0">
 				<div class="d-flex align-items-center">
@@ -463,8 +514,12 @@
 		let currentlyPlayingButton = null;
 		let existingPlayButtons = null;
 		
+		let editCategorySelect = null;
+		let editLanguageSelect = null;
+		
 		let preferredLlmSelect = null;
 		let ttsEngineSelect = null;
+		let ttsVoiceSelect = null;
 		let ttsLanguageCodeSelect = null;
 		let updateSettingsBtn = null;
 		

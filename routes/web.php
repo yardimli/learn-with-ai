@@ -1,5 +1,6 @@
 <?php
 
+	use App\Http\Controllers\CategoryController;
 	use App\Http\Controllers\Controller;
 	use App\Http\Controllers\EditController;
 	use App\Http\Controllers\FreePikController;
@@ -16,6 +17,8 @@
 	Route::post('/lesson/{lesson}/archive', [CreateLessonController::class, 'archiveProgress'])->name('lesson.archive');
 	Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
 	Route::get('/lessons', [CreateLessonController::class, 'listLessons'])->name('lessons.list');
+	//delete lesson
+	Route::delete('/lesson/{lesson:session_id}', [CreateLessonController::class, 'deleteLesson'])->name('lesson.delete');
 
 
 	Route::get('/api/llms-list', function () {
@@ -29,6 +32,9 @@
 	Route::post('/lesson/{lesson}/part/{partIndex}/update-text', [EditController::class, 'updatePartTextAjax'])
 		->where('partIndex', '[0-9]+')
 		->name('lesson.part.update.text');
+
+	Route::resource('categories', CategoryController::class)->except(['show']);
+
 
 // Generate Question Batch
 	Route::post('/lesson/{lesson}/part/{partIndex}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])

@@ -6,18 +6,49 @@
 		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
 			<i class="fas fa-list"></i> View Existing Lessons
 		</a>
+		 <a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
 	</div>
 	
 	<div class="content-card shadow-sm">
 		<form id="lessonForm" action="{{ route('lesson.generate.structure') }}" method="POST">
 			@csrf
-			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}">
-			
-			{{-- Lesson Subject --}}
+			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}"> {{-- Lesson Subject --}}
 			<div class="mb-3">
 				<label for="lessonInput" class="form-label fs-5">Enter a Lesson Subject:</label>
-				<textarea type="text" class="form-control form-control-lg" id="lessonInput" name="lesson" placeholder="e.g., Quantum Physics, Photosynthesis" value="cats" required></textarea>
+				<textarea type="text" class="form-control form-control-lg" id="lessonInput" name="lesson"
+				          placeholder="e.g., Quantum Physics, Photosynthesis" required></textarea>
+				{{-- Removed default value for testing --}}
 			</div>
+			
+			{{-- Row for Category and Language --}}
+			<div class="row mb-3">
+				<div class="col-md-6">
+					<label for="categorySelect" class="form-label">Category:</label>
+					<select class="form-select" id="categorySelect" name="category_id" required>
+						<option value="auto" selected>Auto-detect Category</option>
+						@forelse ($categories ?? [] as $category)
+							<option value="{{ $category->id }}">{{ $category->name }}</option>
+						@empty
+							<option value="auto" disabled>No categories exist yet, using Auto-detect</option>
+						@endforelse
+					</select>
+					<small class="form-text text-muted">Select a category or let the AI suggest one.</small>
+				</div>
+				<div class="col-md-6">
+					<label for="languageSelect" class="form-label">Lesson Language:</label>
+					<select class="form-select" id="languageSelect" name="language" required>
+						<option value="English" selected>English</option>
+						<option value="Türkçe">Türkçe</option>
+						<option value="Deutsch">Deutsch</option>
+						<option value="Français">Français</option>
+						<option value="Español">Español</option>
+						<option value="繁體中文">繁體中文</option>
+						{{-- Add other common languages as needed --}}
+					</select>
+					<small class="form-text text-muted">Primary language of the lesson content.</small>
+				</div>
+			</div>
+			
 			
 			{{-- LLM Selection --}}
 			<div class="mb-3">
@@ -40,8 +71,11 @@
 			<div class="mb-3">
 				<label for="ttsEngineSelect" class="form-label">Text-to-Speech Engine:</label>
 				<select class="form-select" id="ttsEngineSelect" name="tts_engine" required>
-					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS</option>
-					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud TTS</option>
+					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS
+					</option>
+					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud
+						TTS
+					</option>
 				</select>
 			</div>
 			
@@ -61,12 +95,12 @@
 					<optgroup label="Google Voices" style="display: none;"> {{-- Hide initially --}}
 						<option value="en-US-Studio-O">en-US-Studio-O (Female)</option>
 						<option value="en-US-Studio-Q">en-US-Studio-Q (Male)</option>
-						<option value="tr-TR-Chirp3-HD-Aoede">tr-TR-Chirp3-HD-Aoede (Female)</option>
-						<option value="tr-TR-Chirp3-HD-Charon">tr-TR-Chirp3-HD-Charon (Male)</option>
+						<option value="tr-TR-Wavenet-A">tr-TR-Wavenet-A (Female)</option> {{-- Changed voice name example --}}
+						<option value="tr-TR-Wavenet-B">tr-TR-Wavenet-B (Male)</option> {{-- Changed voice name example --}}
 						<option value="tr-TR-Standard-A">tr-TR-Standard-A (Female)</option>
 						<option value="tr-TR-Standard-B">tr-TR-Standard-B</option>
-						<option value="cmn-CN-Chirp3-HD-Aoede">cmn-CN-Chirp3-HD-Aoede (Female)</option>
-						<option value="cmn-CN-Chirp3-HD-Charon">cmn-CN-Chirp3-HD-Charon (Male)</option>
+						<option value="cmn-CN-Wavenet-A">cmn-CN-Wavenet-A (Female)</option> {{-- Changed voice name example --}}
+						<option value="cmn-CN-Wavenet-B">cmn-CN-Wavenet-B (Male)</option> {{-- Changed voice name example --}}
 						<option value="cmn-TW-Standard-A">cmn-TW-Standard-A (Female)</option>
 						<option value="cmn-TW-Standard-B">cmn-TW-Standard-B (Male)</option>
 					</optgroup>
@@ -75,36 +109,38 @@
 			
 			{{-- TTS Language Code Selection --}}
 			<div class="mb-3">
-				<label for="ttsLanguageCodeSelect" class="form-label">Speech Language:</label>
+				<label for="ttsLanguageCodeSelect" class="form-label">Speech Language Code:</label>
 				<select class="form-select" id="ttsLanguageCodeSelect" name="tts_language_code" required>
 					<option value="en-US" selected>English (United States)</option>
-					<option value="tr-TR">Turkce</option>
-					<option value="cmn-TW">Chinese (Taiwan)</option>
-					<option value="cmn-CN">Chinese (China)</option>
+					<option value="tr-TR">Turkish (Turkey)</option>
+					<option value="cmn-TW">Chinese (Mandarin, Taiwan)</option>
+					<option value="cmn-CN">Chinese (Mandarin, China)</option>
 					<option value="fr-FR">French (France)</option>
 					<option value="de-DE">German (Germany)</option>
+					<option value="es-ES">Spanish (Spain)</option>
 					<option value="it-IT">Italian (Italy)</option>
-					<option value="ja-JP">Japanese</option>
-					<option value="ko-KR">Korean</option>
+					<option value="ja-JP">Japanese (Japan)</option>
+					<option value="ko-KR">Korean (South Korea)</option>
+					<option value="zh-CN">Chinese (Mandarin, Simplified)</option> {{-- More specific for Google? --}}
+					<option value="zh-TW">Chinese (Mandarin, Traditional)</option> {{-- More specific for Google? --}}
 					{{-- Add other common languages as needed --}}
 				</select>
 				<small class="form-text text-muted">Primarily used by Google TTS. OpenAI often auto-detects.</small>
 			</div>
 			
-			
 			<div class="d-grid">
-				<button type="submit" id="startLearningButton" class="btn btn-primary btn-lg" disabled> {{-- Start disabled until subject entered --}}
-					<span id="startLearningSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-					Generate Lesson Preview
+				<button type="submit" id="startLearningButton" class="btn btn-primary btn-lg"
+				        disabled> {{-- Start disabled until subject entered --}}
+					<span id="startLearningSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+					      aria-hidden="true"></span> Generate Lesson Preview
 				</button>
 			</div>
 		</form>
 	</div>
 	
-	
 	<!-- Lesson Plan Preview Modal -->
-	{{-- Modal remains the same - it only shows the plan structure --}}
-	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel"
+	     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
 		<div class="modal-dialog modal-lg modal-dialog-scrollable">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -120,18 +156,25 @@
 						<p class="mt-2">Generating lesson preview...</p>
 					</div>
 				</div>
+				{{-- Display Suggested Category Here --}}
+				<div class="modal-category-suggestion px-3 pb-2 d-none" id="modalCategorySuggestionArea">
+					<hr>
+					<p class="mb-1"><strong>AI Suggested Category:</strong> <span id="suggestedCategoryText"
+					                                                              class="badge bg-info"></span></p>
+					<small class="text-muted">This category will be created if it doesn't exist when you confirm.</small>
+				</div>
 				<div class="modal-footer">
                 <span id="modalLoadingIndicator" class="me-auto d-none">
                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating Lesson...
                 </span>
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel </button>
-					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson </button>
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel
+					</button>
+					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson
+					</button>
 				</div>
 			</div>
 		</div>
 	</div>
-@endsection
-
-@push('scripts')
+@endsection @push('scripts')
 	<script src="{{ asset('js/create_lesson.js') }}"></script>
 @endpush

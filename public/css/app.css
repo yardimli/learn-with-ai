@@ -355,7 +355,26 @@ body {
     color: #e4e4e6; /* Light text */
 }
 
+.dark-mode .accordion-header {
+    background-color: #3a3a3c; /* Darker background for accordion header */
+    color: #e4e4e6; /* Light text */
+}
 
+.dark-mode .accordion-button:not(.collapsed) {
+    background-color: #3a3a3c; /* Darker background for active accordion */
+    color: #e4e4e6; /* Light text */
+}
+
+.dark-mode .table>:not(caption)>*>* {
+    border-color: #545458; /* Darker borders for table */
+    color: #e4e4e6; /* Light text */
+}
+
+.dark-mode .card-body {
+    background-color: #2c2c2e; /* Darker background for card body */
+    color: #e4e4e6; /* Light text */
+    border: 1px solid #545458; /* Darker border */
+}
 
 /* === Lesson Edit Page Enhancements === */
 

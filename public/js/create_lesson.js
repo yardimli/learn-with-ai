@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const lessonInput = document.getElementById('lessonInput');
 	
 	const preferredLlmSelect = document.getElementById('preferredLlmSelect');
+	const categorySelect = document.getElementById('categorySelect');         // New
+	const languageSelect = document.getElementById('languageSelect');         // New
 	const ttsEngineSelect = document.getElementById('ttsEngineSelect');
 	const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
 	const ttsLanguageCodeSelect = document.getElementById('ttsLanguageCodeSelect');
@@ -25,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const confirmPreviewButton = document.getElementById('confirmPreviewButton');
 	const cancelPreviewButton = document.getElementById('cancelPreviewButton');
 	const modalLoadingIndicator = document.getElementById('modalLoadingIndicator'); // Spinner in modal footer
+	const modalCategorySuggestionArea = document.getElementById('modalCategorySuggestionArea'); // New
+	const suggestedCategoryText = document.getElementById('suggestedCategoryText');             // New
 	
 	let currentPlanData = null; // Store the received plan data
 	
@@ -54,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		startLearningButton.disabled = !enabled || !lessonInput.value.trim(); // Also check lesson input value
 		lessonInput.disabled = !enabled;
 		preferredLlmSelect.disabled = !enabled;
+		categorySelect.disabled = !enabled;         // Disable/enable category
+		languageSelect.disabled = !enabled;         // Disable/enable language
 		ttsEngineSelect.disabled = !enabled;
 		ttsVoiceSelect.disabled = !enabled;
 		ttsLanguageCodeSelect.disabled = !enabled;
@@ -114,12 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		lessonForm.addEventListener('submit', async (event) => {
 			event.preventDefault(); // Stop normal form submission
 			
-			// Gather only needed data for preview
+			// Gather data for preview
 			const lesson = lessonInput.value;
-			const llm = preferredLlmSelect.value; // Use the preferred LLM for generation
+			const llm = preferredLlmSelect.value;
+			const category_id = categorySelect.value; // Get category ('auto' or ID)
+			const language = languageSelect.value;   // Get language
 			
-			if (!lesson || !llm) {
-				showMainError("Please enter a lesson subject and select an AI model.");
+			if (!lesson || !llm || !category_id || !language) {
+				showMainError("Please enter a lesson subject and select all options (AI model, category, language).");
 				return;
 			}
 			
@@ -135,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						'Accept': 'application/json',
 						'Content-Type': 'application/json'
 					},
-					body: JSON.stringify({ lesson, llm }) // Send only lesson and llm for preview
+					body: JSON.stringify({ lesson, llm, category_id, language })
 				});
 				
 				setLoading(false); // Hide full page loader once preview response starts
@@ -145,11 +153,25 @@ document.addEventListener('DOMContentLoaded', () => {
 					throw new Error(result.message || `HTTP error! status: ${response.status}`);
 				}
 				
-				// Success: Populate and show modal
-				currentPlanData = result.plan; // Store the plan
-				populateModal(currentPlanData, lesson, llm);
-				confirmPreviewButton.disabled = false; // Enable confirm button
-				modalLoadingIndicator.classList.add('d-none'); // Hide modal spinner
+				// Success: Store data and populate modal
+				currentPlanData = result.plan;
+				currentCategoryInput = result.category_input;       // Store original input
+				currentLanguageSelected = result.language_selected; // Store selected language
+				currentSuggestedCategory = result.suggested_category_name; // Store AI suggestion
+				
+				populateModal(currentPlanData, lesson, llm); // Populate basic structure
+				
+				// Show suggested category if 'auto' was selected and suggestion exists
+				if (currentCategoryInput === 'auto' && currentSuggestedCategory) {
+					suggestedCategoryText.textContent = currentSuggestedCategory;
+					modalCategorySuggestionArea.classList.remove('d-none');
+				} else {
+					modalCategorySuggestionArea.classList.add('d-none'); // Hide if not auto or no suggestion
+				}
+				
+				
+				confirmPreviewButton.disabled = false;
+				modalLoadingIndicator.classList.add('d-none');
 				previewModal.show();
 				
 			} catch (error) {
@@ -162,11 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 		// Modal Cancel Button
 		cancelPreviewButton.addEventListener('click', () => {
-			setFormEnabled(true); // Re-enable the main form
-			currentPlanData = null; // Clear stored plan
+			setFormEnabled(true);
+			currentPlanData = null; // Clear stored data
+			currentCategoryInput = null;
+			currentLanguageSelected = null;
+			currentSuggestedCategory = null;
 			confirmPreviewButton.disabled = true;
 			modalLoadingIndicator.classList.add('d-none');
+			modalCategorySuggestionArea.classList.add('d-none'); // Hide suggestion area
 		});
+		
 		
 		// Modal Confirm Button
 		confirmPreviewButton.addEventListener('click', async () => {
@@ -201,6 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
 						tts_engine: ttsEngine,
 						tts_voice: ttsVoice,
 						tts_language_code: ttsLanguageCode,
+						language: currentLanguageSelected,         // Send saved language
+						category_input: currentCategoryInput,       // Send original category input ('auto' or ID)
+						suggested_category_name: currentSuggestedCategory, // Send AI suggestion (null if not 'auto')
 						plan: currentPlanData // Send the generated structure plan
 					})
 				});
@@ -226,8 +256,13 @@ document.addEventListener('DOMContentLoaded', () => {
 				previewModal.hide();
 				showMainError(`Failed to create lesson: ${error.message}`);
 				setFormEnabled(true);
-				// Don't re-enable modal buttons automatically, let user retry from main form
 				modalLoadingIndicator.classList.add('d-none');
+				// Reset modal state on error close
+				currentPlanData = null;
+				currentCategoryInput = null;
+				currentLanguageSelected = null;
+				currentSuggestedCategory = null;
+				modalCategorySuggestionArea.classList.add('d-none');
 			}
 		});
 		
