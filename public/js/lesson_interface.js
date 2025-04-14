@@ -578,3 +578,57 @@ function setupModalEventListeners() {
 		};
 	}
 }
+
+
+function setupIntroPlaybackControls() {
+	if (playIntroButton) {
+		playIntroButton.addEventListener('click', () => {
+			console.log("Manual Play Intro clicked");
+			// Find the currently displayed intro part data
+			const introData = allPartIntros[displayedPartIndex];
+			if (introData && introData.sentences && introData.sentences.length > 0) {
+				// If paused, resume; otherwise, start from beginning
+				if (ttsAudioPlayer && !ttsAudioPlayer.paused) {
+					// Already playing, do nothing? Or restart? Let's restart for simplicity.
+					stopPlaybackSequence(false); // Stop without disabling interactions yet
+					buildIntroPlaybackQueue(introData.sentences);
+					startPlaybackSequence();
+				} else if (ttsAudioPlayer && ttsAudioPlayer.paused && currentPlaybackIndex > -1) {
+					// Resume playback
+					ttsAudioPlayer.play().catch(e => console.error("Resume error:", e));
+					toggleIntroPlaybackButtons(true); // Show pause
+				} else {
+					// Start from beginning
+					buildIntroPlaybackQueue(introData.sentences);
+					startPlaybackSequence();
+				}
+			}
+		});
+	}
+	if (pauseIntroButton) {
+		pauseIntroButton.addEventListener('click', () => {
+			console.log("Manual Pause Intro clicked");
+			if (ttsAudioPlayer && !ttsAudioPlayer.paused) {
+				ttsAudioPlayer.pause();
+				isAutoPlaying = false; // Paused manually
+				toggleIntroPlaybackButtons(false); // Show play
+				// Note: Playback queue position is maintained
+			}
+		});
+	}
+	
+	if (stopIntroButton) {
+		stopIntroButton.addEventListener('click', () => {
+			console.log("Manual Stop Intro clicked");
+			stopPlaybackSequence(true); // Stop completely and allow interactions
+			toggleIntroPlaybackButtons(false); // Show play
+		});
+	}
+}
+
+function toggleIntroPlaybackButtons(isPlaying) {
+	if (!introPlaybackControls) return;
+	toggleElement(playIntroButton, !isPlaying);
+	toggleElement(pauseIntroButton, isPlaying);
+	// Keep stop button always visible when controls are shown
+}

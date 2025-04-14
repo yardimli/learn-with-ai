@@ -26,18 +26,6 @@ body {
     z-index: 1050;
 }
 
-.video-placeholder {
-    background-color: #e9ecef;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    border-radius: 0.25rem;
-    padding: 1rem;
-    flex-direction: column; /* Stack spinner and text */
-}
-
 .answer-btn {
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
@@ -167,11 +155,6 @@ body {
 }
 #partIntroArea.d-none { /* Ensure smooth fade out */
     opacity: 0;
-}
-#partIntroVideo {
-    max-width: 100%;
-    max-height: 300px; /* Limit video height */
-    border-radius: 0.25rem;
 }
 
 
@@ -556,12 +539,6 @@ body {
     transform: translateY(-10px); /* Slight upward move on hide */
     pointer-events: none; /* Prevent interaction when hidden */
     /* We still need d-none for layout shifting, but opacity helps transition */
-}
-#partIntroVideo {
-    max-width: 100%;
-    max-height: 300px; /* Limit video height */
-    border-radius: 0.25rem;
-    background-color: #000; /* Black bg for video */
 }
 
 /* Question Area */

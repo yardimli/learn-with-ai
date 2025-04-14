@@ -6,6 +6,7 @@
 	use App\Models\GeneratedImage;
 	use App\Models\Question; // Keep Question model import
 	use App\Models\Lesson;
+	use Carbon\Carbon;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Storage;
@@ -22,91 +23,100 @@
 	class GenerateAssetController extends Controller
 	{
 
-		public function generatePartVideoAjax(Request $request, Lesson $lesson, int $partIndex)
+		public function generatePartAudioAjax(Request $request, Lesson $lesson, int $partIndex)
 		{
-			// ... (Keep existing implementation) ...
-			Log::info("AJAX request to generate video for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
+			Log::info("AJAX request to generate sentence audio for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
+
 			// Retrieve and decode lesson parts
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
+
 			// Validate partIndex
 			if (!is_array($lessonParts) || !isset($lessonParts[$partIndex])) {
 				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Lesson ID: {$lesson->id}.");
 				return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 			}
-			// Check if video already exists for this part
-//			if (!empty($lessonParts[$partIndex]['video_path']) && !empty($lessonParts[$partIndex]['video_url'])) {
-//				$relativePath = $lessonParts[$partIndex]['video_path'];
-//				$videoUrl = $lessonParts[$partIndex]['video_url'];
-//				// Ensure file actually exists before claiming success
-//				if (Storage::disk('public')->exists($relativePath)) {
-//					Log::warning("Video already exists for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}");
-//					return response()->json([
-//						'success' => true, // Indicate it exists
-//						'message' => 'Video already exists for this part.',
-//						'video_url' => $videoUrl,
-//						'video_path' => $relativePath
-//					], 200); // 200 OK is fine here
-//				} else {
-//					Log::warning("Video path/URL recorded but file missing for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}. Will attempt regeneration.");
-//					// Allow generation to proceed
-//				}
-//			}
 
-			// Get text for video generation
 			$partData = $lessonParts[$partIndex];
-			$videoText = ($partData['title'] ?? 'Lesson Part') . ". \n" . ($partData['text'] ?? 'No content.');
-			$defaultFaceUrl = env('DEFAULT_FACE_URL', 'https://elooi.com/video/video1.mp4');
+			$fullText = $partData['text'] ?? '';
+
+			if (empty($fullText)) {
+				Log::warning("Lesson Part {$partIndex} text is empty for Lesson ID: {$lesson->id}. Skipping audio generation.");
+				return response()->json(['success' => true, 'message' => 'Part text is empty, no audio generated.', 'sentences' => []], 200);
+			}
+
+			// Get TTS settings from the lesson
 			$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'google');
-			$ttsVoice = $lesson->ttsVoice; // Required from lesson
-			$ttsLanguageCode = $lesson->ttsLanguageCode; // Required from lesson
+			$ttsVoice = $lesson->ttsVoice;
+			$ttsLanguageCode = $lesson->ttsLanguageCode;
 
-			$videoResult = null;
+			if (empty($ttsVoice) || empty($ttsLanguageCode)) {
+				Log::error("Missing TTS Voice or Language Code in Lesson {$lesson->id} for Part {$partIndex} audio");
+				return response()->json(['success' => false, 'message' => 'Lesson TTS settings are incomplete.'], 400);
+			}
+
+			// --- Start Sentence Processing ---
 			try {
-				$useV2 = (stripos(env('APP_URL', ''), 'localhost') === false); // Prefer v2 unless on localhost
-				Log::info("Attempting video generation. Using " . ($useV2 ? "text2videov2 (OpenAI TTS + Gooey Lipsync)" : "text2video (Gooey Lipsync+Google TTS)"));
-
-				if ($useV2) {
-					$videoResult = MyHelper::text2videov2($videoText, $defaultFaceUrl, $ttsEngine, $ttsVoice, $ttsLanguageCode);
-				} else {
-					// Note: text2video might need specific Google voice/config from env
-					$googleVoice = env('GOOGLE_TTS_VOICE', 'en-US-Studio-O'); // Example Google Voice
-					$videoResult = MyHelper::text2video($videoText, $defaultFaceUrl, $googleVoice);
+				$sentencesText = MyHelper::splitIntoSentences($fullText);
+				if (empty($sentencesText)) {
+					Log::warning("Could not split text into sentences for Lesson ID: {$lesson->id}, Part Index: {$partIndex}.");
+					return response()->json(['success' => false, 'message' => 'Could not split text into sentences.'], 400);
 				}
 
-				if ($videoResult && $videoResult['success'] && isset($videoResult['video_path'])) {
-					// Ensure relative path for storage URL
-					$relativePath = $videoResult['video_path'];
-					if (strpos($relativePath, 'public/') === 0) {
-						$relativePath = substr($relativePath, strlen('public/'));
+				$generatedSentencesData = [];
+				$hasFailures = false;
+
+				foreach ($sentencesText as $sentenceIndex => $sentence) {
+					$sentenceIdentifier = "s{$lesson->id}_p{$partIndex}_s{$sentenceIndex}";
+					$outputFilenameBase = 'audio/intro_' . $sentenceIdentifier; // Include path segment
+
+					Log::info("Generating audio for sentence {$sentenceIndex}: '{$sentence}'");
+
+					$audioResult = MyHelper::text2speech(
+						$sentence,
+						$ttsVoice,
+						$ttsLanguageCode,
+						$outputFilenameBase, // Pass the base path + filename prefix
+						$ttsEngine
+					);
+
+					if ($audioResult['success'] && !empty($audioResult['storage_path']) && !empty($audioResult['fileUrl'])) {
+						$generatedSentencesData[] = [
+							'text' => $sentence,
+							'audio_path' => $audioResult['storage_path'], // Relative path within disk
+							'audio_url' => $audioResult['fileUrl'],
+						];
+						Log::info("Success generating audio for sentence {$sentenceIndex}. Path: {$audioResult['storage_path']}");
+					} else {
+						Log::error("Failed to generate audio for sentence {$sentenceIndex} (Lesson {$lesson->id}, Part {$partIndex}): " . ($audioResult['message'] ?? 'Unknown TTS error'));
+						$generatedSentencesData[] = [
+							'text' => $sentence,
+							'audio_path' => null,
+							'audio_url' => null,
+							'error' => $audioResult['message'] ?? 'Unknown TTS error',
+						];
+						$hasFailures = true;
 					}
-					$videoUrl = Storage::disk('public')->url($relativePath); // Generate public URL
+				} // End foreach sentence
 
-					// Update the specific lesson part in the array
-					$lessonParts[$partIndex]['video_path'] = $relativePath; // Store relative path
-					$lessonParts[$partIndex]['video_url'] = $videoUrl; // Store generated URL
+				// Update the specific lesson part in the array
+				$lessonParts[$partIndex]['sentences'] = $generatedSentencesData;
+				$lessonParts[$partIndex]['audio_generated_at'] = Carbon::now()->toDateTimeString();
 
-					// Save the modified array back to the model
-					$lesson->lesson_parts = $lessonParts;
-					$lesson->save();
+				// Save the modified array back to the model
+				$lesson->lesson_parts = $lessonParts;
+				$lesson->save();
 
-					Log::info("Part video generated and saved. Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Path: {$relativePath}, URL: {$videoUrl}");
-					return response()->json([
-						'success' => true,
-						'message' => 'Video generated successfully!',
-						'video_url' => $videoUrl,
-						'video_path' => $relativePath
-					]);
-				} else {
-					$errorMsg = $videoResult['message'] ?? 'Unknown video generation error';
-					Log::error("Part video generation failed for Lesson ID {$lesson->id}, Part {$partIndex}: " . $errorMsg, ['result' => $videoResult]);
-					return response()->json([
-						'success' => false,
-						'message' => 'Failed to generate video: ' . $errorMsg
-					], 500);
-				}
+				Log::info("Part sentence audio generation process completed for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Failures: " . ($hasFailures ? 'Yes' : 'No'));
+
+				return response()->json([
+					'success' => !$hasFailures, // Overall success is true only if NO failures occurred
+					'message' => $hasFailures ? 'Audio generated for some sentences, but failures occurred.' : 'Sentence audio generated successfully!',
+					'sentences' => $generatedSentencesData // Return the detailed data
+				]);
+
 			} catch (\Exception $e) {
-				Log::error("Exception during AJAX part video generation for Lesson ID {$lesson->id}, Part {$partIndex}: " . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'Server error during video generation.'], 500);
+				Log::error("Exception during AJAX part sentence audio generation for Lesson ID {$lesson->id}, Part {$partIndex}: " . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'Server error during sentence audio generation.'], 500);
 			}
 		}
 
@@ -114,22 +124,6 @@
 		{
 			// ... (Keep existing implementation) ...
 			Log::info("AJAX request to generate question audio for Question ID: {$question->id}");
-
-//			if (!empty($question->question_audio_path) && !empty($question->question_audio_url)) {
-//				// Verify file existence before claiming success
-//				if (Storage::disk('public')->exists($question->question_audio_path)) {
-//					Log::warning("Question audio already exists for Question ID: {$question->id}. Path: {$question->question_audio_path}");
-//					return response()->json([
-//						'success' => true, // Indicate it exists
-//						'message' => 'Question audio already exists.',
-//						'audio_url' => $question->question_audio_url,
-//						'audio_path' => $question->question_audio_path
-//					], 200); // 200 OK
-//				} else {
-//					Log::warning("Question audio path/URL recorded but file missing for Question ID: {$question->id}. Path: {$question->question_audio_path}. Will attempt regeneration.");
-//					// Allow generation to proceed
-//				}
-//			}
 
 			if (empty($question->question_text)) {
 				Log::error("Cannot generate question audio for Question ID {$question->id}: Question text is empty.");
@@ -192,27 +186,6 @@
 				return response()->json(['success' => false, 'message' => 'Question answers data is missing or invalid.'], 400);
 			}
 
-			// Check if audio seems to exist already (e.g., first answer has BOTH paths/URLs and files exist)
-//			$audioExists = false;
-//			if(isset($currentAnswers[0]['answer_audio_path'], $currentAnswers[0]['feedback_audio_path'])) {
-//				if(Storage::disk('public')->exists($currentAnswers[0]['answer_audio_path']) &&
-//					Storage::disk('public')->exists($currentAnswers[0]['feedback_audio_path'])) {
-//					$audioExists = true;
-//				} else {
-//					Log::warning("Answer/Feedback audio paths recorded but files missing for Question ID: {$question->id}. Will attempt regeneration.");
-//				}
-//			}
-//
-//			if ($audioExists) {
-//				Log::warning("Answer/feedback audio seems to already exist and files are present for Question ID: {$question->id}.");
-//				// Return the existing data so JS can potentially update button states if needed
-//				return response()->json([
-//					'success' => true, // Indicate it exists
-//					'message' => 'Answer/feedback audio appears to already exist.',
-//					'answers' => $question->answers, // Return current answer data
-//				], 200);
-//			}
-
 			try {
 				// Get preferences from session or default
 				$lesson = $question->lesson;
@@ -273,30 +246,6 @@
 
 			} else {
 				Log::info("AJAX request to generate image for Question ID: {$question->id}.");
-				// --- Standard Generation - Check Existence ---
-//				if (!empty($question->generated_image_id)) {
-//					$existingImage = GeneratedImage::find($question->generated_image_id);
-//					if ($existingImage && $existingImage->original_url && Storage::disk('public')->exists($existingImage->image_original_path)) {
-//						Log::warning("Image already exists and file found for Question ID: {$question->id}. Image ID: {$question->generated_image_id}");
-//						return response()->json([
-//							'success' => true, // Indicate it exists
-//							'message' => 'Image already exists for this question.',
-//							'image_id' => $question->generated_image_id,
-//							'image_urls' => [
-//								'small' => $existingImage->small_url,
-//								'medium' => $existingImage->medium_url,
-//								'large' => $existingImage->large_url,
-//								'original' => $existingImage->original_url,
-//							],
-//							'prompt' => $question->image_prompt_idea // Return current prompt
-//						], 200); // 200 OK
-//					} else {
-//						Log::warning("Image ID {$question->generated_image_id} linked to Question {$question->id}, but image record or file missing. Will attempt regeneration.");
-//						// Reset link and allow generation to proceed
-//						$question->generated_image_id = null;
-//						$question->save();
-//					}
-//				}
 
 				if (empty($question->image_prompt_idea)) {
 					Log::error("Cannot generate image for Question ID {$question->id}: Image prompt is empty.");

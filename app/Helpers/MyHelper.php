@@ -31,6 +31,7 @@
 	use Google\Cloud\TextToSpeech\V1\VoiceSelectionParams;
 	use Exception;
 	use Intervention\Image\ImageManager;
+	use Normalizer;
 
 
 	class MyHelper
@@ -880,266 +881,6 @@
 		}
 
 
-		public static function text2video($text, $faceUrl, $voice = 'en-US-Studio-O', float $speakingRate = 1.0, float $pitch = 0.0)
-		{
-			$gooeyApiKey = env('GOOEY_API_KEY');
-			if (empty($gooeyApiKey)) {
-				Log::error('GOOEY_API_KEY environment variable is not set');
-				return ['success' => false, 'message' => 'Video generation API key not configured.'];
-			}
-			if (empty($text)) {
-				return ['success' => false, 'message' => 'Text cannot be empty for video generation.'];
-			}
-			if (!filter_var($faceUrl, FILTER_VALIDATE_URL)) {
-				Log::warning("Invalid face URL provided for text2video: {$faceUrl}. Using default.");
-				$faceUrl = env('DEFAULT_FACE_URL', 'https://elooi.com/video/video1.mp4'); // Fallback to default
-			}
-
-
-			// Data payload for Gooey API (check their current API docs for exact fields)
-			$data = [
-				"input_face" => $faceUrl,
-				// "input_audio" => "", // Use TTS provider instead
-				"face_padding_top" => 3,
-				"face_padding_bottom" => 16,
-				"face_padding_left" => 12,
-				"face_padding_right" => 6,
-				"text_prompt" => $text,
-				"tts_provider" => "GOOGLE_TTS", // Or other supported provider
-				"uberduck_voice_name" => "", // Only if using Uberduck
-				"uberduck_speaking_rate" => 1,
-				"google_voice_name" => $voice,
-				"google_speaking_rate" => $speakingRate,
-				"google_pitch" => $pitch,
-				// Add webhook URL if you want to be notified on completion
-				// "webhook_url": route('gooey.webhook'), // Example if using webhooks
-			];
-
-			Log::info("Sending request to Gooey AI LipsyncTTS for text: " . Str::limit($text, 50));
-			Log::debug("Gooey Payload: ", $data);
-
-			try {
-				$client = new Client(['timeout' => 60.0]); // Timeout for initiating the job
-				$response = $client->post('https://api.gooey.ai/v2/LipsyncTTS/', [
-					'headers' => [
-						'Authorization' => 'Bearer ' . $gooeyApiKey,
-						'Content-Type' => 'application/json',
-					],
-					'json' => $data,
-				]);
-
-
-				$statusCode = $response->getStatusCode();
-				$body = $response->getBody()->getContents();
-				$responseData = json_decode($body, true);
-
-
-				Log::info("Gooey AI Response Status: {$statusCode}");
-				Log::debug("Gooey Raw Response Body: {$body}");
-
-				if ($statusCode === 200) {
-					$video_url = $responseData['output']['output_video'] ?? null;
-					if ($video_url) {
-						//download the video
-						$video_content = @file_get_contents($video_url); // Use @ to suppress warnings on failure
-						if ($video_content === false) {
-							Log::error("Failed to download video from URL: {$video_url}");
-							return ['success' => false, 'message' => __('Failed to download generated video.')];
-						}
-						// Save the video
-						$video_guid = Str::uuid()->toString();
-						$video_path = "public/videos/{$video_guid}.mp4"; // Save path
-						Storage::put($video_path, $video_content); // Store using Storage facade
-						$video_url = Storage::url($video_path); // Get public URL for the video
-						Log::info("Video successfully generated and saved: {$video_url}");
-						return [
-							'success' => true,
-							'message' => __('Video generated successfully'),
-							'video_guid' => $video_guid,
-							'video_url' => $video_url,
-							'video_path' => $video_path, // Relative path
-						];
-					}
-				} else {
-					// Generic error if structure is unexpected
-					Log::error("Gooey AI request failed or returned unexpected response. Status: {$statusCode}");
-					return ['success' => false, 'message' => 'Failed to start video generation job.', 'status_code' => $statusCode, 'response_body' => $body];
-				}
-
-			} catch (\GuzzleHttp\Exception\RequestException $e) {
-				$statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 'N/A';
-				$errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : $e->getMessage();
-				Log::error("Guzzle HTTP Request Exception during Gooey call: Status {$statusCode} - " . $errorBody);
-				return ['success' => false, 'message' => __('Network error communicating with video service.'), 'status_code' => $statusCode];
-			} catch (\Exception $e) {
-				Log::error("General Exception during text2video call: " . $e->getMessage());
-				return ['success' => false, 'message' => __('An unexpected error occurred initiating video generation.')];
-			}
-
-			return ['success' => false, 'message' => __('Failed to start video generation job.')];
-		}
-
-		/**
-		 * NEW: Generates a talking head video using OpenAI TTS and Gooey Lipsync API.
-		 *
-		 * @param string $text The text content for the speech.
-		 * @param string $faceVideoUrl URL of the input face video (e.g., stored on GCS).
-		 * @return array Result array: ['success' => bool, 'message' => string, 'video_url' => string|null, 'gooey_run_id' => string|null, 'api_response' => array|null]
-		 */
-		public static function text2videov2(
-			string $text,
-			string $faceVideoUrl,
-			string $ttsEngine,
-			string $ttsVoice,
-			string $ttsLanguageCode
-		): array {
-			Log::info("Starting text2videov2 process for text: " . Str::limit($text, 50) . "...");
-
-			if (empty(trim($text))) {
-				Log::warning('text2videov2 called with empty text.');
-				return ['success' => false, 'message' => 'Input text cannot be empty.'];
-			}
-			if (empty(trim($faceVideoUrl))) {
-				Log::warning('text2videov2 called with empty face video URL.');
-				return ['success' => false, 'message' => 'Input face video URL cannot be empty.'];
-			}
-
-			// --- Step 1: Generate Audio using OpenAI TTS ---
-			$filenameBase = 'video_audio_' . Str::slug(Str::limit($text, 30));
-
-			Log::info("Generating audio using OpenAI TTS (Voice: {$ttsVoice})...");
-			$ttsResult = self::text2speech( // Call updated text2speech
-				$text,
-				$ttsVoice,
-				$ttsLanguageCode,
-				$filenameBase,
-				$ttsEngine
-			);
-
-			if (!$ttsResult['success'] || empty($ttsResult['fileUrl'])) {
-				Log::error("Failed to generate audio for video: " . ($ttsResult['message'] ?? 'Unknown TTS error'));
-				return [
-					'success' => false,
-					'message' => 'Failed to generate prerequisite audio: ' . ($ttsResult['message'] ?? 'Unknown TTS error'),
-					'video_url' => null,
-					'gooey_run_id' => null,
-					'api_response' => null,
-				];
-			}
-
-			$audioFileUrl = $ttsResult['fileUrl']; // Public URL of the generated audio
-			Log::info("Audio generated successfully: {$audioFileUrl}");
-
-			// --- Step 2: Call Gooey Lipsync API ---
-			$gooeyApiKey = env('GOOEY_API_KEY');
-			$gooeyApiUrl = 'https://api.gooey.ai/v2/Lipsync';
-
-			if (!$gooeyApiKey) {
-				Log::error('Gooey API Key (GOOEY_API_KEY) is not configured in .env');
-				return [
-					'success' => false,
-					'message' => 'Gooey API Key is not configured.',
-					'video_url' => null,
-					'gooey_run_id' => null,
-					'api_response' => null,
-				];
-			}
-
-			// Define payload based on the Gooey API documentation/example
-			$payload = [
-				'input_face' => $faceVideoUrl,
-				'face_padding_top' => 3,        // From example
-				'face_padding_bottom' => 16,    // From example
-				'face_padding_left' => 12,     // From example
-				'face_padding_right' => 6,      // From example
-				'selected_model' => 'Wav2Lip',  // From example
-				'input_audio' => $audioFileUrl, // Use the URL from our TTS step
-				// Optional: Add 'run_settings' if you need async callbacks later
-				// 'run_settings' => [
-				//     'callback_url' => route('gooey.webhook') // Example if you set up a webhook route
-				// ]
-			];
-
-			Log::info("Calling Gooey Lipsync API at: {$gooeyApiUrl} with input face video URL: {$faceVideoUrl} and audio URL: {$audioFileUrl}");
-			// Log::debug("Gooey Payload: ", $payload); // Optional: Log payload for debugging (sensitive data!)
-
-			try {
-				$response = Http::withToken($gooeyApiKey)
-					->timeout(120) // Set a reasonable timeout (Gooey can take time)
-					->withHeaders([
-						'Content-Type' => 'application/json',
-						'Accept' => 'application/json', // Be explicit
-					])
-					->post($gooeyApiUrl, $payload);
-
-				$statusCode = $response->status();
-				$responseData = $response->json(); // Get response body as array
-
-				Log::info("Gooey API Response Status: {$statusCode}");
-				// Log::debug("Gooey Response Body: ", $responseData); // Optional: Log full response
-
-				if (!$response->successful()) {
-					// Check for specific Gooey errors if documented, otherwise generic message
-					$errorMessage = $responseData['detail'] ?? ($responseData['error'] ?? 'Unknown Gooey API error');
-					if (is_array($errorMessage)) { // Sometimes detail is an array
-						$errorMessage = json_encode($errorMessage);
-					}
-					Log::error("Gooey Lipsync API Error (Status: {$statusCode}): " . $errorMessage);
-					return [
-						'success' => false,
-						'message' => "Gooey Lipsync API failed (Status: {$statusCode}): " . $errorMessage,
-						'video_url' => null,
-						'gooey_run_id' => $responseData['id'] ?? null, // Might still get an ID on failure
-						'api_response' => $responseData,
-					];
-				}
-
-				// --- Step 3: Process Successful Gooey Response ---
-				$runId = $responseData['id'] ?? null;
-				$outputVideoUrl = $responseData['output']['output_video'] ?? null;
-
-				if ($runId && $outputVideoUrl) {
-					Log::info("Gooey Lipsync successful. Run ID: {$runId}, Video URL: {$outputVideoUrl}");
-
-					//download the video
-					$video_content = @file_get_contents($outputVideoUrl); // Use @ to suppress warnings on failure
-					if ($video_content === false) {
-						Log::error("Failed to download video from URL: {$outputVideoUrl}");
-						return ['success' => false, 'message' => __('Failed to download generated video.')];
-					}
-					// Save the video
-					$video_guid = Str::uuid()->toString();
-					$video_path = "public/videos/{$video_guid}.mp4"; // Save path
-					Storage::put($video_path, $video_content); // Store using Storage facade
-					$video_url = Storage::url($video_path); // Get public URL for the video
-					Log::info("Video successfully generated and saved: {$outputVideoUrl}");
-					return [
-						'success' => true,
-						'message' => __('Video generated successfully'),
-						'video_guid' => $video_guid,
-						'video_url' => $outputVideoUrl,
-						'video_path' => $video_path, // Relative path
-					];
-				} else {
-					Log::error("Gooey Lipsync response structure invalid or missing output_video. Run ID: {$runId}");
-					return [
-						'success' => false,
-						'message' => 'Gooey API returned success status but output video URL was not found.',
-						'video_url' => null,
-						'gooey_run_id' => $runId,
-						'api_response' => $responseData,
-					];
-				}
-
-			} catch (Exception $e) {
-				Log::error("Exception during Gooey Lipsync API call: " . $e->getMessage());
-				return ['success' => false,
-					'message' => 'An exception occurred while contacting the video generation service: ' . $e->getMessage(),
-					'video_url' => null,
-					'gooey_run_id' => null,
-					'api_response' => null,];
-			}
-		}
 
 
 		public static function amplifyMp3Volume($inputFile, $outputFile, $volumeLevel = 2.0)
@@ -1225,7 +966,7 @@
 		{
 			// Determine engine, defaulting from .env
 			$selectedEngine = $engine ?? env('DEFAULT_TTS_ENGINE', 'google');
-			$filename = Str::slug($outputFilenameBase) . '.mp3'; // Use mp3 for both now
+			$filename = Str::slug($outputFilenameBase, '_') . '.mp3'; // Use mp3 for both now
 			$directory = 'tts'; // Store in storage/app/public/tts
 			$storagePath = $directory . '/' . $filename;
 
@@ -1284,6 +1025,12 @@
 						if (Storage::disk('public')->exists($storagePath)) {
 							Storage::disk('public')->delete($storagePath);
 						}
+
+						//check if $storagePath exists and delete it if it does
+						if (file_exists($storagePath)) {
+							unlink($storagePath);
+						}
+
 						$saved = Storage::disk('public')->put($storagePath, $response->body());
 						if (!$saved) {
 							throw new \Exception("Failed to save OpenAI TTS audio to disk at {$storagePath}. Check permissions.");
@@ -1354,6 +1101,11 @@
 					// Performs the text-to-speech request
 					$response = $client->synthesizeSpeech($synthesisInput, $voice, $audioConfig);
 					$audioContent = $response->getAudioContent();
+
+					// check if file exists and delete it if it does
+					if (Storage::disk('public')->exists($storagePath)) {
+						Storage::disk('public')->delete($storagePath);
+					}
 
 					// Save the MP3 audio content to the public disk
 					$saved = Storage::disk('public')->put($storagePath, $audioContent);
@@ -1472,6 +1224,49 @@
 			}
 		}
 
+
+		public static function splitIntoSentences(string $text): array {
+			if (empty($text)) {
+				return [];
+			}
+
+			// Normalize Unicode characters to their canonical form
+			$text = Normalizer::normalize($text, Normalizer::FORM_C);
+
+			// Normalize line breaks and multiple spaces
+			$text = preg_replace('/\r\n|\r|\n/', ' ', $text);
+			$text = preg_replace('/\s+/', ' ', $text);
+
+			// Common abbreviations to avoid splitting on
+			$abbreviations = [
+				'Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Rev', 'Sr', 'Jr', 'St',
+				'e\.g', 'i\.e', 'etc', 'vs', 'No'
+			];
+			$abbrevPattern = implode('|', $abbreviations);
+
+			// Process the text in a way that avoids variable-length lookbehinds
+			$processedText = $text . ' '; // Add trailing space
+
+			// First mark potential sentence boundaries
+			$processedText = preg_replace('/([.!?])(["\'"\']?)\s+/', '$1$2<--SENTENCE_END-->', $processedText);
+
+    // Now remove markers after common abbreviations
+    foreach ($abbreviations as $abbrev) {
+        $processedText = preg_replace('/' . preg_quote($abbrev, '/') . '\.<--SENTENCE_END-->/', $abbrev . '.', $processedText);
+    }
+
+    // Don't split on decimal numbers
+    $processedText = preg_replace('/(\d)\.\d+<--SENTENCE_END-->/', '$1.', $processedText);
+
+    // Don't split on website domains and similar patterns
+    $processedText = preg_replace('/(\w)\.\w+<--SENTENCE_END-->/', '$1.', $processedText);
+
+    // Split the text using the marker
+    $sentences = explode('<--SENTENCE_END-->', $processedText);
+
+    // Trim whitespace and filter out empty sentences
+    return array_values(array_filter(array_map('trim', $sentences)));
+	}
 
 		// --- End of MyHelper class ---
 	}

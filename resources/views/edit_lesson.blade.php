@@ -68,17 +68,21 @@
 
       /* Style for empty list text */
       .btn-delete-question {
-		      /* Ensure visibility */
+          /* Ensure visibility */
       }
 
-      .settings-row .d-flex { height: 100%; }
+      .settings-row .d-flex {
+          height: 100%;
+      }
 	</style>
 @endpush
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
-		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Lessons</a>
-		<a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
+		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to
+			Lessons</a>
+		<a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage
+			Categories </a>
 		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i
 				class="fas fa-eye"></i> Start Lesson</a>
 	</div>
@@ -246,7 +250,7 @@
 			</div>
 		</div>
 		
-		<p><small>Use the buttons below to generate video, add questions, or manage question assets (audio, images). Click
+		<p><small>Use the buttons below to generate intro, add questions, or manage question assets (audio, images). Click
 				audio icons (<i class="fas fa-play text-primary"></i>) to listen. Click images to enlarge. Use <i
 					class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
@@ -256,10 +260,26 @@
 			@php
 				$partTitle = $part['title'] ?? 'Part ' . ($partIndex + 1);
 				$partText = $part['text'] ?? '';
+				$sentences = $part['sentences'] ?? [];
+				$audioGeneratedAt = isset($part['audio_generated_at']) ? \Carbon\Carbon::parse($part['audio_generated_at'])->diffForHumans() : null;
+				$audioErrorCount = 0;
+				if (!empty($sentences)) {
+					foreach ($sentences as $sentence) {
+						if (empty($sentence['audio_url'])) $audioErrorCount++;
+					}
+				}
 			@endphp
 			<div class="content-card mb-4">
 				<h3 class="mb-3 d-flex justify-content-between align-items-center">
 					<span>Lesson Part {{ $partIndex + 1 }}: {{ $partTitle }}</span>
+					<button class="btn btn-sm btn-outline-info generate-part-audio-btn"
+					        data-part-index="{{ $partIndex }}"
+					        data-lesson-id="{{ $lesson->id }}"
+					        data-generate-url="{{ route('lesson.part.generate.audio', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}"
+					        title="Generate audio for each sentence in this part using lesson TTS settings. Replaces existing audio.">
+						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+						<i class="fas fa-microphone-alt"></i> {{ $audioGeneratedAt ? 'Regen' : 'Gen' }} Audio
+					</button>
 					<button class="btn btn-sm btn-outline-secondary edit-part-text-btn"
 					        data-bs-toggle="modal" data-bs-target="#editPartModal"
 					        data-part-index="{{ $partIndex }}" data-part-title="{{ $partTitle }}"
@@ -267,41 +287,22 @@
 						<i class="fas fa-edit"></i> Edit Part
 					</button>
 				</h3>
-				<p id="part-text-display-{{ $partIndex }}">{{ $partText }}</p>
 				
-				<div class="asset-container mb-4 generated-video-container border-top pt-3 mt-3">
-					<h6><i class="fas fa-film me-2 text-primary"></i>Part Video</h6>
-					@php
-						$videoPath = $part['video_path'] ?? null;
-						$videoUrl = $part['video_url'] ?? null;
-						$videoExists = $videoPath && $videoUrl && Storage::disk('public')->exists($videoPath);
-					@endphp
-					<div class="mb-2 text-center video-display-area" id="video-display-{{ $partIndex }}"
-					     style="{{ !$videoExists ? 'display: none;' : '' }}">
-						@if($videoExists)
-							<video controls preload="metadata" src="{{ $videoUrl }}" class="generated-video"
-							       style="max-width: 100%; max-height: 300px;"> Your browser does not support the video tag.
-							</video>
-							<p><small class="text-muted d-block mt-1">Video available. Path: {{ $videoPath }}</small></p>
+				{{-- Display audio status --}}
+				<div id="part-{{$partIndex}}-audio-status" class="text-muted small mb-2">
+					@if($audioGeneratedAt)
+						Audio generated: {{ $audioGeneratedAt }} ({{ count($sentences) }} sentences)
+						@if($audioErrorCount > 0)
+							<span class="text-danger">({{ $audioErrorCount }} audio errors)</span>
 						@endif
-					</div>
-					<div class="video-placeholder mt-3" id="video-placeholder-{{ $partIndex }}" style="display: none;"></div>
-					<div class="text-center video-button-area" id="video-button-area-{{ $partIndex }}">
-						<button class="btn btn-outline-info generate-part-video-btn"
-						        data-lesson-id="{{ $lesson->session_id }}"
-						        data-part-index="{{ $partIndex }}"
-						        data-generate-url="{{ route('lesson.part.generate.video', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}">
-							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-							<i class="fas fa-video me-1"></i> {{ $videoExists ? 'Regenerate Video' : 'Generate Video' }}
-						</button>
-						<div class="asset-generation-error text-danger small mt-1" id="video-error-{{ $partIndex }}"
-						     style="display: none;"></div>
-						@if(!$videoExists)
-							<small class="text-muted d-block mt-1">Generates a short talking head video based on this part's
-								text.</small>
-						@endif
-					</div>
+					@else
+							(No intro audio generated yet)
+					@endif
 				</div>
+				{{-- Error area for part audio gen --}}
+				<div id="part-{{$partIndex}}-error" class="text-danger small mb-2"></div>
+				
+				<p id="part-text-display-{{ $partIndex }}">{{ $partText }}</p>
 				
 				<div class="questions-section border-top pt-3 mt-4">
 					<h4 class="mt-0 mb-3">Questions for this Part</h4>

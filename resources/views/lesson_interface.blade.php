@@ -4,6 +4,32 @@
 
 @push('styles')
 	<style>
+      /* Add styling for highlighted sentence */
+      .intro-sentence.highlight {
+          background-color: rgba(var(--bs-primary-rgb), 0.2); /* Light blue background */
+          /* background-color: #ffe082; */ /* Or yellow */
+          padding: 0.1em 0.2em;
+          border-radius: 3px;
+          transition: background-color 0.2s ease-in-out;
+          cursor: pointer; /* Indicate clickability if needed */
+      }
+      /* Style for the intro text container */
+      #partIntroTextContainer {
+          line-height: 1.8; /* Increase line spacing for readability */
+          font-size: 1.1rem; /* Slightly larger font */
+      }
+      /* Style for sentence spans to ensure proper spacing */
+      .intro-sentence {
+          /* Add a small margin-right if sentences run together */
+          margin-right: 0.2em;
+      }
+
+      /* Ensure dark mode highlight is visible */
+      .dark-mode .intro-sentence.highlight {
+          background-color: rgba(var(--bs-primary-rgb), 0.4); /* Darker blue for dark mode */
+          color: #e0e0e0; /* Ensure text is light */
+      }
+      
       /* Question Area */
       #questionQuestionContainer {
           min-height: 150px; /* Prevent collapsing */
@@ -131,11 +157,20 @@
 
 @push('scripts')
 	<script>
+		window.lessonSessionId = @json($lesson->session_id);
+		window.lessonId = @json($lesson->id);
 		window.questionInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
 		window.allPartIntros = @json($allPartIntros);
 		
+		
 		// --- DOM Element References ---
+		let partIntroTextContainer = null; // Container for sentence spans
+		let introPlaybackControls = null;
+		let playIntroButton = null;
+		let pauseIntroButton = null;
+		let stopIntroButton = null;
+		
 		let questionArea = null;
 		let questionDifficulty = null;
 		let questionTextElement = null;
@@ -162,7 +197,7 @@
 		let totalParts = window.totalLessonParts || 0;
 		let difficulties = ['easy', 'medium', 'hard'];
 		
-		let currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+		let currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText }
 		let currentPartQuestions = [];
 		let currentQuestionIndex = -1;
 		let currentQuestion = null;
@@ -187,12 +222,9 @@
 		let partIndicatorContainer = null;
 		let partIntroArea = null;
 		let partIntroTitle = null;
-		let partIntroVideo = null;
-		let partIntroVideoPlaceholder = null;
 		let partIntroText = null;
 		let startPartQuestionButton = null;
 		
-		let hasIntroVideoPlayed = false; // Track if intro video played (per part)
 		let isPartIntroVisible = false; // Track if intro or question area is shown
 		
 		let loadingOverlay = null;
@@ -216,7 +248,7 @@
 			lessonSessionId = document.getElementById('lessonSessionId').value;
 			lessonId = document.getElementById('lessonId').value;
 			
-			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText, currentPartVideoUrl }
+			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText }
 			currentPartQuestions = [];
 			currentQuestionIndex = -1;
 			currentQuestion = null;
@@ -229,9 +261,8 @@
 			partIndicatorContainer = document.getElementById('partIndicatorContainer');
 			partIntroArea = document.getElementById('partIntroArea');
 			partIntroTitle = document.getElementById('partIntroTitle');
-			partIntroVideo = document.getElementById('partIntroVideo');
-			partIntroVideoPlaceholder = document.getElementById('partIntroVideoPlaceholder');
 			partIntroText = document.getElementById('partIntroText');
+			partIntroTextContainer = document.getElementById('partIntroTextContainer');
 			startPartQuestionButton = document.getElementById('startPartQuestionButton');
 			
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
@@ -257,6 +288,12 @@
 			completionMessage = document.getElementById('completionMessage');
 			partCompletionMessage = document.getElementById('partCompletionMessage');
 			
+			// Intro playback controls
+			introPlaybackControls = document.getElementById('introPlaybackControls');
+			playIntroButton = document.getElementById('playIntroButton');
+			pauseIntroButton = document.getElementById('pauseIntroButton');
+			stopIntroButton = document.getElementById('stopIntroButton');
+			
 			
 			console.log('Interactive Question JS Loaded');
 			
@@ -273,6 +310,8 @@
 			setupModalEventListeners();
 			setupQuestionAnswerEventListeners();
 			setupHelperEventListeners();
+			setupIntroPlaybackControls();
+			
 			initQuestionInterface();
 			
 		});

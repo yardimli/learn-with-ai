@@ -72,6 +72,57 @@ Constraints:
 - `image_search_keywords` short, and relevant to the question without hinting the answer.
 PROMPT;
 
+		private const SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA = <<<PROMPT
+You are an AI assistant. Given a single sentence from an educational text, provide a concise visual idea for an image representing that sentence, and 2-3 relevant search keywords.
+Your output MUST be ONLY a valid JSON object with the following structure:
+{
+  "image_prompt_idea": "A short phrase describing a visual for the sentence (max 10 words).",
+  "image_search_keywords": "2-3 relevant keywords for image search (max 5 words total)."
+}
+No explanations or introductory text.
+PROMPT;
+
+		/**
+		 * Generates image prompt idea and keywords for a single sentence using an LLM.
+		 *
+		 * @param string $llm The LLM model ID.
+		 * @param string $sentenceText The text of the sentence.
+		 * @param int $maxRetries Maximum number of retries.
+		 * @return array Result with 'image_prompt_idea', 'image_search_keywords', or 'error'.
+		 */
+		public static function generateSentenceImageIdeas(string $llm, string $sentenceText, int $maxRetries = 1): array
+		{
+			$userMessageContent = "Generate image ideas for this sentence:\n\"" . $sentenceText . "\"";
+			$chatHistory = [['role' => 'user', 'content' => $userMessageContent]];
+
+			Log::info("Requesting image ideas for sentence: '" . Str::limit($sentenceText, 50) . "...' using LLM: {$llm}");
+
+			$result = self::llm_no_tool_call($llm, self::SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA, $chatHistory, true, $maxRetries);
+
+			// Basic validation of the result structure
+			if (isset($result['error'])) {
+				Log::error("LLM error generating sentence image ideas: " . $result['error']);
+				return ['error' => $result['error']];
+			}
+
+			if (!isset($result['image_prompt_idea']) || !isset($result['image_search_keywords'])) {
+				Log::error("LLM returned invalid structure for sentence image ideas.", ['response' => $result]);
+				// Attempt to extract if nested (some models wrap output)
+				if (isset($result['response']['image_prompt_idea']) && isset($result['response']['image_search_keywords'])){
+					return [
+						'image_prompt_idea' => $result['response']['image_prompt_idea'],
+						'image_search_keywords' => $result['response']['image_search_keywords'],
+					];
+				}
+
+				return ['error' => 'Invalid structure received from LLM for sentence image ideas.'];
+			}
+
+			return [
+				'image_prompt_idea' => $result['image_prompt_idea'],
+				'image_search_keywords' => $result['image_search_keywords'],
+			];
+		}
 
 		/**
 		 * MODIFIED: Generates 3 questions for a single lesson part and difficulty using an LLM.
@@ -605,7 +656,6 @@ PROMPT;
 				// Update the specific part's title and text
 				$lessonParts[$partIndex]['title'] = $request->input('part_title');
 				$lessonParts[$partIndex]['text'] = $request->input('part_text');
-				// Keep other potential keys like 'image_prompt_idea', 'video_url', etc., untouched
 
 				// Save the modified array back to the lesson
 				$lesson->lesson_parts = $lessonParts;

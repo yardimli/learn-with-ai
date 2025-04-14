@@ -30,40 +30,12 @@
 
 			$state = $this->calculateCurrentState($lesson->id);
 			$totalParts = is_array($lesson->lesson_parts) ? count($lesson->lesson_parts) : 0;
-
 			$allPartIntros = $this->getAllPartIntros($lesson);
 
-			// Add intro text/video for the starting part
-			$state['currentPartIntroText'] = null; // Default to null
-			$state['currentPartVideoUrl'] = null; // Default to null
-			if ($state['status'] !== 'completed' && $state['partIndex'] >= 0 && $state['partIndex'] < $totalParts) {
-				$state['currentPartIntroText'] = $this->getPartText($lesson, $state['partIndex']);
-				$state['currentPartVideoUrl'] = $this->getPartVideoUrl($lesson, $state['partIndex']);
-			}
-
-
-			// We pass null for the initial question now. JS handles loading.
 			$question = null;
 			Log::info("Initial State for Lesson ID {$lesson->id}: ", $state);
 
 			return view('lesson_interface', compact('lesson', 'question', 'state', 'totalParts', 'allPartIntros'));
-		}
-
-		/**
-		 * Get the video URL for a specific lesson part.
-		 */
-		private function getPartVideoUrl(Lesson $lesson, int $partIndex): ?string
-		{
-			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
-			if (isset($lessonParts[$partIndex]['video_path']) && $lessonParts[$partIndex]['video_path']) {
-				// Check if path starts with 'public/', remove if so for Storage::url
-				$path = $lessonParts[$partIndex]['video_path'];
-				if (Str::startsWith($path, 'public/')) {
-					$path = Str::substr($path, 7);
-				}
-				return Storage::disk('public')->url($path);
-			}
-			return null;
 		}
 
 		/**
@@ -76,17 +48,27 @@
 		}
 
 
-		private function getAllPartIntros(Lesson $lesson): array
-		{
+		private function getAllPartIntros(Lesson $lesson): array {
 			$intros = [];
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 			$totalParts = is_array($lessonParts) ? count($lessonParts) : 0;
 
 			for ($i = 0; $i < $totalParts; $i++) {
+				// Ensure 'sentences' key exists and is an array
+				$sentencesData = isset($lessonParts[$i]['sentences']) && is_array($lessonParts[$i]['sentences'])
+					? $lessonParts[$i]['sentences']
+					: [];
+
+				// Filter out any sentences that failed generation (null URL) for the frontend playback
+				$playableSentences = array_filter($sentencesData, function($sentence) {
+					return !empty($sentence['audio_url']);
+				});
+
 				$intros[$i] = [
-					'title' => $lessonParts[$i]['title'] ?? null,
-					'text' => $this->getPartText($lesson, $i),
-					'videoUrl' => $this->getPartVideoUrl($lesson, $i),
+					'title' => $lessonParts[$i]['title'] ?? "Part " . ($i + 1),
+					'full_text' => $this->getPartText($lesson, $i), // Include full text for display
+					'sentences' => array_values($playableSentences), // Only sentences with audio URLs
+					'has_audio' => !empty($playableSentences) // Flag if audio is available
 				];
 			}
 			return $intros;

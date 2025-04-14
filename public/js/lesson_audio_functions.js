@@ -1,15 +1,45 @@
+function buildIntroPlaybackQueue(sentences) {
+	console.log("Building intro playback queue");
+	playbackQueue = []; // Clear existing queue
+	currentPlaybackIndex = -1; // Reset index
+	
+	if (!sentences || sentences.length === 0) {
+		console.warn("No sentences provided for intro playback queue.");
+		return;
+	}
+	
+	sentences.forEach((sentence, index) => {
+		if (sentence.audio_url) {
+			// Find the corresponding span element using the correct index
+			const sentenceSpan = partIntroTextContainer?.querySelector(`.intro-sentence[data-sentence-index="${index}"]`);
+			if (sentenceSpan) {
+				playbackQueue.push({
+					type: 'audio',
+					url: sentence.audio_url,
+					elementToHighlight: sentenceSpan, // Reference to the span
+					text: sentence.text // Keep text for logging/debugging
+				});
+			} else {
+				console.warn(`Could not find span for sentence index ${index}`);
+				// Optionally add anyway without highlight? For now, skip if no span.
+			}
+		}
+	});
+	console.log("Intro Playback Queue built:", playbackQueue);
+}
+
 function buildPlaybackQueue(questionData) {
 	playbackQueue = [];
 	currentPlaybackIndex = -1;
 	if (!questionData) return;
 	
 	if (questionData.question_audio_url && questionTextElement) {
-		playbackQueue.push({element: questionTextElement, url: questionData.question_audio_url});
+		playbackQueue.push({elementToHighlight: questionTextElement, url: questionData.question_audio_url});
 	}
 	questionData.answers.forEach((answer, index) => {
 		const answerButton = document.getElementById(`answerBtn_${answer.index}`);
 		if (answer.answer_audio_url && answerButton) {
-			playbackQueue.push({element: answerButton, url: answer.answer_audio_url});
+			playbackQueue.push({elementToHighlight: answerButton, url: answer.answer_audio_url});
 		}
 	});
 	// console.log("Playback queue built:", playbackQueue);
@@ -61,15 +91,15 @@ function playNextInSequence() {
 		return;
 	}
 	const item = playbackQueue[currentPlaybackIndex];
-	if (!item || !item.element || !item.url) {
+	if (!item || !item.elementToHighlight || !item.url) {
 		console.warn("Skipping invalid item in playback queue:", item);
 		currentPlaybackIndex++;
 		if (isAutoPlaying) setTimeout(playNextInSequence, 50);
 		else setInteractionsDisabled(false);
 		return;
 	}
-	// console.log(`Playing item ${currentPlaybackIndex} (${item.element.id || item.element.tagName}):`, item.url);
-	highlightElement(item.element, true);
+	// console.log(`Playing item ${currentPlaybackIndex} (${item.elementToHighlight.id || item.element.tagName}):`, item.url);
+	highlightElement(item.elementToHighlight, true);
 	if (ttsAudioPlayer) {
 		setTimeout(() => {
 			if (!isAutoPlaying) return;

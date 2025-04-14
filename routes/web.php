@@ -50,9 +50,9 @@
 		->name('question.delete');
 
 // Generate Assets
-	Route::post('/lesson/{lesson}/part/{partIndex}/generate-video', [GenerateAssetController::class, 'generatePartVideoAjax'])
+	Route::post('/lesson/{lesson}/part/{partIndex}/generate-audio', [GenerateAssetController::class, 'generatePartAudioAjax'])
 		->where('partIndex', '[0-9]+')
-		->name('lesson.part.generate.video');
+		->name('lesson.part.generate.audio');
 	Route::post('/question/{question}/generate-audio/question', [GenerateAssetController::class, 'generateQuestionAudioAjax'])->name('question.generate.audio.question');
 	Route::post('/question/{question}/generate-audio/answers', [GenerateAssetController::class, 'generateAnswerAudioAjax'])->name('question.generate.audio.answers');
 	Route::post('/question/{question}/generate-image', [GenerateAssetController::class, 'generateQuestionImageAjax'])->name('question.generate.image'); // For LLM generation/regeneration

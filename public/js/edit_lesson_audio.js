@@ -209,6 +209,41 @@ function updateAnswerAudioStatus(questionId, success = true, answersData = null)
 	}
 }
 
+function updatePartAudioStatus(partIndex, success, resultData = null) {
+	const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
+	const errorArea = document.getElementById(`part-${partIndex}-error`); // Assuming an error area exists
+	const generateButton = document.querySelector(`.generate-part-audio-btn[data-part-index="${partIndex}"]`);
+	
+	if (errorArea) hideError(errorArea); // Hide previous errors
+	
+	if (!statusEl) return;
+	
+	if (success) {
+		let sentenceCount = resultData?.sentences?.length ?? 0;
+		let errorCount = 0;
+		if (resultData?.sentences) {
+			resultData.sentences.forEach(s => { if (!s.audio_url) errorCount++; });
+		}
+		if (errorCount > 0) {
+			statusEl.innerHTML = `Audio generated: just now (${sentenceCount} sentences) <span class="text-danger">(${errorCount} audio errors)</span>`;
+		} else {
+			statusEl.textContent = `Audio generated: just now (${sentenceCount} sentences)`;
+		}
+	} else {
+		statusEl.textContent = 'Audio generation failed.';
+		if (errorArea && resultData?.message) {
+			showError(errorArea, resultData.message);
+		}
+	}
+	
+	// Update generate button state
+	if (generateButton) {
+		showSpinner(generateButton, false);
+		generateButton.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span> <i class="fas fa-microphone-alt"></i> Regen Audio`;
+		generateButton.title = "Regenerate audio for all sentences in this part";
+	}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Shared Audio Player (Keep as is) ---

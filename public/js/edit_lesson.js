@@ -32,27 +32,6 @@ async function uploadQuestionImage(questionId, file, errorAreaId, successAreaId)
 	}
 }
 
-function updateVideoDisplay(partIndex, videoUrl, videoPath) {
-	const displayArea = document.getElementById(`video-display-${partIndex}`);
-	const buttonArea = document.getElementById(`video-button-area-${partIndex}`);
-	const button = buttonArea.querySelector('.generate-part-video-btn');
-	
-	if (!displayArea || !buttonArea || !button) return;
-	
-	hideError(`video-error-${partIndex}`); // Hide any previous errors
-	
-	displayArea.innerHTML = `
-            <video controls preload="metadata" src="${videoUrl}" class="generated-video" style="max-width: 100%; max-height: 300px;">
-                Your browser does not support the video tag.
-            </video>
-            <p><small class="text-muted d-block mt-1">Video available. Path: ${videoPath || 'N/A'}</small></p>`;
-	displayArea.style.display = 'block'; // Ensure visible
-	
-	// Update button text to 'Regenerate' and ensure spinner is off
-	button.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span><i class="fas fa-video me-1"></i> Regenerate Video`;
-	showSpinner(button, false);
-}
-
 function updateQuestionImageDisplay(questionId, imageUrls, prompt, successMessage = null) {
 	const displayArea = document.getElementById(`q-image-display-${questionId}`);
 	const buttonContainer = document.getElementById(`q-image-container-${questionId}`); // Container of image+prompt+buttons
@@ -138,18 +117,25 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Use event delegation for dynamically added elements
 	document.body.addEventListener('click', async (event) => {
 		
-		const generateVideoBtn = event.target.closest('.generate-part-video-btn');
-		if (generateVideoBtn) {
-			const btn = generateVideoBtn;
+		const generatePartAudioBtn = event.target.closest('.generate-part-audio-btn');
+		if (generatePartAudioBtn) {
+			const btn = generatePartAudioBtn;
 			const partIndex = btn.dataset.partIndex;
-			const url = btn.dataset.generateUrl;
-			const errorElId = `video-error-${partIndex}`;
+			const lessonId = btn.dataset.lessonId; // Assuming this is available or use lessonSessionId
+			const generateUrl = btn.dataset.generateUrl;
+			const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
+			const errorArea = document.getElementById(`part-${partIndex}-error`); // Assumed error area ID
 			
-			hideError(errorElId);
+			if (!confirm(`Generate sentence audio for Part ${parseInt(partIndex) + 1}? This uses lesson TTS settings and replaces existing audio.`)) {
+				return;
+			}
+			
 			showSpinner(btn, true);
+			if (statusEl) statusEl.textContent = 'Generating audio...';
+			if (errorArea) hideError(errorArea);
 			
 			try {
-				const response = await fetch(url, {
+				const response = await fetch(generateUrl, {
 					method: 'POST',
 					headers: {
 						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -158,30 +144,27 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 				const result = await response.json();
 				
-				if (!response.ok || !result.success) {
-					// Handle conflict/already exists specifically
-					if (response.status === 200 && result.message.includes('already exists')) { // Backend now returns 200 on already exists
-						console.warn(`Video for part ${partIndex} already exists.`);
-						if (result.video_url && result.video_path) {
-							updateVideoDisplay(partIndex, result.video_url, result.video_path); // Update UI anyway
-						} else {
-							// If no URL returned, just ensure button shows 'Regenerate'
-							btn.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span><i class="fas fa-video me-1"></i> Regenerate Video`;
-						}
-						showSpinner(btn, false); // Make sure spinner is off
-					} else {
-						throw new Error(result.message || `HTTP error ${response.status}`);
-					}
-				} else {
-					// Success
-					updateVideoDisplay(partIndex, result.video_url, result.video_path);
+				if (!response.ok) { // Check status code for fetch errors
+					throw new Error(result.message || `HTTP Error ${response.status}`);
 				}
+				
+				// Use the dedicated update function (from edit_lesson_audio.js)
+				updatePartAudioStatus(partIndex, result.success, result);
+				
+				if (result.success) {
+					showToast(`Audio generation complete for Part ${parseInt(partIndex) + 1}.`, 'Success', 'success');
+				} else {
+					showToast(result.message || `Audio generation finished with errors for Part ${parseInt(partIndex) + 1}.`, 'Warning', 'warning');
+				}
+				
 			} catch (error) {
-				console.error(`Error generating video for part ${partIndex}:`, error);
-				showError(errorElId, `Failed: ${error.message}`);
-				showSpinner(btn, false); // Ensure spinner hidden on error
+				console.error(`Error generating audio for part ${partIndex}:`, error);
+				updatePartAudioStatus(partIndex, false, { message: error.message }); // Update status to failed
+				showToast(`Failed to generate audio: ${error.message}`, 'Error', 'error');
+			} finally {
+				// updatePartAudioStatus handles spinner on button
 			}
-			return; // Stop processing further listeners
+			return;
 		}
 		
 		const regenImageBtn = event.target.closest('.regenerate-question-image-btn');
