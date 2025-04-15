@@ -211,36 +211,162 @@ function updateAnswerAudioStatus(questionId, success = true, answersData = null)
 
 function updatePartAudioStatus(partIndex, success, resultData = null) {
 	const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
-	const errorArea = document.getElementById(`part-${partIndex}-error`); // Assuming an error area exists
+	const errorArea = document.getElementById(`part-${partIndex}-error`);
 	const generateButton = document.querySelector(`.generate-part-audio-btn[data-part-index="${partIndex}"]`);
+	const sentencesListContainer = document.getElementById(`sentences-list-${partIndex}`);
+	const noSentencesMsg = document.getElementById(`no-sentences-msg-${partIndex}`);
 	
-	if (errorArea) hideError(errorArea); // Hide previous errors
+	if (errorArea) hideError(errorArea);
+	if (!statusEl || !sentencesListContainer) return;
 	
-	if (!statusEl) return;
+	// Clear previous sentences and message
+	sentencesListContainer.innerHTML = '';
+	if(noSentencesMsg) noSentencesMsg.remove();
 	
-	if (success) {
-		let sentenceCount = resultData?.sentences?.length ?? 0;
-		let errorCount = 0;
-		if (resultData?.sentences) {
-			resultData.sentences.forEach(s => { if (!s.audio_url) errorCount++; });
-		}
-		if (errorCount > 0) {
-			statusEl.innerHTML = `Audio generated: just now (${sentenceCount} sentences) <span class="text-danger">(${errorCount} audio errors)</span>`;
+	let finalMessage = '';
+	let toastType = 'info';
+	
+	if (success && resultData && resultData.sentences) {
+		const sentences = resultData.sentences;
+		let audioErrorCount = 0;
+		
+		if (sentences.length > 0) {
+			const sentenceTemplate = document.getElementById('sentence-item-template').innerHTML;
+			sentences.forEach((sentence, index) => {
+				if (!sentence.audio_url) audioErrorCount++;
+				
+				// Create new sentence item from template
+				let sentenceHtml = sentenceTemplate
+					.replace(/PART_INDEX_PLACEHOLDER/g, partIndex)
+					.replace(/SENTENCE_INDEX_PLACEHOLDER/g, index)
+					.replace('SENTENCE_TEXT_PLACEHOLDER', escapeHtml(sentence.text))
+					.replace('data-image-id=""', `data-image-id="${sentence.generated_image_id || ''}"`)
+					.replace(`value="" class="sentence-prompt-idea"`, `value="${escapeHtml(sentence.image_prompt_idea || '')}" class="sentence-prompt-idea"`)
+					.replace(`value="" class="sentence-search-keywords"`, `value="${escapeHtml(sentence.image_search_keywords || '')}" class="sentence-search-keywords"`);
+				
+				// Set correct URLs (ensure routes exist and names match)
+				const lessonId = generateButton.dataset.lessonId; // Assuming lesson ID is on button now
+				const generateImageUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/generate-image`; // Construct URL manually or use route() via JS variable
+				const uploadImageUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/upload-image`;
+				const searchFreepikUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/search-freepik`;
+				
+				sentenceHtml = sentenceHtml.replace(`data-url="#"`, `data-url="${generateImageUrl}"`);
+				sentenceHtml = sentenceHtml.replace(`data-freepik-search-url="#"`, `data-freepik-search-url="${searchFreepikUrl}"`);
+				// Note: Upload URL isn't directly on button, it's triggered via file input's sibling button
+				
+				sentencesListContainer.insertAdjacentHTML('beforeend', sentenceHtml);
+				
+				// Get the newly added elements to update audio/image
+				const newItemContainer = document.getElementById(`sentence-item-p${partIndex}-s${index}`);
+				const audioControls = newItemContainer.querySelector('.sentence-audio-controls');
+				const imageDisplay = newItemContainer.querySelector('.sentence-image-display');
+				const fileInput = newItemContainer.querySelector('.sentence-image-file-input');
+				
+				
+				// Update audio button state
+				if (audioControls) {
+					const audioErrorId = `sent-audio-error-p${partIndex}-s${index}`;
+					if (sentence.audio_url) {
+						const buttonHtml = `
+                            <button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="${sentence.audio_url}" data-error-area-id="${audioErrorId}" title="Play Sentence Audio">
+                                <i class="fas fa-play"></i><i class="fas fa-pause"></i>
+                                <span class="audio-duration ms-1"></span>
+                            </button>`;
+						audioControls.innerHTML = buttonHtml;
+						// Fetch duration for the new button
+						const newButton = audioControls.querySelector('.btn-play-pause');
+						if (newButton) displayAudioDuration(newButton, sentence.audio_url);
+					} else {
+						audioControls.innerHTML = `<span class="badge bg-light text-dark" title="Audio not generated"><i class="fas fa-volume-mute"></i></span>`;
+					}
+				}
+				// Update File Input Data Attributes
+				if (fileInput) {
+					fileInput.dataset.partIndex = partIndex;
+					fileInput.dataset.sentenceIndex = index;
+					fileInput.dataset.uploadUrl = uploadImageUrl; // Store upload URL if needed elsewhere
+				}
+				
+				// Fetch and display image if ID exists
+				if (sentence.generated_image_id && imageDisplay) {
+					fetchAndDisplaySentenceImage(partIndex, index, sentence.generated_image_id);
+				} else if (imageDisplay) {
+					// Ensure placeholder if no ID
+					imageDisplay.innerHTML = '<i class="fas fa-image text-muted fa-lg"></i>';
+				}
+			});
+			
+			finalMessage = `Assets generated: now (${sentences.length} sentences)`;
+			if (audioErrorCount > 0) {
+				finalMessage += ` <span class="text-danger">(${audioErrorCount} audio errors)</span>`;
+			}
+			toastType = 'success';
+			statusEl.innerHTML = finalMessage;
+			
 		} else {
-			statusEl.textContent = `Audio generated: just now (${sentenceCount} sentences)`;
+			// Success response but no sentences returned (e.g., empty text input)
+			finalMessage = resultData.message || 'No sentences processed.';
+			toastType = 'warning';
+			statusEl.textContent = finalMessage;
+			sentencesListContainer.innerHTML = `<p class="text-muted fst-italic">${finalMessage}</p>`;
 		}
+		
 	} else {
-		statusEl.textContent = 'Audio generation failed.';
-		if (errorArea && resultData?.message) {
-			showError(errorArea, resultData.message);
-		}
+		// Generation failed
+		finalMessage = resultData?.message || 'Asset generation failed.';
+		toastType = 'error';
+		statusEl.textContent = 'Asset generation failed.';
+		if (errorArea) showError(errorArea, finalMessage);
+		sentencesListContainer.innerHTML = `<p class="text-danger fst-italic">Could not generate assets for this part.</p>`;
+		
 	}
 	
 	// Update generate button state
 	if (generateButton) {
 		showSpinner(generateButton, false);
-		generateButton.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span> <i class="fas fa-microphone-alt"></i> Regen Audio`;
-		generateButton.title = "Regenerate audio for all sentences in this part";
+		generateButton.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span> <i class="fas fa-microphone-alt"></i> Regen Assets`;
+		generateButton.title = "Regenerate audio and image prompts for all sentences in this part";
+	}
+	
+	// Show toast notification based on outcome
+	// Use the message from resultData if available, otherwise use the constructed finalMessage
+	showToast(resultData?.message || finalMessage.replace(/<[^>]*>/g, ''), // Strip potential HTML for toast
+		toastType === 'error' ? 'Error' : (toastType === 'warning' ? 'Warning' : 'Complete'),
+		toastType);
+}
+
+// New helper function to fetch image details and update display
+async function fetchAndDisplaySentenceImage(partIndex, sentenceIndex, imageId) {
+	const displayArea = document.getElementById(`sent-image-display-p${partIndex}-s${sentenceIndex}`);
+	const errorArea = document.getElementById(`sent-image-error-p${partIndex}-s${sentenceIndex}`);
+	if (!displayArea || !imageId) return;
+	
+	displayArea.innerHTML = `<div class="spinner-border spinner-border-sm text-secondary" role="status"></div>`; // Loading indicator
+	if (errorArea) hideError(errorArea);
+	
+	try {
+		const response = await fetch(`/api/image-details/${imageId}`); // Replace with actual endpoint
+		if (!response.ok) throw new Error('Failed to fetch image details');
+		const imageData = await response.json();
+		if (!imageData.success) throw new Error(imageData.message || 'Error fetching image data');
+		
+		const imageUrls = imageData.image_urls;
+		const altText = imageData.alt || `Image for sentence ${sentenceIndex + 1}`;
+		const displayUrl = imageUrls.small || imageUrls.medium || imageUrls.original; // Prefer small/medium
+		
+		if (displayUrl) {
+			displayArea.innerHTML = `
+                <a href="#" class="sentence-image-clickable d-block w-100 h-100" data-bs-toggle="modal" data-bs-target="#imageModal" data-image-url="${imageUrls.original || '#'}" data-image-alt="${altText}" title="Click to enlarge">
+                    <img src="${displayUrl}" alt="${altText}" class="img-fluid sentence-image-thumb" style="width: 100%; height: 100%; object-fit: contain;">
+                </a>`;
+		} else {
+			throw new Error('Image URL not found in fetched data.');
+		}
+		
+	} catch (error) {
+		console.error(`Error fetching/displaying image ID ${imageId} for sentence ${partIndex}-${sentenceIndex}:`, error);
+		displayArea.innerHTML = `<i class="fas fa-exclamation-triangle text-danger" title="Error loading image: ${error.message}"></i>`;
+		if (errorArea) showError(errorArea, 'Load failed');
 	}
 }
 
@@ -272,6 +398,19 @@ document.addEventListener('DOMContentLoaded', () => {
 		const audioUrl = button.dataset.audioUrl;
 		if (audioUrl) {
 			displayAudioDuration(button, audioUrl);
+		}
+	});
+	
+	document.querySelectorAll('.sentence-item[data-image-id]').forEach(item => {
+		const imageId = item.dataset.imageId;
+		if (imageId) {
+			const partIndex = item.dataset.partIndex;
+			const sentenceIndex = item.dataset.sentenceIndex;
+			// Check if display area is just the placeholder before fetching
+			const displayArea = item.querySelector('.sentence-image-display');
+			if(displayArea && displayArea.querySelector('i.fa-image')) {
+				fetchAndDisplaySentenceImage(partIndex, sentenceIndex, imageId);
+			}
 		}
 	});
 	

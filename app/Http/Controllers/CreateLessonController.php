@@ -205,7 +205,6 @@ PROMPT;
 			return response()->json($responseData);
 		}
 
-
 		public function createLesson(Request $request)
 		{
 			// Validation rules updated

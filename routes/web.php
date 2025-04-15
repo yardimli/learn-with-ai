@@ -53,6 +53,22 @@
 	Route::post('/lesson/{lesson}/part/{partIndex}/generate-audio', [GenerateAssetController::class, 'generatePartAudioAjax'])
 		->where('partIndex', '[0-9]+')
 		->name('lesson.part.generate.audio');
+	Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/generate-image', [GenerateAssetController::class, 'generateSentenceImageAjax'])
+		->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		->name('sentence.generate.image');
+
+	Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/upload-image', [GenerateAssetController::class, 'uploadSentenceImageAjax'])
+		->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		->name('sentence.image.upload');
+
+	Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/search-freepik', [FreePikController::class, 'searchFreepikSentenceAjax'])
+		->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		->name('sentence.image.search_freepik');
+
+	Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/select-freepik', [FreePikController::class, 'selectFreepikSentenceImageAjax'])
+		->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		->name('sentence.image.select_freepik');
+
 	Route::post('/question/{question}/generate-audio/question', [GenerateAssetController::class, 'generateQuestionAudioAjax'])->name('question.generate.audio.question');
 	Route::post('/question/{question}/generate-audio/answers', [GenerateAssetController::class, 'generateAnswerAudioAjax'])->name('question.generate.audio.answers');
 	Route::post('/question/{question}/generate-image', [GenerateAssetController::class, 'generateQuestionImageAjax'])->name('question.generate.image'); // For LLM generation/regeneration

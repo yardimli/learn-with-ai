@@ -53,22 +53,52 @@
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 			$totalParts = is_array($lessonParts) ? count($lessonParts) : 0;
 
+			// Eager load all images potentially associated with this lesson's parts to optimize
+			$allSentenceImageIds = [];
+			if (is_array($lessonParts)) {
+				foreach ($lessonParts as $part) {
+					if (isset($part['sentences']) && is_array($part['sentences'])) {
+						foreach ($part['sentences'] as $sentence) {
+							if (!empty($sentence['generated_image_id'])) {
+								$allSentenceImageIds[] = $sentence['generated_image_id'];
+							}
+						}
+					}
+				}
+			}
+			// Fetch images by their IDs, keyed by ID for easy lookup
+			$imagesById = GeneratedImage::whereIn('id', array_unique($allSentenceImageIds))->get()->keyBy('id');
+
+
 			for ($i = 0; $i < $totalParts; $i++) {
 				// Ensure 'sentences' key exists and is an array
 				$sentencesData = isset($lessonParts[$i]['sentences']) && is_array($lessonParts[$i]['sentences'])
 					? $lessonParts[$i]['sentences']
 					: [];
 
-				// Filter out any sentences that failed generation (null URL) for the frontend playback
-				$playableSentences = array_filter($sentencesData, function($sentence) {
-					return !empty($sentence['audio_url']);
-				});
+				$processedSentences = [];
+				foreach ($sentencesData as $sentence) {
+					// Only include sentences with audio URLs for playback queue
+					if (!empty($sentence['audio_url'])) {
+						$imageId = $sentence['generated_image_id'] ?? null;
+						$imageUrl = null;
+						// Use the preloaded image data if available
+						if ($imageId && isset($imagesById[$imageId])) {
+							// Choose preferred size, e.g., medium
+							$imageUrl = $imagesById[$imageId]->medium_url;
+						}
+
+						// Add image URL to the sentence data passed to the frontend
+						$sentence['image_url'] = $imageUrl;
+						$processedSentences[] = $sentence;
+					}
+				}
 
 				$intros[$i] = [
 					'title' => $lessonParts[$i]['title'] ?? "Part " . ($i + 1),
 					'full_text' => $this->getPartText($lesson, $i), // Include full text for display
-					'sentences' => array_values($playableSentences), // Only sentences with audio URLs
-					'has_audio' => !empty($playableSentences) // Flag if audio is available
+					'sentences' => $processedSentences, // Use processed sentences with image URLs
+					'has_audio' => !empty($processedSentences) // Flag if audio is available
 				];
 			}
 			return $intros;

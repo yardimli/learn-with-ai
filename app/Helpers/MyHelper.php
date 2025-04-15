@@ -79,15 +79,6 @@
 			// otherwise assume the cheaper models are desired.
 			$allow_expensive_models = !empty(env('ADMIN_OPEN_ROUTER_KEY')); // Example env var
 
-			$llms_with_rank_path = resource_path('data/llms_with_rank.json');
-			$llms_with_rank = [];
-			if (File::exists($llms_with_rank_path)) {
-				$llms_with_rank = json_decode(File::get($llms_with_rank_path), true) ?? [];
-			} else {
-				Log::warning('llms_with_rank.json not found in resources/data/');
-				// You might want to create this file or handle its absence
-			}
-
 			$llms = json_decode(File::get($llmsJsonPath), true);
 			if (!is_array($llms)) { // Handle case where file is corrupted
 				Log::error('Failed to decode llms.json');
@@ -140,45 +131,9 @@
 				return false;
 			});
 
-			// Add score/ugi and handle missing ranks
-			foreach ($filtered_llms as &$filtered_llm) { // Use reference to modify array directly
-				$found_rank = false;
-				if (is_array($llms_with_rank)) { // Ensure rank data is iterable
-					foreach ($llms_with_rank as $llm_with_rank) {
-						// Check both elements exist before comparing
-						if (isset($filtered_llm['id'], $llm_with_rank['id']) && $filtered_llm['id'] === $llm_with_rank['id']) {
-							$filtered_llm['score'] = $llm_with_rank['score'] ?? 0;
-							$filtered_llm['ugi'] = $llm_with_rank['ugi'] ?? 0;
-							$found_rank = true;
-							break; // Found the rank, no need to continue inner loop
-						}
-					}
-				}
-				if (!$found_rank) {
-					$filtered_llm['score'] = 0;
-					$filtered_llm['ugi'] = 0;
-				}
-			}
-			unset($filtered_llm); // Unset reference after loop
-
-			// Sort $filtered_llms by score, then alphabetically for score 0
 			usort($filtered_llms, function ($a, $b) {
-				// Ensure 'score' and 'name' keys exist, defaulting if not
-				$scoreA = $a['score'] ?? 0;
-				$scoreB = $b['score'] ?? 0;
 				$nameA = $a['name'] ?? '';
 				$nameB = $b['name'] ?? '';
-
-
-				// First, compare by score in descending order
-				$scoreComparison = $scoreB <=> $scoreA;
-
-				// If scores are different, return this comparison
-				if ($scoreComparison !== 0) {
-					return $scoreComparison;
-				}
-
-				// If scores are the same, sort alphabetically by name
 				return strcmp($nameA, $nameB);
 			});
 
@@ -829,7 +784,7 @@
 							'image_type' => 'generated',
 							'image_guid' => $guid,
 							'image_alt' => Str::limit($prompt, 150),
-							'user_prompt' => $prompt,
+							'prompt' => $prompt,
 							'image_model' => $image_model, // Store which image model was used
 							'image_size_setting' => $size, // Store requested size
 							// Store relative paths (without 'public/') for easier use with Storage::url()

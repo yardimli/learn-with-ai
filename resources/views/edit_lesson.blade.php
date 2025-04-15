@@ -139,7 +139,9 @@
 					</select>
 				</div>
 			</div>
-			
+		</div>
+		
+		<div class="row mb-3 pt-0 settings-row g-2"> {{-- Use g-2 for gutters --}}
 			{{-- Preferred LLM --}}
 			<div class="col-md-6 col-lg-4 mb-2 mb-lg-0">
 				<div class="d-flex align-items-center">
@@ -221,10 +223,10 @@
 			</div>
 			
 			{{-- TTS Language Code --}}
-			<div class="col-md-4 col-lg-2 mb-2 mb-md-0">
+			<div class="col-md-4 col-lg-3 mb-2 mb-md-0">
 				<div class="d-flex align-items-center">
 					<label for="ttsLanguageCodeSelect" class="form-label me-2 mb-0 text-nowrap"><i
-							class="fas fa-language text-warning me-1"></i>Lang:</label>
+							class="fas fa-language text-warning me-1"></i>TTS Lang:</label>
 					<select class="form-select form-select-sm" id="ttsLanguageCodeSelect">
 						<option value="en-US" {{ $lesson->ttsLanguageCode == 'en-US' ? 'selected' : '' }}>en-US</option>
 						<option value="tr-TR" {{ $lesson->ttsLanguageCode == 'tr-TR' ? 'selected' : '' }}>tr-TR</option>
@@ -239,9 +241,11 @@
 					</select>
 				</div>
 			</div>
-			
+		</div>
+		
+		<div class="row mb-3 pt-0 settings-row g-2"> {{-- Use g-2 for gutters --}}
 			{{-- Update Button --}}
-			<div class="col-md-2 col-lg-1 d-flex align-items-end justify-content-end">
+			<div class="col-md-2 col-lg-1 d-flex align-items-end justify-content-start">
 				<button class="btn btn-sm btn-primary" id="updateLessonSettingsBtn"
 				        title="Save AI Model and Voice Settings for this Lesson">
 					<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -270,37 +274,57 @@
 				}
 			@endphp
 			<div class="content-card mb-4">
-				<h3 class="mb-3 d-flex justify-content-between align-items-center">
-					<span>Lesson Part {{ $partIndex + 1 }}: {{ $partTitle }}</span>
-					<button class="btn btn-sm btn-outline-info generate-part-audio-btn"
-					        data-part-index="{{ $partIndex }}"
-					        data-lesson-id="{{ $lesson->id }}"
-					        data-generate-url="{{ route('lesson.part.generate.audio', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}"
-					        title="Generate audio for each sentence in this part using lesson TTS settings. Replaces existing audio.">
-						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-						<i class="fas fa-microphone-alt"></i> {{ $audioGeneratedAt ? 'Regen' : 'Gen' }} Audio
-					</button>
-					<button class="btn btn-sm btn-outline-secondary edit-part-text-btn"
-					        data-bs-toggle="modal" data-bs-target="#editPartModal"
-					        data-part-index="{{ $partIndex }}" data-part-title="{{ $partTitle }}"
-					        title="Edit Part Title & Text">
-						<i class="fas fa-edit"></i> Edit Part
-					</button>
+				<h3 class="mb-3 d-flex justify-content-between align-items-center flex-wrap"> {{-- flex-wrap --}}
+					<span class="me-3">Lesson Part {{ $partIndex + 1 }}: {{ $partTitle }}</span>
+					<div class="btn-group btn-group-sm" role="group" aria-label="Part Actions">
+						<button class="btn btn-outline-info generate-part-audio-btn"
+						        data-part-index="{{ $partIndex }}"
+						        data-lesson-id="{{ $lesson->id }}" {{-- Changed to ID --}}
+						        data-generate-url="{{ route('lesson.part.generate.audio', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}"
+						        title="Generate audio & image prompts for each sentence. Replaces existing.">
+							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+							<i class="fas fa-microphone-alt"></i> {{ $audioGeneratedAt ? 'Regen Assets' : 'Gen Assets' }}
+						</button>
+						<button class="btn btn-outline-secondary edit-part-text-btn"
+						        data-bs-toggle="modal" data-bs-target="#editPartModal"
+						        data-part-index="{{ $partIndex }}"
+						        data-part-title="{{ $partTitle }}"
+						        title="Edit Part Title & Text">
+							<i class="fas fa-edit"></i> Edit Text
+						</button>
+					</div>
 				</h3>
 				
 				{{-- Display audio status --}}
 				<div id="part-{{$partIndex}}-audio-status" class="text-muted small mb-2">
 					@if($audioGeneratedAt)
-						Audio generated: {{ $audioGeneratedAt }} ({{ count($sentences) }} sentences)
-						@if($audioErrorCount > 0)
-							<span class="text-danger">({{ $audioErrorCount }} audio errors)</span>
+						Assets generated: {{ $audioGeneratedAt }}
+						@if(!empty($sentences))
+							({{ count($sentences) }} sentences)
+							@if($audioErrorCount > 0)
+								<span class="text-danger">({{ $audioErrorCount }} audio errors)</span>
+							@endif
 						@endif
 					@else
-							(No intro audio generated yet)
+							(Sentence assets not generated yet)
 					@endif
 				</div>
-				{{-- Error area for part audio gen --}}
-				<div id="part-{{$partIndex}}-error" class="text-danger small mb-2"></div>
+				{{-- Error area for part asset gen --}}
+				<div id="part-{{$partIndex}}-error" class="text-danger small mb-2" style="display: none;"></div>
+				
+				<div class="sentences-list mt-3" id="sentences-list-{{ $partIndex }}">
+					@if(!empty($sentences))
+						@foreach($sentences as $sentenceIndex => $sentence)
+							@include('partials._sentence_edit_item', compact('lesson', 'partIndex', 'sentenceIndex', 'sentence'))
+						@endforeach
+					@else
+						@if($audioGeneratedAt)
+							{{-- Show only if generation was attempted but failed/empty --}}
+							<p class="text-muted fst-italic" id="no-sentences-msg-{{$partIndex}}">No sentences found or generated for
+								this part.</p>
+						@endif
+					@endif
+				</div>
 				
 				<p id="part-text-display-{{ $partIndex }}">{{ $partText }}</p>
 				
@@ -361,6 +385,10 @@
 		@include('partials._question_edit_item', ['question' => null])
 	</template>
 	
+	<template id="sentence-item-template">
+		@include('partials._sentence_edit_item', ['lesson' => $lesson, 'partIndex' => 'PART_INDEX_PLACEHOLDER', 'sentenceIndex' => 'SENTENCE_INDEX_PLACEHOLDER', 'sentence' => null])
+	</template>
+	
 	
 	<div class="modal fade" id="freepikSearchModal" tabindex="-1" aria-labelledby="freepikSearchModalLabel"
 	     aria-hidden="true" data-bs-backdrop="static">
@@ -372,6 +400,9 @@
 				</div>
 				<div class="modal-body">
 					<input type="hidden" id="freepikModalQuestionId" value="{{$lesson->id}}">
+					<input type="hidden" id="freepikModalPartIndex" value="">
+					<input type="hidden" id="freepikModalSentenceIndex" value="">
+					<input type="hidden" id="freepikModalContext" value="question">
 					<div class="input-group mb-3">
 						<input type="text" id="freepikSearchQuery" class="form-control"
 						       placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">

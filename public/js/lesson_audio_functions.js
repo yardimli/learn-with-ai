@@ -16,8 +16,9 @@ function buildIntroPlaybackQueue(sentences) {
 				playbackQueue.push({
 					type: 'audio',
 					url: sentence.audio_url,
-					elementToHighlight: sentenceSpan, // Reference to the span
-					text: sentence.text // Keep text for logging/debugging
+					elementToHighlight: sentenceSpan,
+					text: sentence.text,
+					imageUrl: sentence.image_url || null
 				});
 			} else {
 				console.warn(`Could not find span for sentence index ${index}`);
@@ -45,8 +46,8 @@ function buildPlaybackQueue(questionData) {
 	// console.log("Playback queue built:", playbackQueue);
 }
 
-function startPlaybackSequence() {
-	if (!isAutoPlayEnabled) {
+function startPlaybackSequence(ignoreAutoPlay = false) {
+	if (!isAutoPlayEnabled && !ignoreAutoPlay) {
 		console.log("Auto-play disabled. Skipping audio sequence.");
 		setInteractionsDisabled(false); // Ensure interactions are enabled immediately
 		return;
@@ -69,14 +70,25 @@ function startPlaybackSequence() {
 }
 
 function stopPlaybackSequence(reEnableInteractions = false) {
+	const wasPlaying = isAutoPlaying || !ttsAudioPlayer.paused;
+
 	if (!isAutoPlaying && ttsAudioPlayer.paused) return;
-	// console.log("Stopping playback sequence.");
 	isAutoPlaying = false;
 	if (ttsAudioPlayer) {
 		ttsAudioPlayer.pause();
 		ttsAudioPlayer.currentTime = 0;
 	}
 	removeHighlight();
+	
+	// Hide sentence image and show placeholder when stopped
+	if (introSentenceImage) {
+		introSentenceImage.style.display = 'none';
+		introSentenceImage.src = ''; // Clear src
+	}
+	if (introSentenceImagePlaceholder) {
+		introSentenceImagePlaceholder.style.display = 'block';
+	}
+	
 	if (reEnableInteractions) {
 		setInteractionsDisabled(false);
 	}
@@ -84,10 +96,24 @@ function stopPlaybackSequence(reEnableInteractions = false) {
 
 function playNextInSequence() {
 	removeHighlight();
+	
+	if (introSentenceImage) {
+		introSentenceImage.style.display = 'none';
+		introSentenceImage.src = '';
+	}
+	if (introSentenceImagePlaceholder) {
+		introSentenceImagePlaceholder.style.display = 'block';
+	}
+	
 	if (!isAutoPlaying || currentPlaybackIndex < 0 || currentPlaybackIndex >= playbackQueue.length) {
 		// console.log("Playback sequence finished or stopped.");
 		isAutoPlaying = false;
 		setInteractionsDisabled(false); // Enable interactions after sequence naturally ends
+		
+		// Hide image display when sequence ends
+		if (introSentenceImage) introSentenceImage.style.display = 'none';
+		if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
+		
 		return;
 	}
 	const item = playbackQueue[currentPlaybackIndex];
@@ -98,7 +124,25 @@ function playNextInSequence() {
 		else setInteractionsDisabled(false);
 		return;
 	}
-	// console.log(`Playing item ${currentPlaybackIndex} (${item.elementToHighlight.id || item.element.tagName}):`, item.url);
+	
+	console.log(`Playing item ${currentPlaybackIndex}:`, item);
+	
+	// --- Update Image ---
+	if (introSentenceImage && item.imageUrl) {
+		console.log("Setting image source:", item.imageUrl);
+		introSentenceImage.src = item.imageUrl;
+		// introSentenceImage.classList.remove('hidden'); // Show with opacity transition
+		introSentenceImage.style.display = 'block'; // Show image
+		if (introSentenceImagePlaceholder) {
+			introSentenceImagePlaceholder.style.display = 'none'; // Hide placeholder
+		}
+	} else {
+		console.log("No image for this sentence.");
+		// Ensure image is hidden and placeholder shown if no URL
+		if (introSentenceImage) introSentenceImage.style.display = 'none';
+		if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
+	}
+	
 	highlightElement(item.elementToHighlight, true);
 	if (ttsAudioPlayer) {
 		setTimeout(() => {

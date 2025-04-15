@@ -25,98 +25,140 @@
 
 		public function generatePartAudioAjax(Request $request, Lesson $lesson, int $partIndex)
 		{
-			Log::info("AJAX request to generate sentence audio for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
+			Log::info("AJAX request to generate sentence assets for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 
-			// Retrieve and decode lesson parts
+			// 1. Get Lesson Settings and Part Data
+			$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'openai');
+			$ttsVoice = $lesson->ttsVoice ?? ($ttsEngine === 'openai' ? 'alloy' : 'en-US-Studio-O'); // Default based on engine
+			$ttsLanguageCode = $lesson->ttsLanguageCode ?? 'en-US';
+			$llm = $lesson->preferredLlm ?? env('DEFAULT_LLM');
+
+			if (empty($llm)) {
+				Log::error("No LLM configured for generating sentence image ideas for Lesson ID {$lesson->id}.");
+				return response()->json(['success' => false, 'message' => 'AI model for image ideas is not configured.'], 500);
+			}
+
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 
-			// Validate partIndex
 			if (!is_array($lessonParts) || !isset($lessonParts[$partIndex])) {
 				Log::error("Invalid part index ({$partIndex}) or lesson parts data for Lesson ID: {$lesson->id}.");
 				return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 			}
 
 			$partData = $lessonParts[$partIndex];
-			$fullText = $partData['text'] ?? '';
+			$partText = $partData['text'] ?? '';
+			$partTitleSlug = Str::slug($partData['title'] ?? 'part-' . $partIndex); // For filenames
 
-			if (empty($fullText)) {
-				Log::warning("Lesson Part {$partIndex} text is empty for Lesson ID: {$lesson->id}. Skipping audio generation.");
-				return response()->json(['success' => true, 'message' => 'Part text is empty, no audio generated.', 'sentences' => []], 200);
+			if (empty($partText)) {
+				Log::warning("Part {$partIndex} text is empty for Lesson ID: {$lesson->id}. Cannot generate assets.");
+				// Return success but indicate nothing was done? Or failure? Let's return success with a note.
+				$lessonParts[$partIndex]['sentences'] = []; // Ensure sentences array is empty
+				$lessonParts[$partIndex]['audio_generated_at'] = Carbon::now()->toIso8601String();
+				$lesson->lesson_parts = $lessonParts;
+				$lesson->save();
+				return response()->json(['success' => true, 'message' => 'Part text was empty. No assets generated.', 'sentences' => []]);
 			}
 
-			// Get TTS settings from the lesson
-			$ttsEngine = $lesson->ttsEngine ?? env('DEFAULT_TTS_ENGINE', 'google');
-			$ttsVoice = $lesson->ttsVoice;
-			$ttsLanguageCode = $lesson->ttsLanguageCode;
-
-			if (empty($ttsVoice) || empty($ttsLanguageCode)) {
-				Log::error("Missing TTS Voice or Language Code in Lesson {$lesson->id} for Part {$partIndex} audio");
-				return response()->json(['success' => false, 'message' => 'Lesson TTS settings are incomplete.'], 400);
+			// 2. Split into Sentences
+			$sentencesText = MyHelper::splitIntoSentences($partText);
+			if (empty($sentencesText)) {
+				Log::warning("Could not split part {$partIndex} text into sentences for Lesson ID: {$lesson->id}.");
+				$lessonParts[$partIndex]['sentences'] = [];
+				$lessonParts[$partIndex]['audio_generated_at'] = Carbon::now()->toIso8601String();
+				$lesson->lesson_parts = $lessonParts;
+				$lesson->save();
+				return response()->json(['success' => true, 'message' => 'Could not split text into sentences.', 'sentences' => []]);
 			}
 
-			// --- Start Sentence Processing ---
-			try {
-				$sentencesText = MyHelper::splitIntoSentences($fullText);
-				if (empty($sentencesText)) {
-					Log::warning("Could not split text into sentences for Lesson ID: {$lesson->id}, Part Index: {$partIndex}.");
-					return response()->json(['success' => false, 'message' => 'Could not split text into sentences.'], 400);
+			// 3. Process Each Sentence
+			$processedSentences = [];
+			$overallSuccess = true; // Track if all steps succeed for all sentences
+
+			// --- Cleanup Old Audio Files for this Part ---
+			$oldSentences = $lessonParts[$partIndex]['sentences'] ?? [];
+			foreach($oldSentences as $oldSentence) {
+				if (!empty($oldSentence['audio_path']) && Storage::disk('public')->exists($oldSentence['audio_path'])) {
+					try {
+						Storage::disk('public')->delete($oldSentence['audio_path']);
+						Log::info("Deleted old sentence audio: " . $oldSentence['audio_path']);
+					} catch (Exception $e) {
+						Log::warning("Could not delete old sentence audio file: " . $oldSentence['audio_path'] . " - " . $e->getMessage());
+					}
+				}
+				// Note: We don't delete associated GeneratedImage records here, only the audio.
+				// Deleting the sentence entry breaks the link. Image cleanup needs separate logic if required.
+			}
+			// --- End Cleanup ---
+
+
+			foreach ($sentencesText as $sentenceIndex => $sentenceText) {
+				$sentenceData = [
+					'text' => $sentenceText,
+					'audio_path' => null,
+					'audio_url' => null,
+					'image_prompt_idea' => null,
+					'image_search_keywords' => null,
+					'generated_image_id' => null, // Keep existing ID if regenerating? No, reset on full regen.
+				];
+
+				// a) Generate Audio
+				$filenameBase = "lessons/{$lesson->session_id}/part{$partIndex}_sent{$sentenceIndex}_" . Str::slug(Str::limit($sentenceText, 20));
+				$audioResult = MyHelper::text2speech($sentenceText, $ttsVoice, $ttsLanguageCode, $filenameBase, $ttsEngine);
+
+				if ($audioResult['success']) {
+					$sentenceData['audio_path'] = $audioResult['storage_path'];
+					$sentenceData['audio_url'] = $audioResult['fileUrl'];
+				} else {
+					Log::warning("Failed to generate audio for sentence {$sentenceIndex}, Part {$partIndex}, Lesson {$lesson->id}. Error: " . ($audioResult['message'] ?? 'Unknown TTS error'));
+					$overallSuccess = false; // Mark failure if any audio gen fails
 				}
 
-				$generatedSentencesData = [];
-				$hasFailures = false;
+				// b) Generate Image Prompt/Keywords
+				$imageIdeaResult = EditController::generateSentenceImageIdeas($llm, $sentenceText);
+				if (!isset($imageIdeaResult['error'])) {
+					$sentenceData['image_prompt_idea'] = $imageIdeaResult['image_prompt_idea'];
+					$sentenceData['image_search_keywords'] = $imageIdeaResult['image_search_keywords'];
+				} else {
+					Log::warning("Failed to generate image ideas for sentence {$sentenceIndex}, Part {$partIndex}, Lesson {$lesson->id}. Error: " . ($imageIdeaResult['error'] ?? 'Unknown LLM error'));
+					// Don't mark overallSuccess as false just for image ideas failing? Maybe. Let's allow it.
+					// $overallSuccess = false;
+				}
 
-				foreach ($sentencesText as $sentenceIndex => $sentence) {
-					$sentenceIdentifier = "s{$lesson->id}_p{$partIndex}_s{$sentenceIndex}";
-					$outputFilenameBase = 'audio/intro_' . $sentenceIdentifier; // Include path segment
+				$processedSentences[] = $sentenceData;
+			}
 
-					Log::info("Generating audio for sentence {$sentenceIndex}: '{$sentence}'");
+			// 4. Update Lesson Data and Save
+			try {
+				// Update the lesson_parts array directly
+				$lessonParts[$partIndex]['sentences'] = $processedSentences;
+				$lessonParts[$partIndex]['audio_generated_at'] = Carbon::now()->toIso8601String(); // Timestamp generation
 
-					$audioResult = MyHelper::text2speech(
-						$sentence,
-						$ttsVoice,
-						$ttsLanguageCode,
-						$outputFilenameBase, // Pass the base path + filename prefix
-						$ttsEngine
-					);
-
-					if ($audioResult['success'] && !empty($audioResult['storage_path']) && !empty($audioResult['fileUrl'])) {
-						$generatedSentencesData[] = [
-							'text' => $sentence,
-							'audio_path' => $audioResult['storage_path'], // Relative path within disk
-							'audio_url' => $audioResult['fileUrl'],
-						];
-						Log::info("Success generating audio for sentence {$sentenceIndex}. Path: {$audioResult['storage_path']}");
-					} else {
-						Log::error("Failed to generate audio for sentence {$sentenceIndex} (Lesson {$lesson->id}, Part {$partIndex}): " . ($audioResult['message'] ?? 'Unknown TTS error'));
-						$generatedSentencesData[] = [
-							'text' => $sentence,
-							'audio_path' => null,
-							'audio_url' => null,
-							'error' => $audioResult['message'] ?? 'Unknown TTS error',
-						];
-						$hasFailures = true;
-					}
-				} // End foreach sentence
-
-				// Update the specific lesson part in the array
-				$lessonParts[$partIndex]['sentences'] = $generatedSentencesData;
-				$lessonParts[$partIndex]['audio_generated_at'] = Carbon::now()->toDateTimeString();
-
-				// Save the modified array back to the model
+				// This ensures the whole array is saved back correctly
 				$lesson->lesson_parts = $lessonParts;
 				$lesson->save();
 
-				Log::info("Part sentence audio generation process completed for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Failures: " . ($hasFailures ? 'Yes' : 'No'));
+				Log::info("Successfully generated sentence assets for Lesson ID: {$lesson->id}, Part Index: {$partIndex}. Sentences processed: " . count($processedSentences));
+
+				// Eager load generated images for the response if IDs were set (unlikely on initial gen)
+				// This part is complex as IDs are inside JSON. We'll pass IDs back and let JS handle image loading.
+				$sentencesWithImageIds = array_map(function($sentence) {
+					// We need the generated image URL if ID exists
+					// This requires fetching image data based on sentence['generated_image_id']
+					// Let's skip this complex lookup here and handle image display client-side based on the ID
+					return $sentence;
+				}, $processedSentences);
+
 
 				return response()->json([
-					'success' => !$hasFailures, // Overall success is true only if NO failures occurred
-					'message' => $hasFailures ? 'Audio generated for some sentences, but failures occurred.' : 'Sentence audio generated successfully!',
-					'sentences' => $generatedSentencesData // Return the detailed data
+					'success' => true, // Report overall success even if some minor things failed
+					'message' => 'Sentence audio and image prompts generated.',
+					'sentences' => $sentencesWithImageIds, // Return the processed data
+					'partIndex' => $partIndex
 				]);
 
-			} catch (\Exception $e) {
-				Log::error("Exception during AJAX part sentence audio generation for Lesson ID {$lesson->id}, Part {$partIndex}: " . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'Server error during sentence audio generation.'], 500);
+			} catch (Exception $e) {
+				Log::error("Error saving updated lesson parts for Lesson ID {$lesson->id}, Part {$partIndex}: " . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'Failed to save sentence assets to lesson.'], 500);
 			}
 		}
 
@@ -409,6 +451,169 @@
 				Log::error("Exception during image upload for Question ID {$question->id}: " . $e->getMessage(), ['exception' => $e]);
 				return response()->json(['success' => false, 'message' => 'Server error during image upload: ' . $e->getMessage()], 500);
 			}
+		}
+
+		public function generateSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
+		{
+			$validator = Validator::make($request->all(), [
+				'prompt' => 'required|string|max:1000',
+				'image_model' => 'nullable|string|max:100', // Optional: allow specifying model per sentence
+				'size' => 'nullable|string|max:50', // Optional: allow specifying size per sentence
+			]);
+
+			if ($validator->fails()) {
+				return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+			}
+
+			Log::info("AJAX request to generate AI image for Lesson ID: {$lesson->id}, Part: {$partIndex}, Sentence: {$sentenceIndex}");
+
+			$prompt = $request->input('prompt');
+			$imageModel = $request->input('image_model', env('DEFAULT_IMAGE_GEN_MODEL', 'fal-ai/flux/schnell')); // Use default if not provided
+			$size = $request->input('size', 'square_hd');
+
+			// --- Access Sentence Data ---
+			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
+			if (!isset($lessonParts[$partIndex]['sentences'][$sentenceIndex])) {
+				Log::error("Sentence index {$sentenceIndex} not found for part {$partIndex}, lesson {$lesson->id}.");
+				return response()->json(['success' => false, 'message' => 'Sentence not found.'], 404);
+			}
+			// --- End Access Sentence Data ---
+
+			$result = MyHelper::makeImage($prompt, $imageModel, $size);
+
+			if ($result['success']) {
+				// Update the specific sentence with the new generated_image_id
+				try {
+					$lessonParts[$partIndex]['sentences'][$sentenceIndex]['generated_image_id'] = $result['image_id'];
+					$lessonParts[$partIndex]['sentences'][$sentenceIndex]['image_prompt_idea'] = $prompt; // Update prompt used
+
+					$lesson->lesson_parts = $lessonParts; // Assign the modified array back
+					$lesson->save();
+
+					Log::info("AI Image generated and linked for Lesson ID: {$lesson->id}, Part: {$partIndex}, Sentence: {$sentenceIndex}. Image ID: {$result['image_id']}");
+
+					return response()->json([
+						'success' => true,
+						'message' => 'AI Image generated successfully!',
+						'image_urls' => $result['image_urls'],
+						'prompt' => $prompt, // Return the prompt used
+						'image_id' => $result['image_id'],
+						'partIndex' => $partIndex,
+						'sentenceIndex' => $sentenceIndex,
+					]);
+
+				} catch (Exception $e) {
+					Log::error("Error saving generated_image_id for sentence: " . $e->getMessage());
+					// Should we delete the generated image record/files if DB save fails? Complex cleanup.
+					return response()->json(['success' => false, 'message' => 'Image generated but failed to link to sentence.'], 500);
+				}
+
+			} else {
+				Log::error("Failed to generate AI Image for sentence. Error: " . ($result['message'] ?? 'Unknown image generation error'));
+				return response()->json([
+					'success' => false,
+					'message' => $result['message'] ?? 'Failed to generate image.',
+					'details' => $result['details'] ?? null
+				], isset($result['status_code']) && $result['status_code'] >= 500 ? 502 : 400); // 502 Bad Gateway if upstream failed
+			}
+		}
+
+		/**
+		 * AJAX: Handles uploading an image for a specific sentence.
+		 */
+		public function uploadSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
+		{
+			$validator = Validator::make($request->all(), [
+				'sentence_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB Max
+			]);
+
+			if ($validator->fails()) {
+				return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+			}
+
+			Log::info("AJAX request to upload image for Lesson ID: {$lesson->id}, Part: {$partIndex}, Sentence: {$sentenceIndex}");
+
+			// --- Access Sentence Data ---
+			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
+			if (!isset($lessonParts[$partIndex]['sentences'][$sentenceIndex])) {
+				Log::error("Sentence index {$sentenceIndex} not found for part {$partIndex}, lesson {$lesson->id}.");
+				return response()->json(['success' => false, 'message' => 'Sentence not found.'], 404);
+			}
+			$sentenceData = $lessonParts[$partIndex]['sentences'][$sentenceIndex];
+			// --- End Access Sentence Data ---
+
+
+			if ($request->hasFile('sentence_image')) {
+				$file = $request->file('sentence_image');
+				$baseDir = 'uploads/lesson_sentence_images'; // Specific directory
+				$baseName = "lesson_{$lesson->id}_part_{$partIndex}_sent_{$sentenceIndex}_" . time(); // Unique name
+
+				// Use Helper function to handle resizing and saving
+				$imagePaths = MyHelper::handleImageProcessing($file, $baseDir, $baseName);
+
+				if ($imagePaths) {
+					// --- Delete old image if it exists and was 'upload' or 'freepik' source ---
+					if (!empty($sentenceData['generated_image_id'])) {
+						$oldImage = GeneratedImage::find($sentenceData['generated_image_id']);
+						if ($oldImage && in_array($oldImage->source, ['upload', 'freepik'])) {
+							Log::info("Deleting old uploaded/freepik image files for Sentence {$sentenceIndex}, Image ID: {$oldImage->id}");
+							$oldImage->deleteStorageFiles();
+							$oldImage->delete(); // Delete the record too
+						}
+					}
+					// --- End Delete old image ---
+
+					try {
+						// Create GeneratedImage record for the upload
+						$imageRecord = GeneratedImage::create([
+							'image_type' => 'sentence', // Or keep 'generated'? Let's use 'sentence' for clarity
+							'source' => 'upload',
+							'image_guid' => Str::uuid()->toString(), // Generate a GUID for uploads too? Optional but can be useful.
+							'image_alt' => "Uploaded image for sentence: " . Str::limit($sentenceData['text'] ?? '', 50),
+							'prompt' => null, // No AI prompt
+							'image_model' => null,
+							'image_size_setting' => null,
+							'image_original_path' => $imagePaths['original_path'],
+							'image_large_path' => $imagePaths['large_path'],
+							'image_medium_path' => $imagePaths['medium_path'],
+							'image_small_path' => $imagePaths['small_path'],
+							'api_response_data' => null,
+						]);
+
+						// Update the sentence with the new image ID
+						$lessonParts[$partIndex]['sentences'][$sentenceIndex]['generated_image_id'] = $imageRecord->id;
+						$lesson->lesson_parts = $lessonParts;
+						$lesson->save();
+
+						Log::info("Image uploaded and linked for Sentence {$sentenceIndex}. New Image ID: {$imageRecord->id}");
+
+						return response()->json([
+							'success' => true,
+							'message' => 'Image uploaded successfully!',
+							'image_urls' => [ // Use accessors from the model
+								'original' => $imageRecord->original_url,
+								'large' => $imageRecord->large_url,
+								'medium' => $imageRecord->medium_url,
+								'small' => $imageRecord->small_url,
+							],
+							'prompt' => null, // No prompt for uploads
+							'image_id' => $imageRecord->id,
+							'partIndex' => $partIndex,
+							'sentenceIndex' => $sentenceIndex,
+						]);
+
+					} catch (Exception $e) {
+						Log::error("Error creating GeneratedImage record or saving lesson after upload: " . $e->getMessage());
+						// Clean up newly uploaded files if DB save fails?
+						Storage::disk('public')->delete(array_values($imagePaths));
+						return response()->json(['success' => false, 'message' => 'Failed to process uploaded image.'], 500);
+					}
+				} else {
+					return response()->json(['success' => false, 'message' => 'Failed to process image file after upload.'], 500);
+				}
+			}
+
+			return response()->json(['success' => false, 'message' => 'No image file provided.'], 400);
 		}
 
 

@@ -4,24 +4,51 @@
 
 @push('styles')
 	<style>
+      .intro-image-container {
+          min-height: 200px; /* Ensure space even if image is hidden */
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background-color: var(--bs-tertiary-bg); /* Light background for placeholder */
+          border-radius: 0.375rem; /* Match Bootstrap's rounded */
+      }
+
+      .dark-mode .intro-image-container {
+          background-color: var(--bs-secondary-bg); /* Darker background for dark mode */
+      }
+
+      #introSentenceImage {
+          transition: opacity 0.3s ease-in-out; /* Fade effect */
+          object-fit: contain; /* Fit image within bounds without stretching */
+      }
+
+      #introSentenceImage.hidden {
+          opacity: 0;
+          display: none; /* Hide completely when no image */
+      }
+      #introSentenceImage:not(.hidden) {
+          display: block; /* Show when image is set */
+          opacity: 1;
+      }
+
+      
       /* Add styling for highlighted sentence */
+      .intro-sentence {
+          /* Add a small margin-right if sentences run together */
+          margin-right: 0.2em;
+          transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+      }
+
       .intro-sentence.highlight {
           background-color: rgba(var(--bs-primary-rgb), 0.2); /* Light blue background */
-          /* background-color: #ffe082; */ /* Or yellow */
-          padding: 0.1em 0.2em;
-          border-radius: 3px;
           transition: background-color 0.2s ease-in-out;
-          cursor: pointer; /* Indicate clickability if needed */
       }
+      
       /* Style for the intro text container */
       #partIntroTextContainer {
           line-height: 1.8; /* Increase line spacing for readability */
           font-size: 1.1rem; /* Slightly larger font */
-      }
-      /* Style for sentence spans to ensure proper spacing */
-      .intro-sentence {
-          /* Add a small margin-right if sentences run together */
-          margin-right: 0.2em;
       }
 
       /* Ensure dark mode highlight is visible */
@@ -167,9 +194,11 @@
 		// --- DOM Element References ---
 		let partIntroTextContainer = null; // Container for sentence spans
 		let introPlaybackControls = null;
-		let playIntroButton = null;
-		let pauseIntroButton = null;
-		let stopIntroButton = null;
+		let startOverIntroButton = null;
+		
+		let introSentenceImageContainer = null;
+		let introSentenceImage = null;
+		let introSentenceImagePlaceholder = null;
 		
 		let questionArea = null;
 		let questionDifficulty = null;
@@ -263,6 +292,11 @@
 			partIntroTitle = document.getElementById('partIntroTitle');
 			partIntroText = document.getElementById('partIntroText');
 			partIntroTextContainer = document.getElementById('partIntroTextContainer');
+			
+			introSentenceImageContainer = document.getElementById('introSentenceImageContainer');
+			introSentenceImage = document.getElementById('introSentenceImage');
+			introSentenceImagePlaceholder = document.getElementById('introSentenceImagePlaceholder');
+			
 			startPartQuestionButton = document.getElementById('startPartQuestionButton');
 			
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
@@ -290,9 +324,7 @@
 			
 			// Intro playback controls
 			introPlaybackControls = document.getElementById('introPlaybackControls');
-			playIntroButton = document.getElementById('playIntroButton');
-			pauseIntroButton = document.getElementById('pauseIntroButton');
-			stopIntroButton = document.getElementById('stopIntroButton');
+			startOverIntroButton = document.getElementById('startOverIntroButton');
 			
 			
 			console.log('Interactive Question JS Loaded');
@@ -310,7 +342,7 @@
 			setupModalEventListeners();
 			setupQuestionAnswerEventListeners();
 			setupHelperEventListeners();
-			setupIntroPlaybackControls();
+			setupStartOverIntroButtonListener();
 			
 			initQuestionInterface();
 			

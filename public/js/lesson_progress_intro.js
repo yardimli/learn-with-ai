@@ -75,19 +75,18 @@ function showPartIntro(partIndexToShow) {
 	if (partIndexToShow < 0 || partIndexToShow >= totalParts || !allPartIntros[partIndexToShow]) {
 		console.error("Invalid partIndexToShow:", partIndexToShow);
 		setErrorState("Cannot display intro for invalid part index.");
-		toggleElement(partIntroArea, true); // Show area but with error message potentially
+		toggleElement(partIntroArea, true);
 		if(partIntroTitle) partIntroTitle.textContent = "Error";
 		if(partIntroTextContainer) partIntroTextContainer.innerHTML = '<p class="text-danger">Could not load introduction content.</p>';
 		if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide controls on error
 		return;
 	}
 	
-	stopPlaybackSequence(true); // Stop any previous audio playback
-	feedbackData = null; // Clear any lingering feedback state
+	stopPlaybackSequence(true);
+	feedbackData = null;
 	isPartIntroVisible = true;
 	displayedPartIndex = partIndexToShow;
-	// Update current state reflecting the viewed part
-	currentState.partIndex = partIndexToShow; // Set state to the part being viewed
+	currentState.partIndex = partIndexToShow;
 	
 	const introData = window.allPartIntros[partIndexToShow];
 	const introTitle = introData.title || `Part ${partIndexToShow + 1}`;
@@ -95,6 +94,15 @@ function showPartIntro(partIndexToShow) {
 	
 	// --- Populate Intro Area ---
 	if (partIntroTitle) partIntroTitle.textContent = `Part ${partNumber}: ${introTitle}`;
+	
+	// --- Reset Image Display ---
+	if (introSentenceImage) {
+		introSentenceImage.style.display = 'none'; // Hide initially
+		introSentenceImage.src = ''; // Clear src
+	}
+	if (introSentenceImagePlaceholder) {
+		introSentenceImagePlaceholder.style.display = 'block'; // Show placeholder
+	}
 	
 	// Populate Sentence Spans
 	if (partIntroTextContainer && partIntroText) {
@@ -124,32 +132,35 @@ function showPartIntro(partIndexToShow) {
 	toggleElement(partIntroArea, true);
 	toggleElement(questionArea, false);
 	toggleElement(completionMessage, false);
-	toggleElement(partCompletionMessage, false); // Hide part completion message when showing intro
+	toggleElement(partCompletionMessage, false);
 	
 	// --- Update Buttons and State ---
 	if (startPartQuestionButton) {
 		startPartQuestionButton.textContent = `Start Part ${partNumber} Questions`;
-		startPartQuestionButton.disabled = false; // Enable by default
+		startPartQuestionButton.disabled = false;
 	}
-	updateProgressBar(); // Update progress bar display
-	setInteractionsDisabled(false); // Ensure interactions enabled initially
-	updateButtonStates(11); // Update buttons based on new state
+	updateProgressBar();
+	setInteractionsDisabled(false);
+	updateButtonStates(11);
 	
 	// --- Handle Audio ---
 	if (introData.has_audio && introData.sentences.length > 0) {
 		buildIntroPlaybackQueue(introData.sentences); // Build queue from sentence data
 		if (introPlaybackControls) {
-			toggleElement(introPlaybackControls, true); // Show manual controls
-			toggleIntroPlaybackButtons(false); // Show play initially
+			toggleElement(introPlaybackControls, true);
 		}
 		if (isAutoPlayEnabled) {
 			console.log("Auto-playing intro sentences...");
 			startPlaybackSequence(); // Start sequence if auto-play is on
 		} else {
 			console.log("Auto-play disabled for intro.");
+			if (introSentenceImage) introSentenceImage.style.display = 'none';
+			if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
 		}
 	} else {
 		console.log("No audio available for this intro or no sentences.");
+		if (introSentenceImage) introSentenceImage.style.display = 'none';
+		if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
 		if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide manual controls
 		playbackQueue = []; // Ensure queue is empty
 	}
@@ -167,6 +178,9 @@ function startPartQuestions() {
 	
 	// Hide Intro Area, show loading state (which will then show question area)
 	toggleElement(partIntroArea, false);
+	if (introSentenceImage) introSentenceImage.style.display = 'none';
+	if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
+	
 	if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide controls when leaving intro
 	toggleElement(questionArea, false); // Hide question area initially
 	

@@ -97,7 +97,7 @@ PROMPT;
 
 			Log::info("Requesting image ideas for sentence: '" . Str::limit($sentenceText, 50) . "...' using LLM: {$llm}");
 
-			$result = self::llm_no_tool_call($llm, self::SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA, $chatHistory, true, $maxRetries);
+			$result = MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA, $chatHistory, true, $maxRetries);
 
 			// Basic validation of the result structure
 			if (isset($result['error'])) {
@@ -624,10 +624,8 @@ PROMPT;
 		 * @param int $partIndex
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function updatePartTextAjax(Request $request, Lesson $lesson, int $partIndex)
-		{
+		public function updatePartTextAjax(Request $request, Lesson $lesson, int $partIndex) {
 			Log::info("AJAX request to update text for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
-
 			$validator = Validator::make($request->all(), [
 				'part_title' => 'required|string|max:255',
 				'part_text' => 'required|string|min:10|max:2000', // Adjust max length as needed
@@ -653,9 +651,39 @@ PROMPT;
 					return response()->json(['success' => false, 'message' => 'Invalid lesson part index.'], 400);
 				}
 
+				// *** NEW: Clear sentence-specific assets if text changes ***
+				$oldText = $lessonParts[$partIndex]['text'] ?? '';
+				$newText = $request->input('part_text');
+				if($oldText !== $newText) {
+					Log::info("Part text changed for {$lesson->id}-{$partIndex}. Clearing sentence assets.");
+					// --- Cleanup Old Audio/Images ---
+					$oldSentences = $lessonParts[$partIndex]['sentences'] ?? [];
+					foreach($oldSentences as $oldSentence) {
+						// Delete Audio
+						if (!empty($oldSentence['audio_path']) && Storage::disk('public')->exists($oldSentence['audio_path'])) {
+							try { Storage::disk('public')->delete($oldSentence['audio_path']); } catch (Exception $e) { Log::warning("Could not delete old sentence audio: ".$e->getMessage());}
+						}
+						// Delete Linked Image (if upload/freepik)
+						if (!empty($oldSentence['generated_image_id'])) {
+							$oldImage = GeneratedImage::find($oldSentence['generated_image_id']);
+							if ($oldImage && in_array($oldImage->source, ['upload', 'freepik'])) {
+								try {
+									$oldImage->deleteStorageFiles();
+									$oldImage->delete();
+								} catch (Exception $e) { Log::warning("Could not delete old sentence image: ".$e->getMessage());}
+							}
+						}
+					}
+					// --- End Cleanup ---
+					$lessonParts[$partIndex]['sentences'] = []; // Clear the sentences array
+					$lessonParts[$partIndex]['audio_generated_at'] = null; // Reset timestamp
+				}
+				// *** END NEW ***
+
+
 				// Update the specific part's title and text
 				$lessonParts[$partIndex]['title'] = $request->input('part_title');
-				$lessonParts[$partIndex]['text'] = $request->input('part_text');
+				$lessonParts[$partIndex]['text'] = $newText; // Use the validated new text
 
 				// Save the modified array back to the lesson
 				$lesson->lesson_parts = $lessonParts;
@@ -663,7 +691,6 @@ PROMPT;
 
 				DB::commit();
 				Log::info("Successfully updated text for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
-
 				return response()->json([
 					'success' => true,
 					'message' => 'Lesson part updated successfully.',
@@ -671,9 +698,9 @@ PROMPT;
 						'index' => $partIndex,
 						'title' => $lessonParts[$partIndex]['title'],
 						'text' => $lessonParts[$partIndex]['text'],
+						'sentences_cleared' => ($oldText !== $newText) // Indicate if sentences were cleared
 					]
 				]);
-
 			} catch (Exception $e) {
 				DB::rollBack();
 				Log::error("Error updating lesson part text for Lesson ID {$lesson->id}, Part Index {$partIndex}: " . $e->getMessage());
