@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const lessonInput = document.getElementById('lessonInput');
 	
 	const preferredLlmSelect = document.getElementById('preferredLlmSelect');
-	const categorySelect = document.getElementById('categorySelect');         // New
+	const subCategorySelect = document.getElementById('subCategorySelect'); // New
 	const languageSelect = document.getElementById('languageSelect');         // New
 	const ttsEngineSelect = document.getElementById('ttsEngineSelect');
 	const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		startLearningButton.disabled = !enabled || !lessonInput.value.trim(); // Also check lesson input value
 		lessonInput.disabled = !enabled;
 		preferredLlmSelect.disabled = !enabled;
-		categorySelect.disabled = !enabled;         // Disable/enable category
+		subCategorySelect.disabled = !enabled;         // Disable/enable category
 		languageSelect.disabled = !enabled;         // Disable/enable language
 		ttsEngineSelect.disabled = !enabled;
 		ttsVoiceSelect.disabled = !enabled;
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedOption = ttsVoiceSelect.options[ttsVoiceSelect.selectedIndex];
 			if (selectedOption && selectedOption.parentElement.style.display === 'none' && firstVisibleOption) {
 				firstVisibleOption.selected = true;
-			} else if (!selectedOption && firstVisibleOption){ // If nothing selected initially
+			} else if (!selectedOption && firstVisibleOption) { // If nothing selected initially
 				firstVisibleOption.selected = true;
 			}
 		}
@@ -123,10 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Gather data for preview
 			const lesson = lessonInput.value;
 			const llm = preferredLlmSelect.value;
-			const category_id = categorySelect.value; // Get category ('auto' or ID)
+			const sub_category_id = subCategorySelect.value; // Get category ('auto' or ID)
 			const language = languageSelect.value;   // Get language
 			
-			if (!lesson || !llm || !category_id || !language) {
+			if (!lesson || !llm || !sub_category_id || !language) {
 				showMainError("Please enter a lesson subject and select all options (AI model, category, language).");
 				return;
 			}
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						'Accept': 'application/json',
 						'Content-Type': 'application/json'
 					},
-					body: JSON.stringify({ lesson, llm, category_id, language })
+					body: JSON.stringify({lesson, llm, sub_category_id, language})
 				});
 				
 				setLoading(false); // Hide full page loader once preview response starts
@@ -155,15 +155,17 @@ document.addEventListener('DOMContentLoaded', () => {
 				
 				// Success: Store data and populate modal
 				currentPlanData = result.plan;
-				currentCategoryInput = result.category_input;       // Store original input
+				currentSubCategoryInput = result.category_input;       // Store original input
 				currentLanguageSelected = result.language_selected; // Store selected language
-				currentSuggestedCategory = result.suggested_category_name; // Store AI suggestion
+				currentSuggestedMainCategory = result.suggested_main_category;
+				currentSuggestedSubCategory = result.suggested_sub_category; // Store AI suggestion
 				
 				populateModal(currentPlanData, lesson, llm); // Populate basic structure
 				
 				// Show suggested category if 'auto' was selected and suggestion exists
-				if (currentCategoryInput === 'auto' && currentSuggestedCategory) {
-					suggestedCategoryText.textContent = currentSuggestedCategory;
+				if (currentSubCategoryInput === 'auto' && currentSuggestedMainCategory && currentSuggestedSubCategory) {
+					document.getElementById('suggestedMainCategoryText').textContent = currentSuggestedMainCategory; // New
+					document.getElementById('suggestedSubCategoryText').textContent = currentSuggestedSubCategory; // New
 					modalCategorySuggestionArea.classList.remove('d-none');
 				} else {
 					modalCategorySuggestionArea.classList.add('d-none'); // Hide if not auto or no suggestion
@@ -186,9 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		cancelPreviewButton.addEventListener('click', () => {
 			setFormEnabled(true);
 			currentPlanData = null; // Clear stored data
-			currentCategoryInput = null;
+			currentSubCategoryInput  = null;
 			currentLanguageSelected = null;
-			currentSuggestedCategory = null;
+			currentSuggestedMainCategory  = null;
+			currentSuggestedSubCategory = null;
 			confirmPreviewButton.disabled = true;
 			modalLoadingIndicator.classList.add('d-none');
 			modalCategorySuggestionArea.classList.add('d-none'); // Hide suggestion area
@@ -229,9 +232,10 @@ document.addEventListener('DOMContentLoaded', () => {
 						tts_voice: ttsVoice,
 						tts_language_code: ttsLanguageCode,
 						language: currentLanguageSelected,         // Send saved language
-						category_input: currentCategoryInput,       // Send original category input ('auto' or ID)
-						suggested_category_name: currentSuggestedCategory, // Send AI suggestion (null if not 'auto')
-						plan: currentPlanData // Send the generated structure plan
+						category_input: currentSubCategoryInput,       // Send original category input ('auto' or ID)
+						suggested_main_category: currentSuggestedMainCategory, // New
+						suggested_sub_category: currentSuggestedSubCategory, // New
+						plan: currentPlanData
 					})
 				});
 				

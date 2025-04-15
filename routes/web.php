@@ -1,6 +1,6 @@
 <?php
 
-	use App\Http\Controllers\CategoryController;
+	use App\Http\Controllers\CategoryManagementController;
 	use App\Http\Controllers\Controller;
 	use App\Http\Controllers\EditController;
 	use App\Http\Controllers\FreePikController;
@@ -33,8 +33,25 @@
 		->where('partIndex', '[0-9]+')
 		->name('lesson.part.update.text');
 
-	Route::resource('categories', CategoryController::class)->except(['show']);
+// --- Category Management ---
+	Route::prefix('manage')->name('category_management.')->group(function () {
+		// Main Categories
+		Route::get('main-category_management', [CategoryManagementController::class, 'mainIndex'])->name('main.index');
+		Route::get('main-category_management/create', [CategoryManagementController::class, 'mainCreate'])->name('main.create');
+		Route::post('main-category_management', [CategoryManagementController::class, 'mainStore'])->name('main.store');
+		Route::get('main-category_management/{mainCategory}/edit', [CategoryManagementController::class, 'mainEdit'])->name('main.edit');
+		Route::put('main-category_management/{mainCategory}', [CategoryManagementController::class, 'mainUpdate'])->name('main.update');
+		Route::delete('main-category_management/{mainCategory}', [CategoryManagementController::class, 'mainDestroy'])->name('main.destroy');
 
+		// Sub Categories (Example: could be nested or flat)
+		Route::get('sub-category_management', [CategoryManagementController::class, 'subIndex'])->name('sub.index'); // Maybe show all or grouped
+		Route::get('main-category_management/{mainCategory}/sub-category_management/create', [CategoryManagementController::class, 'subCreate'])->name('sub.create'); // Create nested
+		Route::post('sub-category_management', [CategoryManagementController::class, 'subStore'])->name('sub.store');
+		Route::get('sub-category_management/{subCategory}/edit', [CategoryManagementController::class, 'subEdit'])->name('sub.edit');
+		Route::put('sub-category_management/{subCategory}', [CategoryManagementController::class, 'subUpdate'])->name('sub.update');
+		Route::delete('sub-category_management/{subCategory}', [CategoryManagementController::class, 'subDestroy'])->name('sub.destroy');
+	});
+// --- End Category Management ---
 
 // Generate Question Batch
 	Route::post('/lesson/{lesson}/part/{partIndex}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])

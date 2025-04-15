@@ -16,8 +16,8 @@
 			'title',
 			'image_prompt_idea',
 			'generated_image_id',
-			'category_id', // Add category_id
-			'language',    // Add language
+			'sub_category_id',
+			'language',
 			'lesson_parts',
 			'ttsEngine',
 			'ttsVoice',
@@ -28,7 +28,7 @@
 		protected $casts = [
 			'lesson_parts' => 'array',
 			'generated_image_id' => 'integer',
-			'category_id' => 'integer', // Cast category_id
+			'sub_category_id' => 'integer',
 		];
 
 		public function getRouteKeyName()
@@ -42,10 +42,10 @@
 		}
 
 		// Define the relationship to Category
-		public function category()
-		{
-			return $this->belongsTo(Category::class);
+		public function subCategory() {
+			return $this->belongsTo(SubCategory::class);
 		}
+
 
 		public function questions()
 		{

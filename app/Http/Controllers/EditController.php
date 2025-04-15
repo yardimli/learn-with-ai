@@ -5,6 +5,7 @@
 	use App\Helpers\MyHelper;
 	use App\Models\Category;
 	use App\Models\GeneratedImage;
+	use App\Models\MainCategory;
 	use App\Models\Question;
 
 	// Keep Question model import
@@ -216,7 +217,7 @@ PROMPT;
 				'tts_voice' => 'required|string|max:100',
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:30',
-				'category_id' => ['required', 'integer', Rule::exists('categories', 'id')],
+				'sub_category_id' => ['required', 'integer', Rule::exists('sub_categories', 'id')],
 			]);
 
 			if ($validator->fails()) {
@@ -233,7 +234,7 @@ PROMPT;
 				$lesson->ttsVoice = $request->input('tts_voice');
 				$lesson->ttsLanguageCode = $request->input('tts_language_code');
 				$lesson->language = $request->input('language');
-				$lesson->category_id = $request->input('category_id');
+				$lesson->sub_category_id = $request->input('sub_category_id');
 
 				$lesson->save();
 
@@ -256,14 +257,15 @@ PROMPT;
 		{
 			// Eager load questions and their associated images
 			// Order them by part, then difficulty, then their own order/id
-			$lesson->load(['questions' => function ($query) {
-				$query->orderBy('lesson_part_index', 'asc')
-					->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")
-					->orderBy('order', 'asc') // Use the order field
-					->orderBy('id', 'asc');
-			},
+			$lesson->load([
+				'questions' => function ($query) {
+					$query->orderBy('lesson_part_index', 'asc')
+						->orderByRaw("FIELD(difficulty_level, 'easy', 'medium', 'hard')")
+						->orderBy('order', 'asc')
+						->orderBy('id', 'asc');
+				},
 				'questions.generatedImage',
-				'category'
+				'subCategory.mainCategory' // Eager load sub and its main category
 			]);
 
 			Log::info("Showing edit page for Lesson ID: {$lesson->id} (Session: {$lesson->session_id})");
@@ -303,14 +305,17 @@ PROMPT;
 				}
 			}
 
-			$categories = Category::orderBy('name')->get();
+			// Get structured Main and Sub Categories for the dropdown
+			$mainCategories = MainCategory::with(['subCategories' => function ($query) {
+				$query->orderBy('name');
+			}])->orderBy('name')->get();
 
 			return view('edit_lesson', [
 				'lesson' => $lesson,
 				'groupedQuestions' => $groupedQuestions,
 				'llm' => $llm,
 				'llms' => $llms,
-				'categories' => $categories,
+				'mainCategories' => $mainCategories,
 			]);
 		}
 

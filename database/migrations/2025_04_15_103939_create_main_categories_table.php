@@ -6,23 +6,17 @@
 
 	return new class extends Migration
 	{
-		/**
-		 * Run the migrations.
-		 */
 		public function up(): void
 		{
-			Schema::create('category_management', function (Blueprint $table) {
+			Schema::create('main_categories', function (Blueprint $table) {
 				$table->id();
-				$table->string('name')->unique(); // Ensure category names are unique
+				$table->string('name')->unique(); // Main category names must be unique
 				$table->timestamps();
 			});
 		}
 
-		/**
-		 * Reverse the migrations.
-		 */
 		public function down(): void
 		{
-			Schema::dropIfExists('category_management');
+			Schema::dropIfExists('main_categories');
 		}
 	};

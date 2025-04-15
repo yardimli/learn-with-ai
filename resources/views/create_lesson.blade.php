@@ -6,7 +6,7 @@
 		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
 			<i class="fas fa-list"></i> View Existing Lessons
 		</a>
-		 <a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
+		 <a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
 	</div>
 	
 	<div class="content-card shadow-sm">
@@ -23,27 +23,35 @@
 			{{-- Row for Category and Language --}}
 			<div class="row mb-3">
 				<div class="col-md-6">
-					<label for="categorySelect" class="form-label">Category:</label>
-					<select class="form-select" id="categorySelect" name="category_id" required>
+					<label for="subCategorySelect" class="form-label">Category:</label>
+					<select class="form-select" id="subCategorySelect" name="sub_category_id" required>
 						<option value="auto" selected>Auto-detect Category</option>
-						@forelse ($categories ?? [] as $category)
-							<option value="{{ $category->id }}">{{ $category->name }}</option>
-						@empty
+						@if(isset($mainCategories) && $mainCategories->isNotEmpty())
+							@foreach ($mainCategories as $mainCategory)
+								<optgroup label="{{ $mainCategory->name }}">
+									@forelse ($mainCategory->subCategories as $subCategory)
+										<option value="{{ $subCategory->id }}">{{ $subCategory->name }}</option>
+									@empty
+										<option value="" disabled class="fst-italic text-muted">No sub-categories yet</option>
+									@endforelse
+								</optgroup>
+							@endforeach
+						@else
 							<option value="auto" disabled>No categories exist yet, using Auto-detect</option>
-						@endforelse
+						@endif
 					</select>
-					<small class="form-text text-muted">Select a category or let the AI suggest one.</small>
+					<small class="form-text text-muted">Select a sub-category or let the AI suggest main/sub.</small>
 				</div>
 				<div class="col-md-6">
 					<label for="languageSelect" class="form-label">Lesson Language:</label>
 					<select class="form-select" id="languageSelect" name="language" required>
+						{{-- Language options remain the same --}}
 						<option value="English" selected>English</option>
 						<option value="Türkçe">Türkçe</option>
 						<option value="Deutsch">Deutsch</option>
 						<option value="Français">Français</option>
 						<option value="Español">Español</option>
 						<option value="繁體中文">繁體中文</option>
-						{{-- Add other common languages as needed --}}
 					</select>
 					<small class="form-text text-muted">Primary language of the lesson content.</small>
 				</div>
@@ -159,9 +167,12 @@
 				{{-- Display Suggested Category Here --}}
 				<div class="modal-category-suggestion px-3 pb-2 d-none" id="modalCategorySuggestionArea">
 					<hr>
-					<p class="mb-1"><strong>AI Suggested Category:</strong> <span id="suggestedCategoryText"
-					                                                              class="badge bg-info"></span></p>
-					<small class="text-muted">This category will be created if it doesn't exist when you confirm.</small>
+					<p class="mb-1">
+						<strong>AI Suggested Category:</strong><br>
+						Main: <span id="suggestedMainCategoryText" class="badge bg-info"></span> <br>
+						Sub: <span id="suggestedSubCategoryText" class="badge bg-light text-dark"></span>
+					</p>
+					<small class="text-muted">These categories will be created if they don't exist when you confirm.</small>
 				</div>
 				<div class="modal-footer">
                 <span id="modalLoadingIndicator" class="me-auto d-none">

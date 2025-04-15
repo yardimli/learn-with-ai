@@ -81,7 +81,7 @@
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to
 			Lessons</a>
-		<a href="{{ route('categories.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage
+		<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage
 			Categories </a>
 		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i
 				class="fas fa-eye"></i> Start Lesson</a>
@@ -97,22 +97,25 @@
 			{{-- Category --}}
 			<div class="col-md-6 col-lg-3 mb-2">
 				<div class="d-flex align-items-center">
-					<label for="editCategorySelect" class="form-label me-2 mb-0 text-nowrap">
+					<label for="editSubCategorySelect" class="form-label me-2 mb-0 text-nowrap">
 						<i class="fas fa-tags text-info me-1"></i>Category:
 					</label>
-					<select id="editCategorySelect" class="form-select form-select-sm" required>
-						@if($categories->isEmpty())
-							<option value="" disabled selected>No categories available</option>
-						@else
-							@foreach ($categories as $category)
-								<option value="{{ $category->id }}" {{ $lesson->category_id == $category->id ? 'selected' : '' }}>
-									{{ $category->name }}
-								</option>
+					<select id="editSubCategorySelect" class="form-select form-select-sm" required>
+						@if(isset($mainCategories) && $mainCategories->isNotEmpty())
+							<option value="" {{ is_null($lesson->sub_category_id) ? 'selected' : '' }} disabled>Select Sub-Category</option> {{-- Placeholder --}}
+							@foreach ($mainCategories as $mainCategory)
+								<optgroup label="{{ $mainCategory->name }}">
+									@forelse ($mainCategory->subCategories as $subCategory)
+										<option value="{{ $subCategory->id }}" {{ $lesson->sub_category_id == $subCategory->id ? 'selected' : '' }}>
+											{{ $subCategory->name }}
+										</option>
+									@empty
+										<option value="" disabled class="fst-italic text-muted">No sub-categories yet</option>
+									@endforelse
+								</optgroup>
 							@endforeach
-							{{-- Add placeholder if no category is selected AND categories exist --}}
-							@if (is_null($lesson->category_id) && !$categories->isEmpty())
-								<option value="" disabled selected>Select Category</option>
-							@endif
+						@else
+							<option value="" disabled selected>No categories available</option>
 						@endif
 					</select>
 				</div>

@@ -5,6 +5,8 @@
 	use App\Helpers\MyHelper;
 	use App\Models\Category;
 	use App\Models\Lesson;
+	use App\Models\MainCategory;
+	use App\Models\SubCategory;
 	use App\Models\UserAnswer;
 	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
@@ -33,75 +35,76 @@
 		public function index()
 		{
 			$llms = MyHelper::checkLLMsJson();
-			$categories = Category::orderBy('name')->get(); // Fetch categories
+
+			$mainCategories = MainCategory::with(['subCategories' => function ($query) {
+				$query->orderBy('name');
+			}])->orderBy('name')->get();
+
+
 			// Eager load question count for potential display (optional)
 			$lessons = Lesson::withCount('questions')->orderBy('created_at', 'desc')->get();
-			return view('create_lesson', compact('llms', 'lessons', 'categories')); // Pass categories
+			return view('create_lesson', compact('llms', 'lessons', 'mainCategories'));
 		}
 
 		public function listLessons()
 		{
-			// Fetch lessons with eager-loaded category and question count
-			$lessons = Lesson::with(['category']) // Eager load the category relationship
+			$lessons = Lesson::with(['subCategory.mainCategory']) // Eager load relationships
 			->withCount('questions')
-				// Order primarily to keep lessons within a category consistent
 				->orderBy('created_at', 'desc')
 				->get();
 
-			// Group lessons by category ID. A null key will hold uncategorized lessons.
-			$groupedLessons = $lessons->groupBy('category_id');
+			$groupedLessons = $lessons->groupBy(function ($lesson) {
+				// Group by main category ID, handle lessons with no subcategory (or main category missing)
+				return $lesson->subCategory->mainCategory->id ?? null; // Null key for uncategorized/error
+			});
 
-			// Get category names, ordered by name for display consistency in the view
-			// We'll use this map to get category names from IDs later
-			$categoryNames = Category::orderBy('name')->pluck('name', 'id')->all(); // Get ID=>Name array
+			$mainCategoryNames = MainCategory::orderBy('name')->pluck('name', 'id')->all();
+			$orderedMainCategoryIds = array_keys($mainCategoryNames);
 
-			// Get the category IDs in the desired display order (alphabetical by name)
-			// We will iterate through these IDs in the view
-			$orderedCategoryIds = array_keys($categoryNames); // IDs ordered by category name
+			Log::info("Fetched and grouped lessons for listing. Main Categories found: " . count($mainCategoryNames));
 
-			Log::info("Fetched and grouped lessons for listing. Categories found: " . count($categoryNames));
-
-			// Pass the grouped lessons, the category name map, and the ordered IDs
-			return view('lessons_list', compact('groupedLessons', 'categoryNames', 'orderedCategoryIds'));
+			return view('lessons_list', compact('groupedLessons', 'mainCategoryNames', 'orderedMainCategoryIds'));
 		}
 
 		// --- Prompt for generating Lesson Structure ONLY ---
 		private const SYSTEM_PROMPT_LESSON_STRUCTURE = <<<PROMPT
 You are an AI assistant specialized in creating the structure for educational micro-lessons.
-The user will provide a subject and potentially a list of existing categories.
+The user will provide a subject and potentially a list of existing MAIN category_management.
 Create in the specified language, if no language is provided, use English.
-
 You MUST generate the basic lesson plan structure as a single JSON object.
+
 The JSON object MUST have the following structure:
 {
-  "main_title": "A concise and engaging main title for the entire lesson (max 15 words).",
-  "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for the whole lesson.",
-  "lesson_parts": [
-    {
-      "title": "Title for Lesson Part 1 (e.g., 'Introduction to X')",
-      "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part of the lesson.",
-      "text": "Content for Lesson Part 1 (3-6 sentences, approx 50-120 words). Explain a key concept or aspect."
-    },
-    {
-      "title": "Title for Lesson Part 2 (e.g., 'How X Works')",
-      "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part of the lesson.",
-      "text": "Content for Lesson Part 2 (3-6 sentences, approx 50-120 words). Elaborate or cover a second aspect."
-    },
-    {
-      "title": "Title for Lesson Part 3 (e.g., 'Importance/Applications of X')",
-      "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part of the lesson.",
-      "text": "Content for Lesson Part 3 (3-6 sentences, approx 50-120 words). Cover a third aspect or conclusion."
-    }
-  ],
-  "suggested_category_name": "Based on the lesson content, suggest a concise category name (max 5 words). If existing categories are provided, try to match one of them. If none fit well, suggest a *new*, relevant category name."
+    "main_title": "A concise and engaging main title for the entire lesson (max 15 words).",
+    "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for the whole lesson.",
+    "lesson_parts": [
+        {
+            "title": "Title for Lesson Part 1 (e.g., 'Introduction to X')",
+            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
+            "text": "Content for Lesson Part 1 (3-6 sentences, approx 50-120 words)."
+        },
+        {
+            "title": "Title for Lesson Part 2 (e.g., 'How X Works')",
+            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
+            "text": "Content for Lesson Part 2 (3-6 sentences, approx 50-120 words)."
+        },
+        {
+            "title": "Title for Lesson Part 3 (e.g., 'Importance/Applications of X')",
+            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
+            "text": "Content for Lesson Part 3 (3-6 sentences, approx 50-120 words)."
+        }
+    ],
+    "suggested_main_category": "Based on the content, suggest a concise MAIN category (e.g., 'Science', 'History', max 5 words). If existing main category_management are provided, try to match one.",
+    "suggested_sub_category": "Suggest a concise SUB-category name (e.g., 'Photosynthesis', 'World War II', max 5 words) that fits within the suggested main category."
 }
 
 Constraints:
 - The output MUST be ONLY the valid JSON object described above. No introductory text, explanations, or markdown formatting outside the JSON structure.
 - Ensure exactly 3 `lesson_parts`.
-- All text content (titles, lesson text) should be clear, concise, and factually accurate based on the provided subject.
-- Generate content suitable for a general audience learning about the subject for the first time.
-- The `suggested_category_name` field MUST always be included, even if you are reusing an existing category name.
+- All text content (titles, lesson text) should be clear, concise, and factually accurate.
+- Generate content suitable for a general audience.
+- The `suggested_main_category` and `suggested_sub_category` fields MUST always be included.
+- Try to reuse an existing `suggested_main_category` and `suggested_sub_category` if appropriate, otherwise suggest a new one.
 PROMPT;
 
 		public static function generateLessonStructure(string $llm, string $userLesson, bool $autoDetectCategory = false, $lessonLanguage = 'English', int $maxRetries = 1): array
@@ -111,15 +114,32 @@ PROMPT;
 			$userMessageContent .= "\nThe language is: " . $lessonLanguage;
 
 			if ($autoDetectCategory) {
-				$existingCategories = Category::pluck('name')->toArray();
-				if (!empty($existingCategories)) {
-					$userMessageContent .= "\n\nExisting Categories: " . implode(', ', $existingCategories);
-					Log::info("Providing existing categories for auto-detection: " . implode(', ', $existingCategories));
-				} else {
-					Log::info("No existing categories found to provide for auto-detection.");
+				// Provide existing MAIN category_management for context
+				$mainCategories = MainCategory::with(['subCategories' => function ($query) {
+					$query->orderBy('name');
+				}])->orderBy('name')->get();
+				$categoriesString = '';
+				foreach ($mainCategories as $mainCategory) {
+					foreach ($mainCategory->subCategories as $subCategory) {
+						$categoriesString .= $mainCategory->name . ' - ' . $subCategory->name . ', ';
+					}
 				}
-				// Note: The instruction to suggest a category is now permanently in the system prompt.
-				// We just add the *list* of existing ones to the user message for context.
+				if ($categoriesString !== '') {
+					$categoriesString = rtrim($categoriesString, ', '); // Remove trailing comma
+					$userMessageContent .= "\n\nnExisting Main and Sub Categories: " . $categoriesString;
+					Log::info("Providing existing category_management for auto-detection: " . $categoriesString);
+				} else {
+					Log::info("No existing category_management found to provide for auto-detection.");
+				}
+
+//				$existingMainCategories = MainCategory::pluck('name')->toArray();
+//				if (!empty($existingMainCategories)) {
+//					$userMessageContent .= "\n\nExisting Main Categories: " . implode(', ', $existingMainCategories);
+//					Log::info("Providing existing main category_management for auto-detection: " . implode(', ', $existingMainCategories));
+//				} else {
+//					Log::info("No existing main category_management found to provide for auto-detection.");
+//				}
+				// Note: The instruction to suggest category_management is in the system prompt.
 			}
 
 			$chatHistoryLessonStructGen = [['role' => 'user', 'content' => $userMessageContent]];
@@ -136,7 +156,8 @@ PROMPT;
 			if (!isset($planData['lesson_parts']) || !is_array($planData['lesson_parts']) || count($planData['lesson_parts']) !== 3) return false;
 
 			// Add check for the suggested category name
-			if (!isset($planData['suggested_category_name']) || !is_string($planData['suggested_category_name'])) return false;
+			if (!isset($planData['suggested_main_category']) || !is_string($planData['suggested_main_category'])) return false;
+			if (!isset($planData['suggested_sub_category']) || !is_string($planData['suggested_sub_category'])) return false;
 
 			foreach ($planData['lesson_parts'] as $part) {
 				if (!is_array($part) || !isset($part['title']) || !is_string($part['title']) || !isset($part['text']) || !is_string($part['text']) || !isset($part['image_prompt_idea']) || !is_string($part['image_prompt_idea'])) {
@@ -152,7 +173,7 @@ PROMPT;
 			$validator = Validator::make($request->all(), [
 				'lesson' => 'required|string|max:1024',
 				'llm' => 'required|string|max:100',
-				'category_id' => ['required', 'string'], // Can be 'auto' or an ID
+				'sub_category_id' => ['required', 'string'], // Can be 'auto' or an ID
 				'language' => 'required|string|max:30', // Validate language early
 			]);
 
@@ -162,18 +183,17 @@ PROMPT;
 
 			$userLesson = $request->input('lesson');
 			$llm = $request->input('llm');
-			$categoryIdInput = $request->input('category_id');
+			$subCategoryIdInput  = $request->input('sub_category_id');
 			$language = $request->input('language'); // Get language
 			$maxRetries = 1;
 
-			// Check if selected category ID is valid (if not 'auto')
-			if ($categoryIdInput !== 'auto' && !Category::where('id', $categoryIdInput)->exists()) {
-				return response()->json(['success' => false, 'message' => 'Invalid category selected.'], 422);
+			// Check if selected sub-category ID is valid (if not 'auto')
+			if ($subCategoryIdInput !== 'auto' && !SubCategory::where('id', $subCategoryIdInput)->exists()) {
+				return response()->json(['success' => false, 'message' => 'Invalid sub-category selected.'], 422);
 			}
 
-			$autoDetectCategory = ($categoryIdInput === 'auto');
-
-			Log::info("AJAX request received for plan preview. Lesson: '{$userLesson}', LLM: {$llm}, Category Input: {$categoryIdInput}, Language: {$language}");
+			$autoDetectCategory = ($subCategoryIdInput === 'auto');
+			Log::info("AJAX request received for plan preview. Lesson: '{$userLesson}', LLM: {$llm}, SubCategory Input: {$subCategoryIdInput}, Language: {$language}"); // Updated log
 
 			Log::info("Generating lesson structure...");
 			// Pass autoDetect flag to the structure generator
@@ -191,15 +211,16 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your lesson or using a different model.']);
 			}
 
-			Log::info("Lesson structure generated successfully for preview (no questions). Suggested Category: " . $planStructureResult['suggested_category_name']);
+			Log::info("Lesson structure generated successfully for preview. Suggested Main: " . ($planStructureResult['suggested_main_category'] ?? 'N/A') . ", Sub: " . ($planStructureResult['suggested_sub_category'] ?? 'N/A')); // Updated log
 
 			// Prepare response data
 			$responseData = [
 				'success' => true,
 				'plan' => $planStructureResult,
 				'language_selected' => $language, // Pass language back
-				'category_input' => $categoryIdInput, // Pass original input ('auto' or ID) back
-				'suggested_category_name' => $planStructureResult['suggested_category_name'] ?? null // Include suggested name from LLM
+				'category_input' => $subCategoryIdInput, // Pass original sub-category input back
+				'suggested_main_category' => $planStructureResult['suggested_main_category'] ?? null, // Include suggested main name
+				'suggested_sub_category' => $planStructureResult['suggested_sub_category'] ?? null // Include suggested sub name
 			];
 
 			return response()->json($responseData);
@@ -216,7 +237,8 @@ PROMPT;
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:10', // Validate saved language
 				'category_input' => ['required', 'string'], // 'auto' or numeric ID string
-				'suggested_category_name' => ['nullable', 'string', 'max:255'], // Provided if category_input was 'auto'
+				'suggested_main_category' => ['nullable', 'string', 'max:255'], // Required if category_input is 'auto'
+				'suggested_sub_category' => ['nullable', 'string', 'max:255'], // Required if category_input is 'auto'
 				'plan' => 'required|array',
 				'plan.main_title' => 'required|string',
 				'plan.image_prompt_idea' => 'required|string',
@@ -238,57 +260,100 @@ PROMPT;
 			$ttsVoice = $request->input('tts_voice');
 			$ttsLanguageCode = $request->input('tts_language_code');
 			$language = $request->input('language');
-			$categoryInput = $request->input('category_input');
-			$suggestedCategoryName = $request->input('suggested_category_name');
+			$categoryInput = $request->input('category_input'); // This is sub_category_id or 'auto'
+			$suggestedMainCategoryName = $request->input('suggested_main_category');
+			$suggestedSubCategoryName = $request->input('suggested_sub_category');
 			$plan = $request->input('plan');
 
 			// Re-validate the core plan structure (excluding suggested_category_name which is part of the LLM output validation)
 			$corePlanData = $plan;
-			unset($corePlanData['suggested_category_name']); // Temporarily remove for structure check
-			if (!self::isValidLessonStructureResponse(array_merge($corePlanData, ['suggested_category_name' => 'placeholder']))) { // Add placeholder to pass validation format check
+
+			// Use the names received from the request if available, else placeholders
+			$mainCatNameToValidate = $suggestedMainCategoryName ?? 'placeholder_main';
+			$subCatNameToValidate = $suggestedSubCategoryName ?? 'placeholder_sub';
+
+			if (!self::isValidLessonStructureResponse(array_merge($corePlanData, [
+				'suggested_main_category' => $mainCatNameToValidate,
+				'suggested_sub_category' => $subCatNameToValidate
+			]))) {
 				Log::error('Invalid final plan structure received on createLesson endpoint.', ['plan' => $plan]);
-				return response()->json(['success' => false, 'message' => 'Invalid lesson plan structure received during final check.'], 400);
+				return response()->json(['success' => false, 'message' => 'Invalid lesson plan structure received.'], 400);
 			}
 
 
 			$sessionId = Str::uuid()->toString();
 			Log::info("Confirmed creation request received. Session ID: {$sessionId}, Lesson: '{$userLesson}', Lang: {$language}, CatInput: {$categoryInput}");
 
-			// --- Determine Final Category ID ---
-			$finalCategoryId = null;
-			if ($categoryInput === 'auto' && !empty($suggestedCategoryName)) {
-				Log::info("Handling auto-detected category: '{$suggestedCategoryName}'");
-				// Try to find existing category (case-insensitive)
-				$category = Category::whereRaw('LOWER(name) = ?', [strtolower($suggestedCategoryName)])->first();
-				if ($category) {
-					$finalCategoryId = $category->id;
-					Log::info("Found existing category ID: {$finalCategoryId} for '{$suggestedCategoryName}'");
-				} else {
-					// Create new category
-					try {
-						$newCategory = Category::create(['name' => $suggestedCategoryName]);
-						$finalCategoryId = $newCategory->id;
-						Log::info("Created new category '{$suggestedCategoryName}' with ID: {$finalCategoryId}");
-					} catch (\Exception $e) {
-						Log::error("Failed to create new category '{$suggestedCategoryName}': " . $e->getMessage());
-						// Decide fallback: proceed without category or return error?
-						// Let's proceed without category for now, but log error.
-						$finalCategoryId = null;
+			// --- Determine Final Sub-Category ID ---
+			$finalSubCategoryId = null;
+			if ($categoryInput === 'auto' && !empty($suggestedMainCategoryName) && !empty($suggestedSubCategoryName)) {
+				Log::info("Handling auto-detected category: Main='{$suggestedMainCategoryName}', Sub='{$suggestedSubCategoryName}'");
+				DB::beginTransaction(); // Use transaction for creating category_management
+				try {
+					// Find or create the Main Category (case-insensitive)
+					$mainCategory = MainCategory::firstOrCreate(
+						['name' => DB::raw("LOWER('{$suggestedMainCategoryName}')")], // Search condition
+						['name' => $suggestedMainCategoryName]                     // Data to insert if not found
+					);
+					// If using case-sensitive collation, can simplify:
+					// $mainCategory = MainCategory::firstOrCreate(
+					//     ['name' => $suggestedMainCategoryName]
+					// );
+
+
+					if (!$mainCategory) {
+						throw new Exception("Could not find or create main category.");
 					}
+					Log::info("Using Main Category ID: {$mainCategory->id} for '{$mainCategory->name}'");
+
+
+					// Find or create the Sub Category under the Main Category (case-insensitive for name)
+					$subCategory = SubCategory::firstOrCreate(
+						[
+							'main_category_id' => $mainCategory->id,
+							'name' => DB::raw("LOWER('{$suggestedSubCategoryName}')") // Case-insensitive check depends on DB collation
+							// For strict case-sensitive: 'name' => $suggestedSubCategoryName
+						],
+						[
+							'name' => $suggestedSubCategoryName,
+							'main_category_id' => $mainCategory->id // Ensure main_category_id is set on create
+						]
+					);
+
+					// Simpler if using case-insensitive collation:
+					// $subCategory = SubCategory::firstOrCreate(
+					//    ['main_category_id' => $mainCategory->id, 'name' => $suggestedSubCategoryName]
+					// );
+
+
+					if (!$subCategory) {
+						throw new Exception("Could not find or create sub category.");
+					}
+					$finalSubCategoryId = $subCategory->id;
+					Log::info("Using Sub Category ID: {$finalSubCategoryId} for '{$subCategory->name}' under Main '{$mainCategory->name}'");
+
+					DB::commit();
+				} catch (\Exception $e) {
+					DB::rollBack();
+					Log::error("Failed to find/create category_management: Main='{$suggestedMainCategoryName}', Sub='{$suggestedSubCategoryName}'. Error: " . $e->getMessage());
+					// Decide fallback: proceed without category or return error?
+					// Let's return an error as category was requested via auto-detect.
+					return response()->json(['success' => false, 'message' => 'Failed to automatically create or assign category_management. Please select manually or try again.'], 500);
 				}
+
 			} elseif (is_numeric($categoryInput)) {
-				// Use the explicit ID provided, check if it exists
-				$category = Category::find($categoryInput);
-				if ($category) {
-					$finalCategoryId = $category->id;
-					Log::info("Using explicitly selected category ID: {$finalCategoryId}");
+				// Use the explicit Sub-Category ID provided, check if it exists
+				$subCategory = SubCategory::find($categoryInput);
+				if ($subCategory) {
+					$finalSubCategoryId = $subCategory->id;
+					Log::info("Using explicitly selected sub-category ID: {$finalSubCategoryId}");
 				} else {
-					Log::warning("Explicitly selected category ID {$categoryInput} not found. Saving lesson without category.");
-					$finalCategoryId = null;
+					Log::warning("Explicitly selected sub-category ID {$categoryInput} not found. Saving lesson without category.");
+					$finalSubCategoryId = null; // Or return error?
 				}
 			} else {
 				Log::warning("Invalid category input '{$categoryInput}'. Saving lesson without category.");
-				$finalCategoryId = null;
+				$finalSubCategoryId = null;
 			}
 
 			// --- Create Lesson Record ---
@@ -303,10 +368,10 @@ PROMPT;
 				'ttsVoice' => $ttsVoice,
 				'ttsLanguageCode' => $ttsLanguageCode,
 				'language' => $language, // Save selected language
-				'category_id' => $finalCategoryId, // Save determined category ID
+				'sub_category_id' => $finalSubCategoryId,
 			]);
 
-			Log::info("Lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}, CategoryID: {$finalCategoryId}. No questions created at this stage.");
+			Log::info("Lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}, SubCategoryID: {$finalSubCategoryId}.");
 
 			return response()->json([
 				'success' => true,

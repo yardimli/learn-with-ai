@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	ttsEngineSelect = document.getElementById('ttsEngineSelect');
 	ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
 	ttsLanguageCodeSelect = document.getElementById('ttsLanguageCodeSelect');
-	editCategorySelect = document.getElementById('editCategorySelect');
+	editSubCategorySelect = document.getElementById('editSubCategorySelect');
 	editLanguageSelect = document.getElementById('editLanguageSelect');
 	updateSettingsBtn = document.getElementById('updateLessonSettingsBtn');
 
@@ -89,11 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedEngine = ttsEngineSelect.value;
 			const selectedVoice = ttsVoiceSelect.value;
 			const selectedLangCode = ttsLanguageCodeSelect.value;
-			const selectedCategory = editCategorySelect.value;    // <-- Get Category ID
+			const selectedSubCategory = editSubCategorySelect.value;    // <-- Get Category ID
 			const selectedLanguage = editLanguageSelect.value;    // <-- Get Lesson Language
 			
-			if (!selectedCategory || !selectedLanguage) {
-				showToast('Please select a category and language.', 'Missing Selection', 'warning');
+			if (!selectedSubCategory || !selectedLanguage) {
+				showToast('Please select a sub-category and language.', 'Missing Selection', 'warning');
 				return;
 			}
 			
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					tts_engine: selectedEngine,
 					tts_voice: selectedVoice,
 					tts_language_code: selectedLangCode,
-					category_id: selectedCategory,
+					sub_category_id: selectedSubCategory,
 					language: selectedLanguage
 				})
 			})
