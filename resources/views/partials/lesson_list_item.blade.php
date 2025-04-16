@@ -6,33 +6,41 @@
 			<small class="text-muted">
 				Subject: {{ $lesson->name }} | Created: {{ $lesson->created_at->format('M d, Y H:i') }}
 			</small>
-		</p>
-		{{-- Display Category (if available) and Language --}}
-		<p class="mb-1">
 			<small class="text-muted">
-				@if($lesson->subCategory && $lesson->subCategory->mainCategory)
-					Category:
-					<span class="badge bg-info text-dark">{{ $lesson->subCategory->mainCategory->name }}</span> /
-					<span class="badge bg-light text-dark">{{ $lesson->subCategory->name }}</span> |
-				@elseif($lesson->subCategory)
-					Category:
-					<span class="badge bg-secondary text-dark">?</span> / {{-- Main category missing? --}}
-					<span class="badge bg-light text-dark">{{ $lesson->subCategory->name }}</span> |
-				@else
-					{{-- No Category Assigned --}}
-				@endif
 				Language: <span class="badge bg-secondary">{{ $lesson->language ?? 'N/A' }}</span> |
-				Questions: <span class="badge bg-light text-dark">{{ $lesson->questions_count ?? 0 }}</span>
+				Total Questions: <span class="badge bg-light text-dark">{{ $lesson->questions_count ?? 0 }}</span>
 			</small>
 		</p>
-		{{-- Optionally display saved settings --}}
-		<p class="mb-0">
-			<small class="text-muted">
-				Model: <span class="badge bg-secondary">{{ $lesson->preferredLlm }}</span> |
-				Voice: <span class="badge bg-secondary">{{ $lesson->ttsEngine }}/{{ $lesson->ttsVoice }} ({{ $lesson->ttsLanguageCode }})</span>
-			</small>
-		</p>
+		
+		{{-- Current Progress Section -- START --}}
+		@if(isset($lesson->currentProgress) && $lesson->currentProgress['total_questions'] > 0)
+			@php
+				$currentScore = $lesson->currentProgress['score'];
+				$totalQuestions = $lesson->currentProgress['total_questions'];
+				$percentage = round(($currentScore / $totalQuestions) * 100);
+			@endphp
+			<div class="mt-2">
+				<small class="text-muted">Current Progress (First Attempt Score): {{ $currentScore }} / {{ $totalQuestions }}</small>
+				<div class="progress mt-1" role="progressbar" aria-label="Current Lesson Progress" aria-valuenow="{{ $percentage }}" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
+					<div class="progress-bar bg-primary" style="width: {{ $percentage }}%;"></div>
+				</div>
+			</div>
+		@elseif($lesson->questions_count > 0)
+			<div class="mt-2">
+				<small class="text-muted">Current Progress: Not started yet.</small>
+				<div class="progress mt-1" role="progressbar" aria-label="Current Lesson Progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
+					<div class="progress-bar bg-primary" style="width: 0%;"></div>
+				</div>
+			</div>
+		@else
+			<div class="mt-2">
+				<small class="text-muted">No questions added to this lesson yet.</small>
+			</div>
+		@endif
+		{{-- Current Progress Section -- END --}}
+	
 	</div>
+	
 	
 	{{-- Action Buttons --}}
 	<div class="text-md-end mt-2 mt-md-0 flex-shrink-0">

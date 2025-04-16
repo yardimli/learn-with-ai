@@ -2,7 +2,9 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helpers\MyHelper;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use App\Models\GeneratedImage;
 	use App\Models\Question;
 	use App\Models\Lesson;

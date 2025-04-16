@@ -691,3 +691,200 @@ body {
 #freepikPagination .page-link {
     cursor: pointer;
 }
+
+
+/* lesson progress report page */
+.progress-bar-label {
+    position: absolute;
+    right: 10px;
+    line-height: 20px; /* Adjust based on progress bar height */
+    color: #fff; /* Or a contrasting color */
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.progress {
+    height: 20px; /* Adjust height */
+    font-size: .75rem; /* Adjust font size inside */
+    position: relative; /* Needed for absolute positioning of label */
+    background-color: #e9ecef; /* Ensure background is visible */
+}
+.content-card h5 {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    padding-bottom: 0.5rem;
+}
+.archive-entry + .archive-entry { /* Add space between archive entries */
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--bs-border-color-translucent);
+}
+
+
+/* Lesson Interface */
+
+.intro-image-container {
+    min-height: 200px; /* Ensure space even if image is hidden */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bs-tertiary-bg); /* Light background for placeholder */
+    border-radius: 0.375rem; /* Match Bootstrap's rounded */
+}
+
+.dark-mode .intro-image-container {
+    background-color: var(--bs-secondary-bg); /* Darker background for dark mode */
+}
+
+#introSentenceImage {
+    transition: opacity 0.3s ease-in-out; /* Fade effect */
+    object-fit: contain; /* Fit image within bounds without stretching */
+}
+
+#introSentenceImage.hidden {
+    opacity: 0;
+    display: none; /* Hide completely when no image */
+}
+#introSentenceImage:not(.hidden) {
+    display: block; /* Show when image is set */
+    opacity: 1;
+}
+
+
+/* Add styling for highlighted sentence */
+.intro-sentence {
+    /* Add a small margin-right if sentences run together */
+    margin-right: 0.2em;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.intro-sentence.highlight {
+    background-color: rgba(var(--bs-primary-rgb), 0.2); /* Light blue background */
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Style for the intro text container */
+#partIntroTextContainer {
+    line-height: 1.8; /* Increase line spacing for readability */
+    font-size: 1.1rem; /* Slightly larger font */
+}
+
+/* Ensure dark mode highlight is visible */
+.dark-mode .intro-sentence.highlight {
+    background-color: rgba(var(--bs-primary-rgb), 0.4); /* Darker blue for dark mode */
+    color: #e0e0e0; /* Ensure text is light */
+}
+
+/* Question Area */
+#questionQuestionContainer {
+    min-height: 150px; /* Prevent collapsing */
+}
+
+/* Completion Message */
+#completionMessage {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--bs-success-bg-subtle);
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: 0.5rem;
+}
+
+#playFeedbackModalButton {
+    margin-top: 0.5rem;
+}
+
+.dark-mode #completionMessage {
+    background-color: #143625; /* Darker success */
+    border-color: #198754;
+}
+
+/* Ensure answer buttons fill width */
+#questionAnswersContainer .answer-btn {
+    width: 100%;
+}
+
+/* Refine feedback section */
+.feedback-section {
+    border-left: 4px solid var(--bs-info); /* Use info color for feedback border */
+    padding-left: 15px;
+    margin-top: 15px;
+}
+
+.dark-mode .feedback-section {
+    border-left-color: var(--bs-info-border-subtle);
+}
+
+
+/* Edit Lesson */
+
+audio {
+    max-width: 250px;
+    height: 35px;
+    vertical-align: middle;
+}
+
+.answer-list li {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--bs-tertiary-bg);
+    font-size: 0.95em;
+}
+
+.answer-list li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.answer-text-content, .feedback-text-content {
+    display: inline;
+}
+
+.asset-container h6 {
+    font-size: 1em;
+}
+
+.question-item p strong {
+    display: inline;
+    margin-bottom: 0;
+    font-size: 1.05em;
+}
+
+.question-item .question-line {
+    margin-bottom: 0.75rem;
+}
+
+.question-difficulty-group {
+    border-left: 3px solid #eee;
+    padding-left: 1rem;
+    margin-top: 1.5rem;
+}
+
+.dark-mode .question-difficulty-group {
+    border-left-color: #444;
+}
+
+.question-item {
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: var(--bs-body-bg);
+}
+
+/* Add background */
+.question-list-container .placeholder-text {
+    color: var(--bs-secondary-color);
+    font-style: italic;
+    margin-bottom: 1rem;
+}
+
+/* Style for empty list text */
+.btn-delete-question {
+    /* Ensure visibility */
+}
+
+.settings-row .d-flex {
+    height: 100%;
+}
+

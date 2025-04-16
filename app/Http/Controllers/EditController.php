@@ -2,8 +2,9 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helpers\MyHelper;
-	use App\Models\Category;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use App\Models\GeneratedImage;
 	use App\Models\MainCategory;
 	use App\Models\Question;
@@ -98,7 +99,7 @@ PROMPT;
 
 			Log::info("Requesting image ideas for sentence: '" . Str::limit($sentenceText, 50) . "...' using LLM: {$llm}");
 
-			$result = MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA, $chatHistory, true, $maxRetries);
+			$result = LlmHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_SENTENCE_IMAGE_IDEA, $chatHistory, true, $maxRetries);
 
 			// Basic validation of the result structure
 			if (isset($result['error'])) {
@@ -156,7 +157,7 @@ PROMPT;
 			// Log::debug("Existing questions provided to LLM for duplication check:", $existingQuestionTexts); // Optional
 
 			// Expecting a flat array of 5 question objects now
-			return MyHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_QUIZ_GENERATION, $chatHistoryQuestionGen, true, $maxRetries);
+			return LlmHelper::llm_no_tool_call($llm, self::SYSTEM_PROMPT_QUIZ_GENERATION, $chatHistoryQuestionGen, true, $maxRetries);
 		}
 
 
@@ -293,7 +294,7 @@ PROMPT;
 			$lesson->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
 
 			// Get available LLMs
-			$llms = MyHelper::checkLLMsJson();
+			$llms = LlmHelper::checkLLMsJson();
 
 			$llm = $lesson->preferredLlm;
 			if (empty($llm)) {

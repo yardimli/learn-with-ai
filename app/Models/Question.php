@@ -2,7 +2,9 @@
 
 	namespace App\Models;
 
-	use App\Helpers\MyHelper;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use Illuminate\Database\Eloquent\Factories\HasFactory;
 	use Illuminate\Database\Eloquent\Model;
 	use Illuminate\Support\Facades\Log;
@@ -110,7 +112,7 @@
 
 				// --- Generate TTS for ANSWER TEXT ---
 				$answerFilename = $filenamePrefix . '_ans_' . $baseFilename; // e.g., audio/question_sX_pY_qZ_ans_answer-text_0
-				$answerTtsResult = MyHelper::text2speech(
+				$answerTtsResult = AudioImageHelper::text2speech(
 					$answer['text'] ?? '',
 					$ttsVoice,
 					$languageCode,
@@ -129,7 +131,7 @@
 
 				// --- Generate TTS for FEEDBACK TEXT ---
 				$feedbackFilename = $filenamePrefix . '_fb_' . $baseFilename; // e.g., audio/question_sX_pY_qZ_fb_answer-text_0
-				$feedbackTtsResult = MyHelper::text2speech(
+				$feedbackTtsResult = AudioImageHelper::text2speech(
 					$answer['feedback'] ?? '',
 					$ttsVoice,
 					$languageCode,

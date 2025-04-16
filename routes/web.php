@@ -6,6 +6,7 @@
 	use App\Http\Controllers\FreePikController;
 	use App\Http\Controllers\GenerateAssetController;
 	use App\Http\Controllers\ProgressController;
+	use App\Http\Controllers\ViewLessonsController;
 	use Illuminate\Support\Facades\Route;
 	use App\Http\Controllers\CreateLessonController;
 	use App\Http\Controllers\LessonController;
@@ -14,15 +15,15 @@
 	Route::get('/', [CreateLessonController::class, 'index'])->name('home');
 	Route::post('/lesson/generate-structure', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
 	Route::post('/lesson/save-structure', [CreateLessonController::class, 'createLesson'])->name('lesson.save.structure');
-	Route::post('/lesson/{lesson}/archive', [CreateLessonController::class, 'archiveProgress'])->name('lesson.archive');
 	Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
-	Route::get('/lessons', [CreateLessonController::class, 'listLessons'])->name('lessons.list');
-	//delete lesson
-	Route::delete('/lesson/{lesson:session_id}', [CreateLessonController::class, 'deleteLesson'])->name('lesson.delete');
+
+	Route::get('/lessons', [ViewLessonsController::class, 'listLessons'])->name('lessons.list');
+	Route::delete('/lesson/{lesson:session_id}', [ViewLessonsController::class, 'deleteLesson'])->name('lesson.delete');
+	Route::post('/lesson/{lesson}/archive', [ViewLessonsController::class, 'archiveProgress'])->name('lesson.archive');
 
 
 	Route::get('/api/llms-list', function () {
-		return response()->json(['llms' => App\Helpers\MyHelper::checkLLMsJson()]);
+		return response()->json(['llms' => App\Helpers\LlmHelper::checkLLMsJson()]);
 	})->name('api.llms.list');
 
 

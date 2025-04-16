@@ -2,7 +2,9 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helpers\MyHelper;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use App\Models\GeneratedImage;
 	use App\Models\Lesson;
 	use App\Models\Question;
@@ -287,7 +289,7 @@
 				file_put_contents($tempPath, $imageContent);
 
 				// --- Step 3: Process and Save Locally ---
-				$imagePaths = MyHelper::handleImageProcessing($tempPath, $baseDir, $baseName);
+				$imagePaths = AudioImageHelper::handleImageProcessing($tempPath, $baseDir, $baseName);
 
 				if (!$imagePaths) {
 					throw new Exception('Failed to process and save the downloaded image.');

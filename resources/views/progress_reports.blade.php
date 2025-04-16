@@ -2,35 +2,6 @@
 
 @section('title', 'Progress Report: ' . $lesson->title)
 
-@push('styles')
-	<style>
-      .progress-bar-label {
-          position: absolute;
-          right: 10px;
-          line-height: 20px; /* Adjust based on progress bar height */
-          color: #fff; /* Or a contrasting color */
-          font-weight: bold;
-          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-      }
-      .progress {
-          height: 20px; /* Adjust height */
-          font-size: .75rem; /* Adjust font size inside */
-          position: relative; /* Needed for absolute positioning of label */
-          background-color: #e9ecef; /* Ensure background is visible */
-      }
-      .content-card h5 {
-          margin-bottom: 1rem;
-          border-bottom: 1px solid var(--bs-border-color);
-          padding-bottom: 0.5rem;
-      }
-      .archive-entry + .archive-entry { /* Add space between archive entries */
-          margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px dashed var(--bs-border-color-translucent);
-      }
-	</style>
-@endpush
-
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<h1 class="h2">{{ $lesson->title }} - Progress Report</h1>

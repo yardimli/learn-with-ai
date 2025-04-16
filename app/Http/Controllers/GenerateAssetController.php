@@ -2,7 +2,9 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helpers\MyHelper;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use App\Models\GeneratedImage;
 	use App\Models\Question; // Keep Question model import
 	use App\Models\Lesson;
@@ -60,7 +62,7 @@
 			}
 
 			// 2. Split into Sentences
-			$sentencesText = MyHelper::splitIntoSentences($partText);
+			$sentencesText = LlmHelper::splitIntoSentences($partText);
 			if (empty($sentencesText)) {
 				Log::warning("Could not split part {$partIndex} text into sentences for Lesson ID: {$lesson->id}.");
 				$lessonParts[$partIndex]['sentences'] = [];
@@ -103,7 +105,7 @@
 
 				// a) Generate Audio
 				$filenameBase = "lessons/{$lesson->session_id}/part{$partIndex}_sent{$sentenceIndex}_" . Str::slug(Str::limit($sentenceText, 20));
-				$audioResult = MyHelper::text2speech($sentenceText, $ttsVoice, $ttsLanguageCode, $filenameBase, $ttsEngine);
+				$audioResult = AudioImageHelper::text2speech($sentenceText, $ttsVoice, $ttsLanguageCode, $filenameBase, $ttsEngine);
 
 				if ($audioResult['success']) {
 					$sentenceData['audio_path'] = $audioResult['storage_path'];
@@ -187,7 +189,7 @@
 				$questionIdentifier = "s{$question->lesson_id}_p{$question->lesson_part_index}_q{$question->id}";
 				$outputFilenameBase = 'audio/question_q_' . $questionIdentifier; // Include path segment
 
-				$audioResult = MyHelper::text2speech(
+				$audioResult = AudioImageHelper::text2speech(
 					$question->question_text,
 					$ttsVoice,
 					$ttsLanguageCode,
@@ -307,7 +309,7 @@
 
 				Log::info("Calling makeImage for Question {$question->id}. Model: {$imageModel}, Size: {$imageSize}, Prompt: '{$promptToUse}'");
 
-				$imageResult = MyHelper::makeImage(
+				$imageResult = AudioImageHelper::makeImage(
 					$promptToUse,
 					$imageModel,
 					$imageSize
@@ -389,7 +391,7 @@
 			DB::beginTransaction();
 			try {
 				// --- Process and Save Image ---
-				$imagePaths = MyHelper::handleImageProcessing($uploadedFile, $baseDir, $baseName);
+				$imagePaths = AudioImageHelper::handleImageProcessing($uploadedFile, $baseDir, $baseName);
 
 				if (!$imagePaths) {
 					throw new Exception('Failed to process and save the uploaded image.');
@@ -479,7 +481,7 @@
 			}
 			// --- End Access Sentence Data ---
 
-			$result = MyHelper::makeImage($prompt, $imageModel, $size);
+			$result = AudioImageHelper::makeImage($prompt, $imageModel, $size);
 
 			if ($result['success']) {
 				// Update the specific sentence with the new generated_image_id
@@ -549,7 +551,7 @@
 				$baseName = "lesson_{$lesson->id}_part_{$partIndex}_sent_{$sentenceIndex}_" . time(); // Unique name
 
 				// Use Helper function to handle resizing and saving
-				$imagePaths = MyHelper::handleImageProcessing($file, $baseDir, $baseName);
+				$imagePaths = AudioImageHelper::handleImageProcessing($file, $baseDir, $baseName);
 
 				if ($imagePaths) {
 					// --- Delete old image if it exists and was 'upload' or 'freepik' source ---

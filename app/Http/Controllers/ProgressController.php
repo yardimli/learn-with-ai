@@ -15,13 +15,14 @@
 	{
 		/**
 		 * Calculate the score based on first correct attempts without errors.
+		 * Made public static to be reusable.
 		 *
 		 * @param int $lessonId
 		 * @param bool $useArchive If true, calculates score from UserAnswerArchive table.
 		 * @param mixed $archiveBatchId Optional: Filter archive by a specific batch ID.
 		 * @return array ['score', 'total_questions']
 		 */
-		private static function calculateFirstAttemptScore(int $lessonId, bool $useArchive = false, ?string $archiveBatchId = null): array
+		public static function calculateFirstAttemptScore(int $lessonId, bool $useArchive = false, ?string $archiveBatchId = null): array // Changed to public static
 		{
 			// Get all questions relevant FOR THIS LESSON at the time of calculation
 			// It's better to count questions from the Questions table directly for consistency
@@ -35,28 +36,36 @@
 			$score = 0;
 			$answerModel = $useArchive ? UserAnswerArchive::class : UserAnswer::class;
 
-			foreach ($relevantQuestionIds as $questionId) {
-				$queryBase = $answerModel::where('lesson_id', $lessonId)
-					->where('question_id', $questionId)
-					->where('attempt_number', 1);
-
-				// Apply batch ID filter if applicable
-				if ($useArchive && $archiveBatchId) {
-					$queryBase->where('archive_batch_id', $archiveBatchId);
-				}
-
-				// Clone the query before adding specific conditions
-				$correctQuery = clone $queryBase;
-				$incorrectQuery = clone $queryBase;
-
-				$wasCorrectFirst = $correctQuery->where('was_correct', true)->exists();
-				$hadIncorrectFirst = $incorrectQuery->where('was_correct', false)->exists();
-
-
-				if ($wasCorrectFirst && !$hadIncorrectFirst) {
-					$score++;
-				}
+			// Prepare base query parts
+			$baseQueryConditions = [
+				['lesson_id', '=', $lessonId],
+				['attempt_number', '=', 1],
+			];
+			if ($useArchive && $archiveBatchId) {
+				$baseQueryConditions[] = ['archive_batch_id', '=', $archiveBatchId];
 			}
+
+			// Fetch all first attempts for the relevant questions in one go
+			$firstAttempts = $answerModel::whereIn('question_id', $relevantQuestionIds)
+				->where($baseQueryConditions)
+				->select('question_id', 'was_correct')
+				->get()
+				->groupBy('question_id'); // Group by question ID
+
+			// Iterate through the lesson's questions to calculate score based on fetched attempts
+			foreach ($relevantQuestionIds as $questionId) {
+				if ($firstAttempts->has($questionId)) {
+					$attemptsForQuestion = $firstAttempts->get($questionId);
+					$wasCorrectFirst = $attemptsForQuestion->contains('was_correct', true);
+					$hadIncorrectFirst = $attemptsForQuestion->contains('was_correct', false);
+
+					if ($wasCorrectFirst && !$hadIncorrectFirst) {
+						$score++;
+					}
+				}
+				// If a question has no first attempts recorded, it doesn't add to the score
+			}
+
 
 			return ['score' => $score, 'total_questions' => $totalQuestions];
 		}

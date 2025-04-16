@@ -1,0 +1,157 @@
+/* public/css/components.css */
+
+/* Base Card Styling (Used for Content, Questions, etc.) */
+.content-card, .question-card {
+    background-color: #ffffff; /* Default light background */
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem; /* Default padding */
+    margin-bottom: 1.5rem; /* Spacing */
+    border: 1px solid #e9ecef; /* Default light border */
+}
+
+/* Specific adjustments if needed */
+.content-card {
+    padding: 2rem; /* Example adjustment */
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1); /* Example adjustment */
+}
+.question-card {
+    /* Use base styling or add specifics */
+}
+
+/* Answer Buttons */
+.answer-btn {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    width: 100%; /* Ensure buttons fill width by default */
+}
+
+.answer-btn.correct {
+    background-color: #a1ffad !important;
+    border-color: #badbcc !important;
+    color: #0f5132 !important;
+}
+
+.answer-btn.incorrect {
+    background-color: #f8d7da !important;
+    border-color: #f5c2c7 !important;
+    color: #842029 !important;
+}
+
+.answer-btn.selected {
+    border-width: 2px;
+    border-color: #0d6efd !important; /* Ensure selected is visible */
+}
+
+.answer-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Image Container with Play Overlay */
+.image-container {
+    position: relative;
+    cursor: pointer; /* Indicates clickability */
+    display: inline-block; /* Fit content */
+    max-width: 100%; /* Ensure it doesn't overflow */
+}
+
+.play-icon-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; /* Adjust size */
+    height: 80px; /* Adjust size */
+    font-size: 3rem; /* Adjust size */
+    color: rgba(255, 255, 255, 0.8); /* White with transparency */
+    background-color: rgba(0, 0, 0, 0.4); /* Dark semi-transparent circle */
+    border-radius: 50%;
+    display: flex; /* Center icon */
+    align-items: center; /* Center icon */
+    justify-content: center; /* Center icon */
+    /* padding-left: 10px; /* Remove if using flex center */
+    pointer-events: none; /* Allow clicks to pass through */
+    transition: opacity 0.3s ease;
+    opacity: 0; /* Hidden by default */
+    z-index: 1; /* Make sure it's above the image */
+}
+
+/* Show overlay when parent .image-container has .show-play */
+.image-container.show-play .play-icon-overlay {
+    opacity: 1;
+}
+
+/* Optional: Show overlay on hover as well for better discoverability */
+.image-container:hover .play-icon-overlay {
+    opacity: 1;
+}
+
+/* Pulsing Border Animation */
+.pulsing-border {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); } /* Use Bootstrap success color */
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+/* Generic Image Modal Content */
+#imageModal .modal-body .img-fluid {
+    border-radius: 0.25rem;
+    max-height: 80vh; /* Ensure image fits */
+}
+
+/* Freepik Search Modal */
+#freepikSearchResults .card {
+    overflow: hidden; /* Prevent image overflow */
+}
+
+#freepikSearchResults .freepik-result-image {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+#freepikSearchResults .freepik-result-image:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    border-color: var(--bs-secondary);
+}
+
+#freepikSearchResults .freepik-result-image.border-primary {
+    box-shadow: 0 0 15px rgba(var(--bs-primary-rgb), 0.6);
+    border-color: var(--bs-primary);
+}
+
+#freepikSearchLoading .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+#freepikPagination .page-link {
+    cursor: pointer;
+}
+
+/* Basic Play/Pause Button (Shared by Edit/Interface potentially) */
+.btn-play-pause {
+    padding: 0.1rem 0.4rem; /* Small padding */
+    font-size: 0.8em; /* Smaller icon */
+    vertical-align: middle; /* Align with text */
+    line-height: 1; /* Prevent extra height */
+    min-width: 30px; /* Ensure consistent width */
+    text-align: center;
+}
+
+.btn-play-pause .fa-pause {
+    display: none; /* Hide pause icon by default */
+}
+
+.btn-play-pause.playing .fa-play {
+    display: none; /* Hide play icon when playing */
+}
+
+.btn-play-pause.playing .fa-pause {
+    display: inline-block; /* Show pause icon when playing */
+}

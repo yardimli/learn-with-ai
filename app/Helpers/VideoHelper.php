@@ -301,11 +301,11 @@
 				Log::info("Attempting video generation. Using " . ($useV2 ? "text2videov2 (OpenAI TTS + Gooey Lipsync)" : "text2video (Gooey Lipsync+Google TTS)"));
 
 				if ($useV2) {
-					$videoResult = MyHelper::text2videov2($videoText, $defaultFaceUrl, $ttsEngine, $ttsVoice, $ttsLanguageCode);
+					$videoResult = LlmHelper::text2videov2($videoText, $defaultFaceUrl, $ttsEngine, $ttsVoice, $ttsLanguageCode);
 				} else {
 					// Note: text2video might need specific Google voice/config from env
 					$googleVoice = env('GOOGLE_TTS_VOICE', 'en-US-Studio-O'); // Example Google Voice
-					$videoResult = MyHelper::text2video($videoText, $defaultFaceUrl, $googleVoice);
+					$videoResult = LlmHelper::text2video($videoText, $defaultFaceUrl, $googleVoice);
 				}
 
 				if ($videoResult && $videoResult['success'] && isset($videoResult['video_path'])) {

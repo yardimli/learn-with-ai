@@ -2,8 +2,9 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helpers\MyHelper;
-	use App\Models\Category;
+	use App\Helpers\LlmHelper;
+	use App\Helpers\AudioImageHelper;
+
 	use App\Models\Lesson;
 	use App\Models\MainCategory;
 	use App\Models\SubCategory;
@@ -34,7 +35,7 @@
 		 */
 		public function index()
 		{
-			$llms = MyHelper::checkLLMsJson();
+			$llms = LlmHelper::checkLLMsJson();
 
 			$mainCategories = MainCategory::with(['subCategories' => function ($query) {
 				$query->orderBy('name');
@@ -44,26 +45,6 @@
 			// Eager load question count for potential display (optional)
 			$lessons = Lesson::withCount('questions')->orderBy('created_at', 'desc')->get();
 			return view('create_lesson', compact('llms', 'lessons', 'mainCategories'));
-		}
-
-		public function listLessons()
-		{
-			$lessons = Lesson::with(['subCategory.mainCategory']) // Eager load relationships
-			->withCount('questions')
-				->orderBy('created_at', 'desc')
-				->get();
-
-			$groupedLessons = $lessons->groupBy(function ($lesson) {
-				// Group by main category ID, handle lessons with no subcategory (or main category missing)
-				return $lesson->subCategory->mainCategory->id ?? null; // Null key for uncategorized/error
-			});
-
-			$mainCategoryNames = MainCategory::orderBy('name')->pluck('name', 'id')->all();
-			$orderedMainCategoryIds = array_keys($mainCategoryNames);
-
-			Log::info("Fetched and grouped lessons for listing. Main Categories found: " . count($mainCategoryNames));
-
-			return view('lessons_list', compact('groupedLessons', 'mainCategoryNames', 'orderedMainCategoryIds'));
 		}
 
 		// --- Prompt for generating Lesson Structure ONLY ---
@@ -145,7 +126,7 @@ PROMPT;
 			$chatHistoryLessonStructGen = [['role' => 'user', 'content' => $userMessageContent]];
 			Log::info("Requesting lesson structure generation for lesson: '{$userLesson}' using LLM: {$llm}. Auto-detect category: " . ($autoDetectCategory ? 'Yes' : 'No'));
 
-			return MyHelper::llm_no_tool_call($llm, $systemPrompt, $chatHistoryLessonStructGen, true, $maxRetries);
+			return LlmHelper::llm_no_tool_call($llm, $systemPrompt, $chatHistoryLessonStructGen, true, $maxRetries);
 		}
 
 		public static function isValidLessonStructureResponse(?array $planData): bool
@@ -380,56 +361,4 @@ PROMPT;
 			]);
 		}
 
-		public function archiveProgress(Lesson $lesson)
-		{
-			Log::info("Archive request received for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
-
-			$userAnswers = UserAnswer::where('lesson_id', $lesson->id)->get();
-
-			if ($userAnswers->isEmpty()) {
-				Log::info("No user answers found to archive for Lesson ID: {$lesson->id}.");
-				return response()->json(['success' => true, 'message' => 'No progress found to archive.'], 200);
-			}
-
-			DB::beginTransaction();
-			try {
-				$archiveTimestamp = Carbon::now();
-				$archiveBatchId = Str::uuid()->toString();
-
-				$archiveData = [];
-				foreach ($userAnswers as $answer) {
-					$archiveData[] = [
-						'original_user_answer_id' => $answer->id,
-						'question_id' => $answer->question_id,
-						'lesson_id' => $answer->lesson_id,
-						'selected_answer_index' => $answer->selected_answer_index,
-						'was_correct' => $answer->was_correct,
-						'attempt_number' => $answer->attempt_number,
-						'archived_at' => $archiveTimestamp,
-						'archive_batch_id' => $archiveBatchId, // If using batch ID
-						'created_at' => $answer->created_at, // Preserve original timestamps
-						'updated_at' => $answer->updated_at, // Preserve original timestamps
-					];
-				}
-
-				// Bulk insert for efficiency
-				UserAnswerArchive::insert($archiveData);
-				Log::info("Successfully inserted {$userAnswers->count()} records into user_answer_archives for Lesson ID: {$lesson->id}.");
-
-				// Delete original answers
-				$deletedCount = UserAnswer::where('lesson_id', $lesson->id)->delete();
-				Log::info("Successfully deleted {$deletedCount} original user answers for Lesson ID: {$lesson->id}.");
-
-				DB::commit();
-				Log::info("Archiving completed for Lesson ID: {$lesson->id}.");
-
-				return response()->json(['success' => true, 'message' => 'Progress archived successfully.'], 200);
-
-			} catch (\Exception $e) {
-				DB::rollBack();
-				Log::error("Error archiving progress for Lesson ID: {$lesson->id} - " . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'Failed to archive progress. Please try again.'], 500);
-			}
-		}
-
-	} // End of CreateLessonController
+	}

@@ -1,0 +1,194 @@
+/* public/css/lesson-interface.css */
+
+/* Question Display Area */
+.question-container {
+    background-color: #f8f9fa; /* Light background */
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.question-question-text {
+    font-size: 1.25rem; /* Adjust size */
+    font-weight: 500; /* Medium weight */
+    margin-bottom: 1rem; /* Space below */
+}
+
+#questionQuestionContainer {
+    min-height: 150px; /* Prevent collapsing */
+}
+
+/* Progress Bar */
+.progress-container {
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    background-color: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 0.375rem; /* Match Bootstrap's default */
+}
+
+.progress {
+    height: 25px; /* Make progress bar thicker */
+    font-size: 0.85rem; /* Adjust font size inside */
+}
+
+.progress-bar {
+    transition: width 0.6s ease; /* Smooth transition */
+}
+
+.part-indicator {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+}
+
+.part-label {
+    text-align: center;
+    flex: 1; /* Distribute space */
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.3s ease;
+}
+
+.part-label.active {
+    font-weight: bold;
+    background-color: rgba(var(--bs-primary-rgb), 0.2); /* Highlight active part */
+}
+
+.part-label.completed {
+    color: var(--bs-secondary-color); /* Use Bootstrap var for muted text */
+    /* text-decoration: line-through; */ /* Optional: strike-through */
+}
+
+/* Part Intro Area */
+#partIntroArea {
+    background-color: var(--bs-tertiary-bg); /* Light gray default */
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 0.375rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease-out; /* Add transform */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#partIntroArea.d-none { /* Use d-none from base.css for layout shifting */
+    opacity: 0;
+    transform: translateY(-10px); /* Slight upward move on hide */
+    pointer-events: none; /* Prevent interaction when hidden */
+}
+
+.intro-image-container {
+    min-height: 200px; /* Ensure space even if image is hidden */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bs-tertiary-bg); /* Light background for placeholder */
+    border-radius: 0.375rem; /* Match Bootstrap's rounded */
+}
+
+#introSentenceImage {
+    transition: opacity 0.3s ease-in-out; /* Fade effect */
+    object-fit: contain; /* Fit image within bounds without stretching */
+    max-height: 250px; /* Match blade */
+}
+
+#introSentenceImage.hidden {
+    opacity: 0;
+    display: none; /* Hide completely when no image */
+}
+
+#introSentenceImage:not(.hidden) {
+    display: block; /* Show when image is set */
+    opacity: 1;
+}
+
+/* Style for the intro text container */
+#partIntroTextContainer {
+    line-height: 1.8; /* Increase line spacing for readability */
+    font-size: 1.1rem; /* Slightly larger font */
+}
+
+/* Styling for highlighted sentence */
+.intro-sentence {
+    margin-right: 0.2em; /* Add a small margin-right if sentences run together */
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    padding: 0.1em 0.2em; /* Subtle padding */
+    border-radius: 0.2rem; /* Subtle rounding */
+}
+
+.intro-sentence.highlight {
+    background-color: rgba(var(--bs-primary-rgb), 0.2); /* Light blue background */
+    color: var(--bs-primary-text-emphasis); /* Ensure contrast */
+    box-shadow: 0 0 5px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+/* Question Area Transition */
+#questionArea {
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease-out;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#questionArea.d-none { /* Use d-none from base.css for layout shifting */
+    opacity: 0;
+    transform: translateY(10px); /* Slight downward move on hide */
+    pointer-events: none;
+}
+
+/* Completion Message */
+#completionMessage, #partCompletionMessage {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--bs-success-bg-subtle);
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: 0.5rem;
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+
+#completionMessage.d-none, #partCompletionMessage.d-none {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Feedback Section */
+.feedback-section {
+    border-left: 4px solid var(--bs-info); /* Use info color for feedback border */
+    padding-left: 15px;
+    margin-top: 15px;
+}
+
+/* Feedback Modal button */
+#playFeedbackModalButton {
+    margin-top: 0.5rem;
+}
+
+/* Reading Highlight (used in intro) */
+.reading-highlight {
+    font-weight: bold;
+    color: #0d6efd;
+    background-color: #e7f1ff;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    border-color: #0d6efd;
+    border-radius: 0.2rem;
+    padding: 0.1em 0.2em;
+}
+
+/* Auto Play Switch (Specific to this interface - moved from blade) */
+.auto-play-switch-container {
+    position: fixed; /* Or adjust as needed */
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 1040;
+    background: rgba(var(--bs-body-bg-rgb), 0.8);
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.375rem;
+    backdrop-filter: blur(3px);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}

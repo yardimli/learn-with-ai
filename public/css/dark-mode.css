@@ -1,0 +1,434 @@
+/* public/css/dark-mode.css */
+
+/* Apply dark mode base variables to the html element */
+.dark-mode {
+    /* Basic Colors */
+    --bs-body-bg: #1c1c1e; /* Dark background */
+    --bs-body-color: #e4e4e6; /* Light text */
+    --bs-border-color: #3a3a3c; /* Darker borders */
+    --bs-border-color-translucent: rgba(255, 255, 255, 0.15);
+    --bs-secondary-bg: #2c2c2e; /* Slightly lighter dark bg */
+    --bs-tertiary-bg: #3a3a3c; /* Even lighter dark bg */
+    --bs-emphasis-color: #f0f0f0; /* Brighter emphasis */
+    --bs-secondary-color: #8e8e93; /* More visible muted text */
+
+    /* Ensure links are visible */
+    --bs-link-color: #58a6ff; /* Lighter blue for links */
+    --bs-link-hover-color: #79bbff;
+
+    /* Bootstrap Component Variable Overrides */
+    --bs-heading-color: #f5f5f7; /* Slightly brighter headings */
+    --bs-body-bg-rgb: 28, 28, 30; /* For rgba usage */
+    --bs-primary-text-emphasis: #79bbff;
+    --bs-secondary-text-emphasis: #a0a0a5;
+    --bs-success-text-emphasis: #a1ffad;
+    --bs-info-text-emphasis: #70d7ff;
+    --bs-warning-text-emphasis: #ffe085;
+    --bs-danger-text-emphasis: #f8a0a8;
+    --bs-light-text-emphasis: #f8f9fa;
+    --bs-dark-text-emphasis: #dee2e6;
+
+    --bs-primary-bg-subtle: #1a2c40;
+    --bs-secondary-bg-subtle: #333335;
+    --bs-success-bg-subtle: #143625;
+    --bs-info-bg-subtle: #113c4d;
+    --bs-warning-bg-subtle: #4d3f13;
+    --bs-danger-bg-subtle: #5e1e23;
+    --bs-light-bg-subtle: #3a3a3c;
+    --bs-dark-bg-subtle: #1c1c1e;
+
+    --bs-primary-border-subtle: #2c4a6e;
+    --bs-secondary-border-subtle: #58585a;
+    --bs-success-border-subtle: #198754;
+    --bs-info-border-subtle: #58a6ff;
+    --bs-warning-border-subtle: #ffc107;
+    --bs-danger-border-subtle: #dc3545;
+    --bs-light-border-subtle: #545458;
+    --bs-dark-border-subtle: #3a3a3c;
+}
+
+/* Component Overrides */
+.dark-mode body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.dark-mode .content-card,
+.dark-mode .question-card,
+.dark-mode .modal-content,
+.dark-mode .accordion-item,
+.dark-mode .list-group-item,
+.dark-mode .card { /* Generic card */
+    background-color: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+/* Adjust accordion button colors */
+.dark-mode .accordion-button {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+}
+.dark-mode .accordion-button:not(.collapsed) {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-link-color); /* Highlight active */
+    box-shadow: inset 0 calc(-1* var(--bs-accordion-border-width)) 0 var(--bs-border-color);
+}
+.dark-mode .accordion-button::after {
+    filter: invert(1) grayscale(100%) brightness(200%); /* Make icon white */
+}
+.dark-mode .accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25); /* Use link color for focus */
+    border-color: var(--bs-link-color);
+}
+
+.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6 {
+    color: var(--bs-heading-color);
+}
+
+.dark-mode .text-muted {
+    color: var(--bs-secondary-color) !important;
+}
+
+.dark-mode .form-control,
+.dark-mode .form-select {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: #545458;
+}
+
+.dark-mode .form-control::placeholder {
+    color: var(--bs-secondary-color);
+}
+
+.dark-mode .form-control:focus,
+.dark-mode .form-select:focus {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-link-color);
+    box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
+}
+
+.dark-mode .btn-primary {
+    /* Keep Bootstrap defaults or adjust if needed */
+    /* Example: */
+    /* background-color: var(--bs-link-color); */
+    /* border-color: var(--bs-link-color); */
+    /* color: var(--bs-dark-text-emphasis); */
+}
+.dark-mode .btn-primary:hover {
+    /* Example */
+    /* background-color: var(--bs-link-hover-color); */
+    /* border-color: var(--bs-link-hover-color); */
+}
+
+
+.dark-mode .btn-secondary {
+    background-color: #58585a;
+    border-color: #58585a;
+    color: #fff;
+}
+
+.dark-mode .btn-secondary:hover {
+    background-color: #6a6a6c;
+    border-color: #6a6a6c;
+}
+
+.dark-mode .btn-outline-primary {
+    color: var(--bs-link-color);
+    border-color: var(--bs-link-color);
+}
+
+.dark-mode .btn-outline-primary:hover {
+    background-color: var(--bs-link-color);
+    color: var(--bs-body-bg);
+}
+
+.dark-mode .btn-outline-secondary {
+    color: var(--bs-secondary-text-emphasis);
+    border-color: var(--bs-secondary-border-subtle);
+}
+
+.dark-mode .btn-outline-secondary:hover {
+    background-color: var(--bs-secondary-border-subtle);
+    color: var(--bs-body-bg);
+}
+
+.dark-mode .btn-outline-info {
+    color: var(--bs-info-text-emphasis);
+    border-color: var(--bs-info-border-subtle);
+}
+.dark-mode .btn-outline-info:hover {
+    background-color: var(--bs-info-text-emphasis);
+    color: var(--bs-body-bg);
+}
+
+/* Alerts */
+.dark-mode .alert {
+    color: var(--bs-body-color); /* Default text color */
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+.dark-mode .alert-danger {
+    color: var(--bs-danger-text-emphasis);
+    background-color: var(--bs-danger-bg-subtle);
+    border-color: var(--bs-danger-border-subtle);
+}
+.dark-mode .alert-success {
+    color: var(--bs-success-text-emphasis);
+    background-color: var(--bs-success-bg-subtle);
+    border-color: var(--bs-success-border-subtle);
+}
+.dark-mode .alert-info {
+    color: var(--bs-info-text-emphasis);
+    background-color: var(--bs-info-bg-subtle);
+    border-color: var(--bs-info-border-subtle);
+}
+.dark-mode .alert-warning {
+    color: var(--bs-warning-text-emphasis);
+    background-color: var(--bs-warning-bg-subtle);
+    border-color: var(--bs-warning-border-subtle);
+}
+.dark-mode .alert-heading {
+    color: inherit; /* Use the alert's text emphasis color */
+}
+.dark-mode .alert .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.dark-mode hr {
+    border-top-color: var(--bs-border-color);
+}
+
+/* Modals */
+.dark-mode .modal-header,
+.dark-mode .modal-footer {
+    border-bottom-color: var(--bs-border-color);
+    border-top-color: var(--bs-border-color);
+}
+.dark-mode .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.dark-mode .spinner-border {
+    /* Use default color (inherits text color) or adjust if needed */
+    /* color: var(--bs-link-color); */
+}
+
+.dark-mode .loading-overlay {
+    background-color: rgba(30, 30, 30, 0.5); /* Darker overlay */
+}
+.dark-mode .loading-overlay .spinner-border {
+    color: var(--bs-link-color); /* Make spinner stand out */
+}
+
+/* --- Component Dark Mode Overrides --- */
+
+/* Answer Buttons */
+.dark-mode .answer-btn {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+.dark-mode .answer-btn:hover {
+    background-color: var(--bs-secondary-bg);
+    border-color: #545458;
+}
+.dark-mode .answer-btn.selected {
+    background-color: var(--bs-primary); /* Use primary color or adjust */
+    border-color: var(--bs-primary);
+    color: white; /* Or ensure contrast */
+}
+.dark-mode .answer-btn.correct {
+    background-color: #1e4620 !important; /* Darker green */
+    border-color: var(--bs-success-border-subtle) !important;
+    color: var(--bs-success-text-emphasis) !important;
+}
+.dark-mode .answer-btn.incorrect {
+    background-color: #5e1e23 !important; /* Darker red */
+    border-color: var(--bs-danger-border-subtle) !important;
+    color: var(--bs-danger-text-emphasis) !important;
+}
+.dark-mode .answer-btn:disabled {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+    opacity: 0.6;
+}
+
+/* Dark Mode Switch */
+.dark-mode .dark-mode-switch-container {
+    background: rgba(var(--bs-body-bg-rgb), 0.7); /* Slightly darker */
+    border: 1px solid var(--bs-border-color);
+}
+.dark-mode .dark-mode-switch-container .form-check-label {
+    color: #a0a0a5; /* Adjust icon color */
+}
+.dark-mode .dark-mode-switch-container .form-check-input:checked + .form-check-label {
+    color: #ffcc66; /* Sun color */
+}
+
+/* Form Switch Appearance */
+.dark-mode .form-switch .form-check-input {
+    background-color: #545458;
+    border-color: rgba(255, 255, 255, 0.25);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.25)'/%3e%3c/svg%3e");
+}
+.dark-mode .form-switch .form-check-input:focus {
+    border-color: var(--bs-link-color);
+    box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.25)'/%3e%3c/svg%3e");
+}
+.dark-mode .form-switch .form-check-input:checked {
+    background-color: var(--bs-link-color); /* Use link blue for checked state */
+    border-color: var(--bs-link-color);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+}
+
+/* --- Lesson Interface Dark Mode --- */
+.dark-mode .question-container {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+.dark-mode .question-question-text {
+    color: var(--bs-heading-color); /* Slightly brighter */
+}
+
+.dark-mode .progress-container {
+    background-color: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+}
+.dark-mode .progress {
+    background-color: var(--bs-tertiary-bg); /* Darker background for progress track */
+}
+.dark-mode .part-label.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.3); /* Dark mode highlight */
+    color: var(--bs-primary-text-emphasis);
+}
+.dark-mode .part-label.completed {
+    color: var(--bs-secondary-color); /* Muted text */
+}
+
+.dark-mode #partIntroArea {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+.dark-mode .intro-image-container {
+    background-color: var(--bs-secondary-bg);
+}
+.dark-mode .intro-sentence.highlight {
+    background-color: rgba(var(--bs-primary-rgb), 0.4); /* Darker blue for dark mode */
+    color: #e0e0e0; /* Ensure text is light */
+    box-shadow: 0 0 5px rgba(var(--bs-primary-rgb), 0.4);
+}
+.dark-mode .reading-highlight {
+    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
+    color: #c0dfff; /* Lighter text for highlight */
+    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
+    border-color: transparent; /* Remove border or match background */
+}
+
+.dark-mode #completionMessage, .dark-mode #partCompletionMessage {
+    background-color: var(--bs-success-bg-subtle);
+    border-color: var(--bs-success-border-subtle);
+    color: var(--bs-success-text-emphasis);
+}
+
+.dark-mode .feedback-section {
+    border-left-color: var(--bs-info-border-subtle);
+}
+
+/* Tables */
+.dark-mode .table {
+    --bs-table-bg: var(--bs-secondary-bg);
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: var(--bs-border-color);
+    --bs-table-striped-bg: var(--bs-tertiary-bg);
+    --bs-table-striped-color: var(--bs-body-color);
+    --bs-table-hover-bg: #3a3a3c; /* Slightly darker hover */
+    --bs-table-hover-color: var(--bs-body-color);
+}
+.dark-mode .table-group-divider {
+    border-top-color: var(--bs-border-color);
+}
+.dark-mode .table>:not(caption)>*>* { /* Ensure table cells inherit correctly */
+    border-color: var(--bs-table-border-color);
+    color: var(--bs-table-color);
+    background-color: var(--bs-table-bg); /* Ensure bg is set */
+}
+
+/* --- Lesson Edit Dark Mode --- */
+.dark-mode .question-item {
+    background-color: var(--bs-secondary-bg); /* Match card background */
+    border-color: var(--bs-border-color);
+}
+
+.dark-mode .btn-play-pause {
+    background-color: #4a4a4e; /* Slightly different dark background */
+    border-color: #5a5a5e;
+    color: #e4e4e6; /* Light text/icon */
+}
+.dark-mode .btn-play-pause:hover {
+    background-color: #5a5a5e;
+    border-color: #6a6a6e;
+}
+.dark-mode .btn-play-pause.playing {
+    background-color: var(--bs-link-color); /* Use link color or primary */
+    border-color: var(--bs-link-color);
+    color: var(--bs-body-bg); /* Dark icon */
+}
+
+.dark-mode .question-image-prompt-input {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: #545458;
+}
+.dark-mode .question-image-prompt-input:focus {
+    border-color: var(--bs-link-color);
+    box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
+}
+
+.dark-mode .question-difficulty-group {
+    border-left-color: #444;
+}
+
+.dark-mode .answer-list li {
+    border-bottom-color: var(--bs-border-color);
+}
+.dark-mode audio {
+    filter: invert(1) hue-rotate(180deg); /* Basic inversion for controls */
+}
+
+.dark-mode .sentence-image-display {
+    border-color: var(--bs-border-color);
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+}
+
+/* --- Progress Report Dark Mode --- */
+.dark-mode .progress-container .progress {
+    background-color: #545458; /* Darker track */
+}
+.dark-mode .progress-bar-label {
+    color: #e4e4e6; /* Light label */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+}
+.dark-mode .archive-entry + .archive-entry {
+    border-top-color: var(--bs-border-color);
+}
+
+/* --- Toast Dark Mode --- */
+.dark-mode .toast {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    --bs-toast-bg: var(--bs-secondary-bg);
+    --bs-toast-color: var(--bs-body-color);
+    --bs-toast-border-color: var(--bs-border-color);
+    --bs-toast-header-color: var(--bs-heading-color);
+    --bs-toast-header-bg: var(--bs-tertiary-bg);
+    --bs-toast-header-border-color: var(--bs-border-color);
+}
+.dark-mode .toast-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}

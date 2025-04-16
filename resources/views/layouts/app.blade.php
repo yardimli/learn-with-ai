@@ -9,12 +9,15 @@
 	
 	<link rel="preconnect" href="https://fonts.bunny.net">
 	<link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet"/>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-	      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-	      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-	      crossorigin="anonymous" referrerpolicy="no-referrer"/>
-	<link rel="stylesheet" href="{{ asset('css/app.css') }}">
+	<link href="/vendor/bootstrap5.3.5/css/bootstrap.min.css" rel="stylesheet" />
+	<link rel="stylesheet" href="/vendor/fontawesome-free-6.7.2/css/all.min.css" />
+	
+	<link rel="stylesheet" href="{{ asset('css/base.css') }}">
+	<link rel="stylesheet" href="{{ asset('css/components.css') }}">
+	<link rel="stylesheet" href="{{ asset('css/lesson-interface.css') }}">
+	<link rel="stylesheet" href="{{ asset('css/lesson-edit.css') }}">
+	<link rel="stylesheet" href="{{ asset('css/progress-report.css') }}">
+	<link rel="stylesheet" href="{{ asset('css/dark-mode.css') }}">
 	
 	@stack('styles')
 	
@@ -22,42 +25,10 @@
 		(function () {
 			const darkModeEnabled = localStorage.getItem('darkModeEnabled') === 'true';
 			if (darkModeEnabled) {
-				document.documentElement.classList.add('dark-mode'); // Apply to <html>
+				document.documentElement.classList.add('dark-mode');
 			}
-			// Ensure body exists before trying to add class (though applying to html is better for early application)
-			// document.addEventListener('DOMContentLoaded', () => {
-			//    if (darkModeEnabled) document.body.classList.add('dark-mode');
-			// });
 		})();
 	</script>
-	
-	<style>
-      /* Style for the switch container */
-      .dark-mode-switch-container {
-          position: fixed; /* Or absolute if you prefer relative to a parent */
-          top: 1rem;
-          right: 1rem;
-          z-index: 1050; /* Ensure it's above most content */
-          background: rgba(var(--bs-body-bg-rgb), 0.8); /* Semi-transparent background */
-          padding: 0.4rem 0.6rem;
-          border-radius: 50px; /* Rounded pill shape */
-          backdrop-filter: blur(3px); /* Optional: blur background */
-          display: flex;
-          align-items: center;
-      }
-
-      .dark-mode-switch-container .form-check-label {
-          margin-left: 0.5rem;
-          cursor: pointer; /* Make label clickable */
-      }
-
-      .dark-mode-switch-container .form-switch .form-check-input {
-          cursor: pointer;
-          width: 2.5em; /* Slightly larger switch */
-          height: 1.3em;
-      }
-	</style>
-
 </head>
 <body class="antialiased">
 
@@ -90,10 +61,9 @@
 	@yield('content')
 	
 	<!-- Hidden audio element (Maybe move to question page only if not needed globally) -->
-	<audio id="feedbackAudioPlayer" style="display: none;"></audio>
-	
-	<!-- Hidden audio element for JS control -->
-	<audio id="sharedAudioPlayer" style="display: none;"></audio>
+	<audio id="feedbackAudioPlayer" style="display: none;" preload="auto"></audio>
+	<audio id="sharedAudioPlayer" style="display: none;" preload="auto"></audio>
+	<audio id="ttsAudioPlayer" style="display: none;" preload="auto"></audio>
 	
 	<!-- Generic Image Modal -->
 	<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
@@ -114,7 +84,7 @@
 
 </div> <!-- End Container -->
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
 	<div id="toast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
 		<div class="toast-header">
 			<strong class="me-auto" id="toastTitle">Notification</strong>
@@ -124,9 +94,7 @@
 	</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
-        crossorigin="anonymous"></script>
+<script src="/vendor/bootstrap5.3.5/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('js/common.js') }}"></script>
 @stack('scripts')
 </body>
