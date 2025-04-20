@@ -12,8 +12,10 @@
 
 		protected $fillable = [
 			'session_id',
-			'name',
 			'title',
+			'subject',
+			'user_title',
+			'notes',
 			'image_prompt_idea',
 			'generated_image_id',
 			'sub_category_id',
@@ -23,12 +25,16 @@
 			'ttsVoice',
 			'ttsLanguageCode',
 			'preferredLlm',
+			'ai_generated',
+			'category_selection_mode',
+			'selected_main_category_id',
 		];
 
 		protected $casts = [
 			'lesson_parts' => 'array',
 			'generated_image_id' => 'integer',
 			'sub_category_id' => 'integer',
+			'ai_generated' => 'boolean',
 		];
 
 		public function getRouteKeyName()

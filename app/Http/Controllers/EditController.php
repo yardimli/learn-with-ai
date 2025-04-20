@@ -444,7 +444,7 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Invalid difficulty level provided.'], 400);
 			}
 
-			$lessonPrompt = $lesson->name;
+			$lessonPrompt = $lesson->subject;
 
 			// Retrieve and decode lesson parts
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);

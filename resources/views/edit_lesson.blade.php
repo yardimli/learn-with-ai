@@ -14,7 +14,7 @@
 	
 	<div class="content-card mb-4">
 		<h1 class="mb-1">Edit Lesson: {{ $lesson->title }}</h1>
-		<p class="text-muted mb-3">Lesson: {{ $lesson->name }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
+		<p class="text-muted mb-3">Lesson: {{ $lesson->subject }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
 			)</p>
 		
 		<div class="row mb-3 border-top pt-3 settings-row g-2"> {{-- Use g-2 for gutters --}}

@@ -4,21 +4,24 @@
 	use Illuminate\Database\Schema\Blueprint;
 	use Illuminate\Support\Facades\Schema;
 
-	return new class extends Migration
-	{
+	return new class extends Migration {
+		/**
+		 * Run the migrations.
+		 */
 		public function up(): void
 		{
 			Schema::table('lessons', function (Blueprint $table) {
-
-				$table->unsignedBigInteger('sub_category_id')->nullable()->after('generated_image_id');
+				$table->boolean('ai_generated')->default(false)->after('preferredLlm');
 			});
 		}
 
+		/**
+		 * Reverse the migrations.
+		 */
 		public function down(): void
 		{
 			Schema::table('lessons', function (Blueprint $table) {
-				// Reverse the changes
-				$table->dropColumn('sub_category_id');
+				$table->dropColumn('ai_generated');
 			});
 		}
 	};

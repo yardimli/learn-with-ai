@@ -1,51 +1,78 @@
 @extends('layouts.app')
+
 @section('title', 'Create New Lesson - Learn with AI')
+
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-4">
-		<h1 class="mb-0">Learn Something New with AI</h1>
+		<h1 class="mb-0">Create Basic Lesson</h1>
 		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
 			<i class="fas fa-list"></i> View Existing Lessons
 		</a>
-		 <a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage Categories </a>
+		<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2">
+			<i class="fas fa-tags"></i> Manage Categories
+		</a>
 	</div>
 	
 	<div class="content-card shadow-sm">
-		<form id="lessonForm" action="{{ route('lesson.generate.structure') }}" method="POST">
+		<form id="lessonForm" action="{{ route('lesson.save.basic') }}" method="POST">
 			@csrf
-			<input type="hidden" id="saveStructureUrl" value="{{ route('lesson.save.structure') }}"> {{-- Lesson Subject --}}
+			
 			<div class="mb-3">
-				<label for="lessonInput" class="form-label fs-5">Enter a Lesson Subject:</label>
-				<textarea type="text" class="form-control form-control-lg" id="lessonInput" name="lesson"
-				          placeholder="e.g., Quantum Physics, Photosynthesis" required></textarea>
-				{{-- Removed default value for testing --}}
+				<label for="userTitleInput" class="form-label fs-5">Lesson Title:</label>
+				<input type="text" class="form-control form-control-lg" id="userTitleInput" name="user_title"
+				       placeholder="Enter a title for your lesson" required>
+				<small class="form-text text-muted">This is your own title for the lesson.</small>
+			</div>
+			
+			{{-- Lesson Subject --}}
+			<div class="mb-3">
+				<label for="lessonSubject" class="form-label fs-5">Lesson Subject:</label>
+				<textarea type="text" class="form-control form-control-lg" id="lessonSubject" name="lesson_subject"
+				          placeholder="e.g., Quantum Physics, Photosynthesis" rows="4" required></textarea>
+				<small class="form-text text-muted">Enter a subject. You'll generate content with AI later.</small>
+			</div>
+			
+			<div class="mb-3">
+				<label for="notesInput" class="form-label fs-5">Additional Notes:</label>
+				<textarea class="form-control" id="notesInput" name="notes" rows="2"
+				          placeholder="Optional: Add any specific points to include, target audience, etc."></textarea>
+				<small class="form-text text-muted">Provide any additional context or requirements for the AI.</small>
 			</div>
 			
 			{{-- Row for Category and Language --}}
 			<div class="row mb-3">
 				<div class="col-md-6">
-					<label for="subCategorySelect" class="form-label">Category:</label>
-					<select class="form-select" id="subCategorySelect" name="sub_category_id" required>
-						<option value="auto" selected>Auto-detect Category</option>
-						@if(isset($mainCategories) && $mainCategories->isNotEmpty())
-							@foreach ($mainCategories as $mainCategory)
-								<optgroup label="{{ $mainCategory->name }}">
-									@forelse ($mainCategory->subCategories as $subCategory)
-										<option value="{{ $subCategory->id }}">{{ $subCategory->name }}</option>
-									@empty
-										<option value="" disabled class="fst-italic text-muted">No sub-categories yet</option>
-									@endforelse
-								</optgroup>
-							@endforeach
-						@else
-							<option value="auto" disabled>No categories exist yet, using Auto-detect</option>
-						@endif
+					<label for="categorySelectionMode" class="form-label">Category Selection:</label>
+					<select class="form-select mb-2" id="categorySelectionMode" name="category_selection_mode">
+						<option value="ai_decide" selected>Let AI decide main & sub-category</option>
+						<option value="main_only">I'll select main category, AI suggests sub-category</option>
+						<option value="both">I'll select both main & sub-category</option>
 					</select>
-					<small class="form-text text-muted">Select a sub-category or let the AI suggest main/sub.</small>
+					
+					<div id="mainCategoryArea" class="mt-2 d-none">
+						<label for="mainCategorySelect" class="form-label">Main Category:</label>
+						<select class="form-select" id="mainCategorySelect" name="main_category_id" disabled>
+							<option value="" selected disabled>Select a main category</option>
+							@foreach ($mainCategories as $mainCategory)
+								<option value="{{ $mainCategory->id }}">{{ $mainCategory->name }}</option>
+							@endforeach
+						</select>
+					</div>
+					
+					<div id="subCategoryArea" class="mt-2 d-none">
+						<label for="subCategorySelect" class="form-label">Sub-Category:</label>
+						<select class="form-select" id="subCategorySelect" name="sub_category_id" disabled>
+							<option value="" selected disabled>Select a sub-category</option>
+							{{-- Sub-categories will be populated via JavaScript --}}
+						</select>
+					</div>
+					
+					<small class="form-text text-muted">Choose how you want to categorize this lesson.</small>
 				</div>
+				
 				<div class="col-md-6">
 					<label for="languageSelect" class="form-label">Lesson Language:</label>
 					<select class="form-select" id="languageSelect" name="language" required>
-						{{-- Language options remain the same --}}
 						<option value="English" selected>English</option>
 						<option value="Türkçe">Türkçe</option>
 						<option value="Deutsch">Deutsch</option>
@@ -57,12 +84,10 @@
 				</div>
 			</div>
 			
-			
 			{{-- LLM Selection --}}
 			<div class="mb-3">
-				<label for="preferredLlmSelect" class="form-label">Lesson Generation AI Model:</label>
+				<label for="preferredLlmSelect" class="form-label">Preferred AI Model:</label>
 				<select class="form-select" id="preferredLlmSelect" name="preferred_llm" required>
-					{{-- Default option removed, force selection --}}
 					@php $defaultLlmId = env('DEFAULT_LLM', ''); @endphp
 					@forelse ($llms ?? [] as $llm)
 						<option value="{{ $llm['id'] }}" {{ $llm['id'] === $defaultLlmId ? 'selected' : '' }}>
@@ -72,18 +97,15 @@
 						<option value="" disabled>No AI models available</option>
 					@endforelse
 				</select>
-				<small class="form-text text-muted">Select the AI model to generate the lesson content.</small>
+				<small class="form-text text-muted">Model to use for generating content later.</small>
 			</div>
 			
 			{{-- TTS Engine Selection --}}
 			<div class="mb-3">
 				<label for="ttsEngineSelect" class="form-label">Text-to-Speech Engine:</label>
 				<select class="form-select" id="ttsEngineSelect" name="tts_engine" required>
-					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS
-					</option>
-					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud
-						TTS
-					</option>
+					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS </option>
+					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud TTS </option>
 				</select>
 			</div>
 			
@@ -91,24 +113,23 @@
 			<div class="mb-3">
 				<label for="ttsVoiceSelect" class="form-label">Text-to-Speech Voice:</label>
 				<select class="form-select" id="ttsVoiceSelect" name="tts_voice" required>
-					{{-- Options will be populated by JS --}}
 					<optgroup label="OpenAI Voices">
-						<option value="alloy" selected>Alloy (Neutral)</option> {{-- Default selection --}}
+						<option value="alloy" selected>Alloy (Neutral)</option>
 						<option value="echo">Echo (Male)</option>
 						<option value="fable">Fable (Male)</option>
 						<option value="onyx">Onyx (Male)</option>
 						<option value="nova">Nova (Female)</option>
 						<option value="shimmer">Shimmer (Female)</option>
 					</optgroup>
-					<optgroup label="Google Voices" style="display: none;"> {{-- Hide initially --}}
+					<optgroup label="Google Voices" style="display: none;">
 						<option value="en-US-Studio-O">en-US-Studio-O (Female)</option>
 						<option value="en-US-Studio-Q">en-US-Studio-Q (Male)</option>
-						<option value="tr-TR-Wavenet-A">tr-TR-Wavenet-A (Female)</option> {{-- Changed voice name example --}}
-						<option value="tr-TR-Wavenet-B">tr-TR-Wavenet-B (Male)</option> {{-- Changed voice name example --}}
+						<option value="tr-TR-Wavenet-A">tr-TR-Wavenet-A (Female)</option>
+						<option value="tr-TR-Wavenet-B">tr-TR-Wavenet-B (Male)</option>
 						<option value="tr-TR-Standard-A">tr-TR-Standard-A (Female)</option>
 						<option value="tr-TR-Standard-B">tr-TR-Standard-B</option>
-						<option value="cmn-CN-Wavenet-A">cmn-CN-Wavenet-A (Female)</option> {{-- Changed voice name example --}}
-						<option value="cmn-CN-Wavenet-B">cmn-CN-Wavenet-B (Male)</option> {{-- Changed voice name example --}}
+						<option value="cmn-CN-Wavenet-A">cmn-CN-Wavenet-A (Female)</option>
+						<option value="cmn-CN-Wavenet-B">cmn-CN-Wavenet-B (Male)</option>
 						<option value="cmn-TW-Standard-A">cmn-TW-Standard-A (Female)</option>
 						<option value="cmn-TW-Standard-B">cmn-TW-Standard-B (Male)</option>
 					</optgroup>
@@ -129,63 +150,40 @@
 					<option value="it-IT">Italian (Italy)</option>
 					<option value="ja-JP">Japanese (Japan)</option>
 					<option value="ko-KR">Korean (South Korea)</option>
-					<option value="zh-CN">Chinese (Mandarin, Simplified)</option> {{-- More specific for Google? --}}
-					<option value="zh-TW">Chinese (Mandarin, Traditional)</option> {{-- More specific for Google? --}}
-					{{-- Add other common languages as needed --}}
+					<option value="zh-CN">Chinese (Mandarin, Simplified)</option>
+					<option value="zh-TW">Chinese (Mandarin, Traditional)</option>
 				</select>
 				<small class="form-text text-muted">Primarily used by Google TTS. OpenAI often auto-detects.</small>
 			</div>
 			
 			<div class="d-grid">
-				<button type="submit" id="startLearningButton" class="btn btn-primary btn-lg"
-				        disabled> {{-- Start disabled until subject entered --}}
-					<span id="startLearningSpinner" class="spinner-border spinner-border-sm d-none" role="status"
-					      aria-hidden="true"></span> Generate Lesson Preview
+				<button type="submit" id="createBasicLessonButton" class="btn btn-primary btn-lg" disabled>
+					<span id="createBasicLessonSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+					Create Basic Lesson
 				</button>
+				<small class="form-text text-muted mt-2 text-center">
+					You'll generate the lesson content with AI from the lessons list.
+				</small>
 			</div>
 		</form>
-	</div>
-	
-	<!-- Lesson Plan Preview Modal -->
-	<div class="modal fade" id="lessonPreviewModal" tabindex="-1" aria-labelledby="lessonPreviewModalLabel"
-	     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-		<div class="modal-dialog modal-lg modal-dialog-scrollable">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="lessonPreviewModalLabel">Lesson Plan Preview</h5>
-					{{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}} {{-- Disable closing via X --}}
+		<div id="categoryDataContainer" class="d-none">
+			@foreach ($mainCategories as $mainCategory)
+				<div
+					class="main-category-data"
+					data-main-id="{{ $mainCategory->id }}"
+					data-main-name="{{ $mainCategory->name }}">
+					@foreach ($mainCategory->subCategories as $subCategory)
+						<div
+							class="sub-category-data"
+							data-sub-id="{{ $subCategory->id }}"
+							data-sub-name="{{ $subCategory->name }}"></div>
+					@endforeach
 				</div>
-				<div class="modal-body" id="lessonPreviewBody">
-					{{-- Content dynamically loaded by JS --}}
-					<div class="text-center">
-						<div class="spinner-border text-primary" role="status">
-							<span class="visually-hidden">Loading preview...</span>
-						</div>
-						<p class="mt-2">Generating lesson preview...</p>
-					</div>
-				</div>
-				{{-- Display Suggested Category Here --}}
-				<div class="modal-category-suggestion px-3 pb-2 d-none" id="modalCategorySuggestionArea">
-					<hr>
-					<p class="mb-1">
-						<strong>AI Suggested Category:</strong><br>
-						Main: <span id="suggestedMainCategoryText" class="badge bg-info"></span> <br>
-						Sub: <span id="suggestedSubCategoryText" class="badge bg-light text-dark"></span>
-					</p>
-					<small class="text-muted">These categories will be created if they don't exist when you confirm.</small>
-				</div>
-				<div class="modal-footer">
-                <span id="modalLoadingIndicator" class="me-auto d-none">
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating Lesson...
-                </span>
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPreviewButton">Cancel
-					</button>
-					<button type="button" class="btn btn-primary" id="confirmPreviewButton" disabled>Confirm & Create Lesson
-					</button>
-				</div>
-			</div>
+			@endforeach
 		</div>
 	</div>
-@endsection @push('scripts')
+@endsection
+
+@push('scripts')
 	<script src="{{ asset('js/create_lesson.js') }}"></script>
 @endpush

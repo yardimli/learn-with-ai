@@ -28,32 +28,30 @@
 
 	class ViewLessonsController extends Controller
 	{
-		public function listLessons()
-		{
-			$lessons = Lesson::with(['subCategory.mainCategory']) // Eager load relationships
-			->withCount('questions')
+		public function listLessons() {
+			$lessons = Lesson::with(['subCategory.mainCategory'])
+				->withCount('questions')
 				->orderBy('created_at', 'desc')
 				->get();
 
 			// Calculate current progress for each lesson
 			foreach ($lessons as $lesson) {
-				// Use the public static method from ProgressController
-				// Attach the result directly to the lesson object
 				$lesson->currentProgress = ProgressController::calculateFirstAttemptScore($lesson->id);
 			}
 
-
 			$groupedLessons = $lessons->groupBy(function ($lesson) {
-				// Group by main category ID, handle lessons with no subcategory (or main category missing)
-				return $lesson->subCategory->mainCategory->id ?? null; // Null key for uncategorized/error
+				return $lesson->subCategory->mainCategory->id ?? null;
 			});
 
 			$mainCategoryNames = MainCategory::orderBy('name')->pluck('name', 'id')->all();
 			$orderedMainCategoryIds = array_keys($mainCategoryNames);
 
+			// Get LLMs for the generation modal
+			$llms = LlmHelper::checkLLMsJson();
+
 			Log::info("Fetched and grouped lessons for listing. Main Categories found: " . count($mainCategoryNames));
 
-			return view('lessons_list', compact('groupedLessons', 'mainCategoryNames', 'orderedMainCategoryIds'));
+			return view('lessons_list', compact('groupedLessons', 'mainCategoryNames', 'orderedMainCategoryIds', 'llms'));
 		}
 
 		public function archiveProgress(Lesson $lesson)

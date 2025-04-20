@@ -15,8 +15,8 @@
 				$table->id();
 				$table->uuid('archive_batch_id')->index();
 				$table->unsignedBigInteger('original_user_answer_id')->index()->comment('Reference to the original ID before archiving');
-				$table->foreignId('question_id')->constrained()->onDelete('cascade');
-				$table->foreignId('lesson_id')->constrained()->onDelete('cascade');
+				$table->integer('question_id');
+				$table->integer('lesson_id');
 				$table->integer('selected_answer_index');
 				$table->boolean('was_correct');
 				$table->integer('attempt_number');

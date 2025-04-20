@@ -13,13 +13,18 @@
 
 // --- Lesson Creation & Setup ---
 	Route::get('/', [CreateLessonController::class, 'index'])->name('home');
-	Route::post('/lesson/generate-structure', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
-	Route::post('/lesson/save-structure', [CreateLessonController::class, 'createLesson'])->name('lesson.save.structure');
-	Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
+	Route::post('/lesson/save-basic', [CreateLessonController::class, 'createBasicLesson'])->name('lesson.save.basic');
 
+//	Route::post('/lesson/generate-structure', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
+//	Route::post('/lesson/save-structure', [CreateLessonController::class, 'createLesson'])->name('lesson.save.structure');
+
+	Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
 	Route::get('/lessons', [ViewLessonsController::class, 'listLessons'])->name('lessons.list');
 	Route::delete('/lesson/{lesson:session_id}', [ViewLessonsController::class, 'deleteLesson'])->name('lesson.delete');
 	Route::post('/lesson/{lesson}/archive', [ViewLessonsController::class, 'archiveProgress'])->name('lesson.archive');
+
+	Route::post('/lesson/{lesson}/generate-preview', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.preview');
+	Route::post('/lesson/{lesson}/apply-plan', [CreateLessonController::class, 'applyGeneratedPlan'])->name('lesson.apply.plan');
 
 
 	Route::get('/api/llms-list', function () {

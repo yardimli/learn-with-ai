@@ -63,7 +63,8 @@
 					@endphp
 					<div class="accordion-item">
 						<h2 class="accordion-header" id="{{ $mainHeadingId }}">
-							<button class="accordion-button {{ $startExpanded ? '' : 'collapsed' }}" type="button" data-bs-toggle="collapse"
+							<button class="accordion-button {{ $startExpanded ? '' : 'collapsed' }}" type="button"
+							        data-bs-toggle="collapse"
 							        data-bs-target="#{{ $mainCollapseId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}"
 							        aria-controls="{{ $mainCollapseId }}">
 								<i class="fas fa-folder-open me-2"></i> {{ $mainCategoryName }}
@@ -141,6 +142,120 @@
 		
 		</div> {{-- End Accordion --}}
 	@endif
+	
+	
+	<div class="modal fade" id="generateContentModal" tabindex="-1" aria-labelledby="generateContentModalLabel"
+	     aria-hidden="true" data-bs-backdrop="static">
+		<div class="modal-dialog modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="generateContentModalLabel">Generate Lesson Content</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<div id="generationOptionsArea">
+						<input type="hidden" id="sessionIdForGeneration" value="">
+						<input type="hidden" id="currentSubCategoryId" value="">
+						
+						<div class="mb-3">
+							<label for="lessonTitleDisplay" class="form-label">Lesson Title:</label>
+							<input type="text" class="form-control" id="lessonTitleDisplay">
+						</div>
+						
+						<div class="mb-3">
+							<label for="lessonSubjectDisplay" class="form-label">Lesson Subject:</label>
+							<textarea type="text" class="form-control" id="lessonSubjectDisplay"></textarea>
+						</div>
+						
+						<div class="mb-3">
+							<label for="lessonNotesDisplay" class="form-label">Additional Notes:</label>
+							<textarea class="form-control" id="lessonNotesDisplay" rows="2"></textarea>
+						</div>
+						
+						{{-- Area to display existing category --}}
+						<div id="existingCategoryDisplayArea" class="mb-3 p-2 border rounded d-none">
+							<p class="mb-1"><strong>Current Category:</strong></p>
+							<p class="mb-0">
+								Main: <span id="existingMainCategoryName" class="fw-bold"></span><br>
+								Sub: <span id="existingSubCategoryName" class="fw-bold"></span>
+							</p>
+							<small class="text-muted">Content will be generated for this category.</small>
+						</div>
+						
+						{{-- Area for auto-detect checkbox --}}
+						<div id="autoDetectCheckboxArea" class="mb-3 form-check">
+							<input type="checkbox" class="form-check-input" id="autoDetectCategoryCheck" checked>
+							<label class="form-check-label" for="autoDetectCategoryCheck">
+								Auto-detect category based on content
+							</label>
+						</div>
+						
+						<div class="mb-3">
+							<label for="aiModelSelect" class="form-label">AI Model for Generation:</label>
+							<select class="form-select" id="aiModelSelect" required>
+								@php $defaultLlmId = env('DEFAULT_LLM', ''); @endphp
+								@forelse ($llms ?? [] as $llm)
+									<option value="{{ $llm['id'] }}" {{ $llm['id'] === $defaultLlmId ? 'selected' : '' }}>
+										{{ $llm['name'] }}
+									</option>
+								@empty
+									<option value="" disabled>No AI models available</option>
+								@endforelse
+							</select>
+						</div>
+						
+						<div class="d-grid">
+							<button id="generatePreviewButton" class="btn btn-primary">
+								<span id="generatePreviewSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+								      aria-hidden="true"></span>
+								Generate Content Preview
+							</button>
+						</div>
+					</div>
+					
+					<div id="previewContentArea" class="d-none">
+						<div id="lessonPreviewBody">
+							<div class="text-center">
+								<div class="spinner-border text-primary" role="status">
+									<span class="visually-hidden">Loading preview...</span>
+								</div>
+								<p class="mt-2">Generating preview...</p>
+							</div>
+						</div>
+						
+						<div id="modalCategorySuggestionArea" class="mt-3 p-2 border rounded d-none">
+							<h6>AI Suggested Category:</h6>
+							<p class="mb-1">
+								Main: <span id="suggestedMainCategoryText" class="badge bg-info"></span>
+								<br>
+								Sub: <span id="suggestedSubCategoryText" class="badge bg-light text-dark"></span>
+							</p>
+							<small class="text-muted">These categories will be created if they don't exist.</small>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<div id="generationErrorMessage" class="text-danger me-auto d-none"></div>
+					<span id="applyGenerationSpinner" class="me-auto d-none">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Applying Content...
+                </span>
+					
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelGenerationButton">
+						Cancel
+					</button>
+					
+					<button type="button" class="btn btn-primary d-none" id="backToOptionsButton">
+						<i class="fas fa-arrow-left"></i> Back to Options
+					</button>
+					
+					<button type="button" class="btn btn-success d-none" id="applyGenerationButton">
+						Apply Content <i class="fas fa-check"></i>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
 @endsection
 
 @push('styles')
@@ -148,9 +263,11 @@
       .sub-category-group {
           border-bottom: 1px solid var(--bs-border-color-translucent); /* Add separator between sub-groups */
       }
+
       .sub-category-group:last-child {
           border-bottom: none; /* Remove border from the last one */
       }
+
       .sub-category-heading.collapse-trigger {
           font-size: 1.1rem;
           font-weight: 500;
@@ -161,6 +278,7 @@
           align-items: center; /* Vertically align items */
           transition: background-color 0.15s ease-in-out;
       }
+
       .sub-category-heading.collapse-trigger:hover {
           /* Optional: background-color: rgba(0,0,0,0.03); */
           /* For dark mode compatibility, use semi-transparent white */
@@ -182,16 +300,20 @@
           border-right: 0;
           border-radius: 0;
       }
+
       .sub-category-group .list-group-flush .list-group-item:first-child {
           border-top: 0;
       }
+
       .sub-category-group .list-group-flush .list-group-item:last-child {
           border-bottom: 0;
       }
+
       /* Remove accordion body padding as we add it to sub-groups */
       .accordion-body.p-0 {
           padding: 0 !important;
       }
+
       /* Adjust padding within the collapsible div if needed */
       .sub-category-group .collapse .list-group {
           /* padding-left: 1rem; */ /* Optional indent for lesson items */
@@ -201,5 +323,5 @@
 @endpush
 
 @push('scripts')
-	{{-- No specific JS needed here as Bootstrap handles collapse via data attributes --}}
+	<script src="{{ asset('js/lessons_list.js') }}"></script>
 @endpush
