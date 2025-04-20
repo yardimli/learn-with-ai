@@ -67,6 +67,72 @@
 					</select>
 				</div>
 			</div>
+			
+			{{-- New Row for User Title, Notes, Month, Year --}}
+			<div class="row mb-1 pt-0 settings-row g-2">
+				{{-- User Title --}}
+				<div class="col-md-6 col-lg-4 mb-2">
+					<div class="d-flex align-items-center">
+						<label for="editUserTitle" class="form-label me-2 mb-0 text-nowrap">
+							<i class="fas fa-heading text-muted me-1"></i>User Title:
+						</label>
+						<input type="text" id="editUserTitle" class="form-control form-control-sm" value="{{ old('user_title', $lesson->user_title) }}" placeholder="Optional custom title">
+					</div>
+				</div>
+				
+				{{-- Month --}}
+				<div class="col-md-3 col-lg-3  mb-2">
+					<div class="d-flex align-items-center">
+						<label for="editMonth" class="form-label me-2 mb-0 text-nowrap">
+							<i class="fas fa-calendar-alt text-muted me-1"></i>Month:
+						</label>
+						<select id="editMonth" class="form-select form-select-sm">
+							<option value="" {{ is_null($lesson->month) ? 'selected' : '' }}>Select Month</option>
+							@for ($m = 1; $m <= 12; $m++)
+								<option value="{{ $m }}" {{ old('month', $lesson->month) == $m ? 'selected' : '' }}>
+									{{ date('F', mktime(0, 0, 0, $m, 10)) }} <!-- Display full month name -->
+								</option>
+							@endfor
+						</select>
+					</div>
+				</div>
+				
+				{{-- Year --}}
+				<div class="col-md-3 col-lg-3 mb-2">
+					<div class="d-flex align-items-center">
+						<label for="editYear" class="form-label me-2 mb-0 text-nowrap">
+							<i class="fas fa-calendar-day text-muted me-1"></i>Year:
+						</label>
+						<select id="editYear" class="form-select form-select-sm">
+							<option value="" {{ is_null($lesson->year) ? 'selected' : '' }}>Select Year</option>
+							@php
+								$currentYear = date('Y');
+								$startYear = $currentYear - 10; // Go back 10 years
+								$endYear = $currentYear + 5;   // Allow 5 years in future
+							@endphp
+							@for ($y = $endYear; $y >= $startYear; $y--)
+								<option value="{{ $y }}" {{ old('year', $lesson->year) == $y ? 'selected' : '' }}>
+									{{ $y }}
+								</option>
+							@endfor
+						</select>
+					</div>
+				</div>
+			</div>
+			
+			{{-- Notes --}}
+			<div class="row mb-1 pt-0 settings-row g-2">
+				<div class="col-12">
+					<div class="d-flex align-items-start"> {{-- Align items start for label alignment --}}
+						<label for="editNotes" class="form-label me-2 mb-0 text-nowrap pt-1"> {{-- Add padding top --}}
+							<i class="fas fa-sticky-note text-muted me-1"></i>Notes:
+						</label>
+						<textarea id="editNotes" class="form-control form-control-sm" rows="2" placeholder="Optional lesson notes">{{ old('notes', $lesson->notes) }}</textarea>
+					</div>
+				</div>
+			</div>
+			{{-- End New Row --}}
+			
 		</div>
 		
 		<div class="row mb-3 pt-0 settings-row g-2"> {{-- Use g-2 for gutters --}}

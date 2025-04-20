@@ -28,6 +28,8 @@
 			'ai_generated',
 			'category_selection_mode',
 			'selected_main_category_id',
+			'month',
+			'year',
 		];
 
 		protected $casts = [
@@ -35,6 +37,8 @@
 			'generated_image_id' => 'integer',
 			'sub_category_id' => 'integer',
 			'ai_generated' => 'boolean',
+			'month' => 'integer',
+			'year' => 'integer',
 		];
 
 		public function getRouteKeyName()

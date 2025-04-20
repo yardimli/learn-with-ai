@@ -15,6 +15,9 @@
 	Route::get('/', [CreateLessonController::class, 'index'])->name('home');
 	Route::post('/lesson/save-basic', [CreateLessonController::class, 'createBasicLesson'])->name('lesson.save.basic');
 
+	Route::get('/lesson/import', [CreateLessonController::class, 'showImportForm'])->name('lesson.import.form');
+	Route::post('/lesson/import/process', [CreateLessonController::class, 'processImport'])->name('lesson.import.process');
+
 //	Route::post('/lesson/generate-structure', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.structure');
 //	Route::post('/lesson/save-structure', [CreateLessonController::class, 'createLesson'])->name('lesson.save.structure');
 
@@ -25,6 +28,7 @@
 
 	Route::post('/lesson/{lesson}/generate-preview', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.preview');
 	Route::post('/lesson/{lesson}/apply-plan', [CreateLessonController::class, 'applyGeneratedPlan'])->name('lesson.apply.plan');
+
 
 
 	Route::get('/api/llms-list', function () {

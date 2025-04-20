@@ -4,13 +4,18 @@
 
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-4">
-		<h1 class="mb-0">Create Basic Lesson</h1>
-		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
-			<i class="fas fa-list"></i> View Existing Lessons
-		</a>
-		<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2">
-			<i class="fas fa-tags"></i> Manage Categories
-		</a>
+		<h1 class="mb-0 me-3">Create Basic Lesson</h1> {{-- Added margin --}}
+		<div class="d-flex flex-wrap gap-2"> {{-- Wrapper for buttons --}}
+			<a href="{{ route('lesson.import.form') }}" class="btn btn-outline-success"> {{-- New Import Button --}}
+				<i class="fas fa-file-import"></i> Import from JSON
+			</a>
+			<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary">
+				<i class="fas fa-list"></i> View Existing Lessons
+			</a>
+			<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info">
+				<i class="fas fa-tags"></i> Manage Categories
+			</a>
+		</div>
 	</div>
 	
 	<div class="content-card shadow-sm">

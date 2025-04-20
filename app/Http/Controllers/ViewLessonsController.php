@@ -28,9 +28,10 @@
 
 	class ViewLessonsController extends Controller
 	{
-		public function listLessons() {
-			$lessons = Lesson::with(['subCategory.mainCategory'])
-				->withCount('questions')
+		public function listLessons()
+		{
+			$lessons = Lesson::with(['subCategory.mainCategory']) // Eager load relationships
+			->withCount('questions')
 				->orderBy('created_at', 'desc')
 				->get();
 
@@ -39,9 +40,21 @@
 				$lesson->currentProgress = ProgressController::calculateFirstAttemptScore($lesson->id);
 			}
 
+			// Group lessons: Prioritize selected_main_category_id, then subCategory's mainCategory, then null
 			$groupedLessons = $lessons->groupBy(function ($lesson) {
-				return $lesson->subCategory->mainCategory->id ?? null;
+				// Priority 1: Use selected_main_category_id if it's set
+				if ($lesson->selected_main_category_id) {
+					return $lesson->selected_main_category_id;
+				}
+				// Priority 2: Use the main category ID from the sub-category if it exists
+				// Make sure subCategory and its mainCategory are loaded and not null
+				if ($lesson->subCategory && $lesson->subCategory->mainCategory) {
+					return $lesson->subCategory->mainCategory->id;
+				}
+				// Default: Uncategorized (null key)
+				return null;
 			});
+
 
 			$mainCategoryNames = MainCategory::orderBy('name')->pluck('name', 'id')->all();
 			$orderedMainCategoryIds = array_keys($mainCategoryNames);

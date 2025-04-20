@@ -24,7 +24,7 @@
 	@else
 		<div class="accordion shadow-sm" id="lessonsAccordion">
 			
-			{{-- Handle Uncategorized Lessons First (Lessons with no Main Category) --}}
+			{{-- Handle Uncategorized Lessons First (Lessons with no Main Category association at all) --}}
 			@if (isset($groupedLessons[null]) && $groupedLessons[null]->isNotEmpty())
 				@php $uncategorizedLessons = $groupedLessons[null]; @endphp
 				<div class="accordion-item">
@@ -55,6 +55,7 @@
 					@php
 						$mainCategoryName = $mainCategoryNames[$mainCategoryId] ?? 'Unknown Main Category';
 						$lessonsInMainCategory = $groupedLessons[$mainCategoryId];
+						// Group lessons within this main category by their sub_category_id (null/empty string for those without)
 						$lessonsGroupedBySubCategory = $lessonsInMainCategory->groupBy('sub_category_id');
 						$mainCollapseId = 'collapseMainCategory' . Str::slug($mainCategoryId);
 						$mainHeadingId = 'headingMainCategory' . Str::slug($mainCategoryId);
@@ -64,8 +65,8 @@
 					<div class="accordion-item">
 						<h2 class="accordion-header" id="{{ $mainHeadingId }}">
 							<button class="accordion-button {{ $startExpanded ? '' : 'collapsed' }}" type="button"
-							        data-bs-toggle="collapse"
-							        data-bs-target="#{{ $mainCollapseId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}"
+							        data-bs-toggle="collapse" data-bs-target="#{{ $mainCollapseId }}"
+							        aria-expanded="{{ $startExpanded ? 'true' : 'false' }}"
 							        aria-controls="{{ $mainCollapseId }}">
 								<i class="fas fa-folder-open me-2"></i> {{ $mainCategoryName }}
 								<span class="badge bg-primary ms-2">{{ $lessonsInMainCategory->count() }}</span>
@@ -76,20 +77,27 @@
 							<div class="accordion-body p-0"> {{-- Remove padding from outer body --}}
 								
 								{{-- Handle Lessons in this Main Category WITHOUT a Sub Category (Collapsible) --}}
-								@if (isset($lessonsGroupedBySubCategory['']) && $lessonsGroupedBySubCategory['']->isNotEmpty())
-									@php
-										$lessonsWithoutSub = $lessonsGroupedBySubCategory[''];
-										$noSubCollapseId = "subCollapse-main{$mainCategoryId}-noSub";
-									@endphp
+								{{-- Check for both null and empty string keys just in case --}}
+								@php
+									$lessonsWithoutSub = collect();
+									if (isset($lessonsGroupedBySubCategory[null])) {
+											$lessonsWithoutSub = $lessonsWithoutSub->merge($lessonsGroupedBySubCategory[null]);
+											unset($lessonsGroupedBySubCategory[null]); // Remove from main loop
+									}
+									if (isset($lessonsGroupedBySubCategory[''])) {
+											 $lessonsWithoutSub = $lessonsWithoutSub->merge($lessonsGroupedBySubCategory['']);
+											 unset($lessonsGroupedBySubCategory['']); // Remove from main loop
+									}
+								@endphp
+								
+								@if ($lessonsWithoutSub->isNotEmpty())
+									@php $noSubCollapseId = "subCollapse-main{$mainCategoryId}-noSub"; @endphp
 									<div class="sub-category-group px-3 pt-2 pb-1"> {{-- Adjusted padding --}}
 										<h4 class="sub-category-heading mb-0 collapse-trigger" {{-- mb-0 on heading --}}
-										data-bs-toggle="collapse"
-										    data-bs-target="#{{ $noSubCollapseId }}"
+										data-bs-toggle="collapse" data-bs-target="#{{ $noSubCollapseId }}"
 										    aria-expanded="false" {{-- Start collapsed --}}
-										    aria-controls="{{ $noSubCollapseId }}"
-										    role="button">
-											<i class="fas fa-minus-circle me-2 text-muted"></i>
-											(No Sub Category)
+										    aria-controls="{{ $noSubCollapseId }}" role="button">
+											<i class="fas fa-minus-circle me-2 text-muted"></i> (No Sub Category)
 											<span class="badge bg-light text-dark ms-2">{{ $lessonsWithoutSub->count() }}</span>
 											<i class="fas fa-chevron-down collapse-icon ms-auto"></i> {{-- Added Icon --}}
 										</h4>
@@ -101,27 +109,24 @@
 											</div>
 										</div>
 									</div>
-									@php unset($lessonsGroupedBySubCategory['']); @endphp {{-- Remove from loop --}}
 								@endif
 								
 								{{-- Loop Through Sub Categories within this Main Category (Collapsible) --}}
 								@foreach ($lessonsGroupedBySubCategory as $subCategoryId => $lessonsInSubCategory)
 									@php
+										// Ensure we have lessons and try to get the name
 										$subCategoryName = $lessonsInSubCategory->first()?->subCategory?->name ?? 'Unknown Sub Category';
-										// Ensure subCategoryId is safe for ID (replace potential null/empty with string)
+										// Ensure subCategoryId is safe for ID (replace potential null/empty with string) - Should not be needed now due to unset above
 										$safeSubCategoryId = $subCategoryId ?: 'unknown';
 										$subCollapseId = "subCollapse-main{$mainCategoryId}-sub{$safeSubCategoryId}";
 									@endphp
 									<div class="sub-category-group px-3 pt-2 pb-1"> {{-- Adjusted padding --}}
 										<h4 class="sub-category-heading mb-0 collapse-trigger" {{-- mb-0 on heading --}}
-										data-bs-toggle="collapse"
-										    data-bs-target="#{{ $subCollapseId }}"
+										data-bs-toggle="collapse" data-bs-target="#{{ $subCollapseId }}"
 										    aria-expanded="false" {{-- Start collapsed --}}
-										    aria-controls="{{ $subCollapseId }}"
-										    role="button">
-											<i class="fas fa-stream me-2 text-info"></i>
-											{{ $subCategoryName }}
-											<span class="badge bg-info text-dark ms-2">{{ $lessonsInSubCategory->count() }}</span>
+										    aria-controls="{{ $subCollapseId }}" role="button">
+											<i class="fas fa-stream me-2 text-info"></i> {{ $subCategoryName }}
+											<span class="badge bg-danger text-dark ms-2">{{ $lessonsInSubCategory->count() }}</span>
 											<i class="fas fa-chevron-down collapse-icon ms-auto"></i> {{-- Added Icon --}}
 										</h4>
 										<div class="collapse" id="{{ $subCollapseId }}">
@@ -142,6 +147,7 @@
 		
 		</div> {{-- End Accordion --}}
 	@endif
+
 	
 	
 	<div class="modal fade" id="generateContentModal" tabindex="-1" aria-labelledby="generateContentModalLabel"
@@ -156,6 +162,7 @@
 					<div id="generationOptionsArea">
 						<input type="hidden" id="sessionIdForGeneration" value="">
 						<input type="hidden" id="currentSubCategoryId" value="">
+						<input type="hidden" id="currentSelectedMainCategoryId" value="">
 						
 						<div class="mb-3">
 							<label for="lessonTitleDisplay" class="form-label">Lesson Title:</label>
@@ -179,7 +186,7 @@
 								Main: <span id="existingMainCategoryName" class="fw-bold"></span><br>
 								Sub: <span id="existingSubCategoryName" class="fw-bold"></span>
 							</p>
-							<small class="text-muted">Content will be generated for this category.</small>
+							<small class="text-muted" id="existingCategoryNote">Content will be generated for this category.</small>
 						</div>
 						
 						{{-- Area for auto-detect checkbox --}}
@@ -226,7 +233,7 @@
 						<div id="modalCategorySuggestionArea" class="mt-3 p-2 border rounded d-none">
 							<h6>AI Suggested Category:</h6>
 							<p class="mb-1">
-								Main: <span id="suggestedMainCategoryText" class="badge bg-info"></span>
+								Main: <span id="suggestedMainCategoryText" class="badge bg-danger text-dark"></span>
 								<br>
 								Sub: <span id="suggestedSubCategoryText" class="badge bg-light text-dark"></span>
 							</p>
@@ -262,6 +269,7 @@
 	<style>
       .sub-category-group {
           border-bottom: 1px solid var(--bs-border-color-translucent); /* Add separator between sub-groups */
+		      margin-left: 20px;
       }
 
       .sub-category-group:last-child {

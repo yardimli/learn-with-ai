@@ -92,6 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedSubCategory = editSubCategorySelect.value;    // <-- Get Category ID
 			const selectedLanguage = editLanguageSelect.value;    // <-- Get Lesson Language
 			
+			const userTitleInput = document.getElementById('editUserTitle');
+			const notesInput = document.getElementById('editNotes');
+			const monthInput = document.getElementById('editMonth');
+			const yearInput = document.getElementById('editYear');
+			
 			if (!selectedSubCategory || !selectedLanguage) {
 				showToast('Please select a sub-category and language.', 'Missing Selection', 'warning');
 				return;
@@ -113,7 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
 					tts_voice: selectedVoice,
 					tts_language_code: selectedLangCode,
 					sub_category_id: selectedSubCategory,
-					language: selectedLanguage
+					language: selectedLanguage,
+					
+					user_title: userTitleInput ? userTitleInput.value : null,
+					notes: notesInput ? notesInput.value : null,
+					month: monthInput ? (monthInput.value || null) : null,
+					year: yearInput ? (yearInput.value || null) : null,
 				})
 			})
 				.then(response => response.json())

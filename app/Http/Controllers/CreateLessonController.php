@@ -202,7 +202,7 @@ PROMPT;
 
 			if (!$autoDetectMain && $selectedMainCategoryName) {
 				// Adjust system prompt for main_only mode
-				$systemPrompt .= "\n\nIMPORTANT: The user has already selected the main category as '{$selectedMainCategoryName}'. You MUST use this exact main category name in the 'suggested_main_category' field. Only suggest an appropriate sub-category that fits within this main category.";
+				$systemPrompt .= "\n\nIMPORTANT: The user has already selected the main category as '{$selectedMainCategoryName}'. You MUST use this exact main category name in the 'suggested_main_category' field. Only suggest an appropriate sub-category that fits within this main category. If the available sub categories are not suitable, suggest a new one.";
 			}
 
 			$userMessageContent = "Title: " . $userTitle . "\n";
@@ -653,6 +653,127 @@ PROMPT;
 					'success' => false,
 					'message' => 'Failed to update lesson with generated content: ' . $e->getMessage()
 				], 500);
+			}
+		}
+
+		public function showImportForm()
+		{
+			$mainCategories = MainCategory::orderBy('name')->get();
+			$llms = LlmHelper::checkLLMsJson();
+			return view('lesson_import', compact('mainCategories', 'llms'));
+		}
+
+		public function processImport(Request $request)
+		{
+			$validator = Validator::make($request->all(), [
+				'main_category_id' => 'required|exists:main_categories,id',
+				'preferred_llm' => 'required|string|max:100',
+				'tts_engine' => 'required|string|in:google,openai',
+				'tts_voice' => 'required|string|max:100',
+				'tts_language_code' => 'required|string|max:10',
+				'language' => 'required|string|max:10',
+				'lessons_json' => 'required|string',
+			]);
+
+			if ($validator->fails()) {
+				return redirect()->route('lesson.import.form')
+					->withErrors($validator)
+					->withInput();
+			}
+
+			$mainCategoryId = $request->input('main_category_id');
+			$preferredLlm = $request->input('preferred_llm');
+			$ttsEngine = $request->input('tts_engine');
+			$ttsVoice = $request->input('tts_voice');
+			$ttsLanguageCode = $request->input('tts_language_code');
+			$language = $request->input('language');
+			$jsonInput = $request->input('lessons_json');
+
+			try {
+				$lessonsData = json_decode($jsonInput, true, 512, JSON_THROW_ON_ERROR);
+			} catch (JsonException $e) {
+				Log::error('JSON Import Error: Invalid JSON provided.', ['error' => $e->getMessage()]);
+				return redirect()->route('lesson.import.form')
+					->with('error', 'Invalid JSON format: ' . $e->getMessage())
+					->withInput();
+			}
+
+			if (!is_array($lessonsData)) {
+				Log::error('JSON Import Error: JSON is not an array.');
+				return redirect()->route('lesson.import.form')
+					->with('error', 'Invalid JSON structure: The top level must be an array.')
+					->withInput();
+			}
+
+			$importedCount = 0;
+			$skippedCount = 0;
+			$errors = [];
+
+			DB::beginTransaction();
+			try {
+				foreach ($lessonsData as $index => $lessonData) {
+					// Validate individual lesson structure
+					if (!isset($lessonData['title']) || !is_string($lessonData['title']) || empty(trim($lessonData['title']))) {
+						$errors[] = "Lesson at index {$index}: Missing or invalid 'title'.";
+						$skippedCount++;
+						continue;
+					}
+					if (!isset($lessonData['description']) || !is_string($lessonData['description']) || empty(trim($lessonData['description']))) {
+						$errors[] = "Lesson at index {$index}: Missing or invalid 'description'.";
+						$skippedCount++;
+						continue;
+					}
+					// 'period' is optional, but if present, should be a string
+					if (isset($lessonData['period']) && !is_string($lessonData['period'])) {
+						$errors[] = "Lesson at index {$index}: Invalid 'period' format (must be a string).";
+						$skippedCount++;
+						continue;
+					}
+
+
+					$sessionId = Str::uuid()->toString();
+					$notes = $lessonData['period'] ?? null; // Store period in notes if present
+
+					Lesson::create([
+						'user_title' => trim($lessonData['title']),
+						'subject' => trim($lessonData['description']),
+						'notes' => $notes,
+						'title' => null, // Will be populated by AI later
+						'image_prompt_idea' => null, // Will be populated by AI later
+						'lesson_parts' => '[]', // Will be populated by AI later
+						'session_id' => $sessionId,
+						'preferredLlm' => $preferredLlm,
+						'ttsEngine' => $ttsEngine,
+						'ttsVoice' => $ttsVoice,
+						'ttsLanguageCode' => $ttsLanguageCode,
+						'language' => $language,
+						'sub_category_id' => null, // Sub-category will be suggested by AI
+						'ai_generated' => false, // Not generated yet
+						'category_selection_mode' => 'main_only', // User selected main, AI suggests sub
+						'selected_main_category_id' => $mainCategoryId,
+					]);
+					$importedCount++;
+					Log::info("JSON Import: Created lesson '{$lessonData['title']}' with SessionID: {$sessionId}");
+				}
+
+				DB::commit();
+
+				$message = "Successfully imported {$importedCount} lessons.";
+				if ($skippedCount > 0) {
+					$message .= " Skipped {$skippedCount} lessons due to errors.";
+					Log::warning('JSON Import: Some lessons were skipped.', ['errors' => $errors]);
+					// Optionally add detailed errors to the flash message if needed, but keep it concise
+					// session()->flash('import_errors', $errors);
+				}
+
+				return redirect()->route('lessons.list')->with('success', $message);
+
+			} catch (\Exception $e) {
+				DB::rollBack();
+				Log::error('JSON Import Error: Failed during database insertion.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+				return redirect()->route('lesson.import.form')
+					->with('error', 'An error occurred during import: ' . $e->getMessage())
+					->withInput();
 			}
 		}
 

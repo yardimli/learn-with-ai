@@ -219,6 +219,10 @@ PROMPT;
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:30',
 				'sub_category_id' => ['required', 'integer', Rule::exists('sub_categories', 'id')],
+				'user_title' => 'nullable|string|max:255',
+				'notes' => 'nullable|string|max:5000',
+				'month' => 'nullable|integer|between:1,12',
+				'year' => 'nullable|integer|digits:4',
 			]);
 
 			if ($validator->fails()) {
@@ -236,6 +240,10 @@ PROMPT;
 				$lesson->ttsLanguageCode = $request->input('tts_language_code');
 				$lesson->language = $request->input('language');
 				$lesson->sub_category_id = $request->input('sub_category_id');
+				$lesson->user_title = $request->input('user_title');
+				$lesson->notes = $request->input('notes');
+				$lesson->month = $request->input('month') ?: null;
+				$lesson->year = $request->input('year') ?: null;
 
 				$lesson->save();
 

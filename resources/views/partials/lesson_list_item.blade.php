@@ -1,10 +1,11 @@
-<div class="list-group-item list-group-item-action d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3">
+<div
+	class="list-group-item list-group-item-action d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3">
 	{{-- Lesson Details --}}
 	<div class="mb-2 mb-md-0 me-md-3 flex-grow-1">
 		<h5 class="mb-1">
 			{{ $lesson->user_title ?? 'Untitled' }}
 			@if($lesson->title && $lesson->title != $lesson->user_title)
-				<span class="badge bg-info text-white" title="AI-generated title">{{ $lesson->title }}</span>
+				<span class="badge bg-danger text-dark" title="AI-generated title">{{ $lesson->title }}</span>
 			@endif
 			
 			@if(!$lesson->ai_generated)
@@ -32,7 +33,8 @@
 				$percentage = round(($currentScore / $totalQuestions) * 100);
 			@endphp
 			<div class="mt-2">
-				<small class="text-muted">Current Progress (First Attempt Score): {{ $currentScore }} / {{ $totalQuestions }}</small>
+				<small class="text-muted">Current Progress (First Attempt Score): {{ $currentScore }}
+					/ {{ $totalQuestions }}</small>
 				<div class="progress mt-1" role="progressbar" aria-label="Current Lesson Progress"
 				     aria-valuenow="{{ $percentage }}" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
 					<div class="progress-bar bg-primary" style="width: {{ $percentage }}%;"></div>
@@ -66,7 +68,8 @@
 				        data-lesson-subject="{{ $lesson->subject }}"
 				        data-notes="{{ $lesson->notes }}"
 				        data-sub-category-id="{{ $lesson->sub_category_id ?? '' }}"
-				        data-main-category-name="{{ $lesson->subCategory?->mainCategory?->name ?? '' }}"
+				        data-selected-main-category-id="{{ $lesson->selected_main_category_id ?? '' }}"
+				        data-main-category-name="{{ $lesson->subCategory?->mainCategory?->name ?? ($mainCategoryNames[$lesson->selected_main_category_id] ?? '') }}"
 				        data-sub-category-name="{{ $lesson->subCategory?->name ?? '' }}"
 				        data-bs-toggle="modal"
 				        data-bs-target="#generateContentModal"
@@ -103,15 +106,17 @@
 				<span class="d-none d-lg-inline">Archive</span>
 			</button>
 			
-			<form action="{{ route('lesson.delete', $lesson->session_id) }}"
-			      method="POST" class="d-inline"
-			      onsubmit="return confirm('Are you sure you want to delete this entire lesson? This cannot be undone.');">
+			<button type="button" class="btn btn-sm btn-danger delete-lesson-btn"
+			        data-lesson-session-id="{{ $lesson->session_id }}"
+			        data-delete-url="{{ route('lesson.delete', $lesson->session_id) }}"
+			        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
+			        title="Delete Lesson">
+				<i class="fas fa-trash"></i> <span class="d-none d-lg-inline">Delete</span>
+			</button>
+			<form action="{{ route('lesson.delete', $lesson->session_id) }}" method="POST" class="d-none"
+			      id="delete-form-{{ $lesson->session_id }}">
 				@csrf
 				@method('DELETE')
-				<button type="submit" class="btn btn-sm btn-danger" title="Delete Lesson">
-					<i class="fas fa-trash"></i>
-					<span class="d-none d-lg-inline">Delete</span>
-				</button>
 			</form>
 		</div>
 	</div>

@@ -1,9 +1,12 @@
 console.log("Lessons List JS loaded.");
 
+
 document.addEventListener('DOMContentLoaded', () => {
 	const generateContentModal = document.getElementById('generateContentModal');
 	const sessionIdInput = document.getElementById('sessionIdForGeneration');
+	const lessonTitleDisplay = document.getElementById('lessonTitleDisplay'); // Ensure this ID exists
 	const lessonSubjectTextarea = document.getElementById('lessonSubjectDisplay');
+	const lessonNotesDisplay = document.getElementById('lessonNotesDisplay'); // Ensure this ID exists
 	const aiModelSelect = document.getElementById('aiModelSelect');
 	const autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
 	const generatePreviewButton = document.getElementById('generatePreviewButton');
@@ -20,17 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	const suggestedMainCategoryText = document.getElementById('suggestedMainCategoryText');
 	const suggestedSubCategoryText = document.getElementById('suggestedSubCategoryText');
 	
-	// New elements for category display
+	// Elements for category display
 	const existingCategoryDisplayArea = document.getElementById('existingCategoryDisplayArea');
 	const existingMainCategoryNameSpan = document.getElementById('existingMainCategoryName');
 	const existingSubCategoryNameSpan = document.getElementById('existingSubCategoryName');
+	const existingCategoryNote = document.getElementById('existingCategoryNote');
 	const autoDetectCheckboxArea = document.getElementById('autoDetectCheckboxArea');
-	const currentSubCategoryIdInput = document.getElementById('currentSubCategoryId'); // Hidden input
+	const currentSubCategoryIdInput = document.getElementById('currentSubCategoryId');
+	const currentSelectedMainCategoryIdInput = document.getElementById('currentSelectedMainCategoryId'); // Added hidden input
 	
 	let currentGeneratedPlan = null; // Store the previewed plan
 	let currentSuggestedMainCategory = null;
 	let currentSuggestedSubCategory = null;
-	let isAutoDetectingCategory = true; // Track state for apply action
+	let isAutoDetectingCategory = true; // Track state for apply action - reflects if auto-detect *was used* for preview
 	
 	// --- Modal Setup ---
 	if (generateContentModal) {
@@ -40,50 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			const userTitle = button.dataset.userTitle;
 			const lessonSubject = button.dataset.lessonSubject;
 			const notes = button.dataset.notes;
-			const subCategoryId = button.dataset.subCategoryId; // Get pre-assigned sub-category ID
-			const mainCategoryName = button.dataset.mainCategoryName; // Get pre-assigned main name
-			const subCategoryName = button.dataset.subCategoryName; // Get pre-assigned sub name
+			const subCategoryId = button.dataset.subCategoryId;
+			const mainCategoryName = button.dataset.mainCategoryName;
+			const subCategoryName = button.dataset.subCategoryName;
+			const selectedMainCategoryId = button.dataset.selectedMainCategoryId; // Get the ID
 			
-			const categorySelectionMode = button.dataset.categorySelectionMode || 'ai_decide';
-			const selectedMainCategoryId = button.dataset.selectedMainCategoryId || '';
-			
-			// Update UI based on category selection mode
-			if (categorySelectionMode === 'ai_decide') {
-				// Both categories will be auto-detected
-				isAutoDetectingCategory = true;
-				existingCategoryDisplayArea.classList.add('d-none');
-				autoDetectCheckboxArea.classList.remove('d-none');
-				autoDetectCheckbox.checked = true;
-			}
-			else if (categorySelectionMode === 'main_only') {
-				// Only sub-category will be auto-detected
-				isAutoDetectingCategory = true;
-				existingCategoryDisplayArea.classList.remove('d-none');
-				autoDetectCheckboxArea.classList.add('d-none');
-				existingMainCategoryNameSpan.textContent = mainCategoryName;
-				existingSubCategoryNameSpan.textContent = 'Will be auto-detected';
-			}
-			else if (categorySelectionMode === 'both') {
-				// Both categories manually selected
-				isAutoDetectingCategory = false;
-				existingCategoryDisplayArea.classList.remove('d-none');
-				autoDetectCheckboxArea.classList.add('d-none');
-				existingMainCategoryNameSpan.textContent = mainCategoryName;
-				existingSubCategoryNameSpan.textContent = subCategoryName;
-			}
-			
-			// Additional state tracking
-			// currentCategorySelectionMode = categorySelectionMode;
-			// currentSelectedMainCategoryId = selectedMainCategoryId;
-			
-			// Populate basic fields
-			sessionIdInput.value = sessionId;
-			lessonTitleDisplay.value = userTitle || '';
-			lessonSubjectTextarea.value = lessonSubject;
-			lessonNotesDisplay.value = notes || '';
-			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
-			
-			// Reset modal state
+			// Reset modal state FIRST
 			previewContentArea.classList.add('d-none');
 			lessonPreviewBody.innerHTML = ''; // Clear previous preview
 			generationOptionsArea.classList.remove('d-none');
@@ -99,43 +66,72 @@ document.addEventListener('DOMContentLoaded', () => {
 			generatePreviewButton.disabled = false;
 			generatePreviewSpinner.classList.add('d-none');
 			applyGenerationSpinner.classList.add('d-none');
+			existingCategoryDisplayArea.classList.add('d-none'); // Hide by default
+			autoDetectCheckboxArea.classList.add('d-none'); // Hide by default
+			autoDetectCheckbox.checked = false; // Uncheck by default
+			isAutoDetectingCategory = false; // Reset state tracking
 			
-			// --- Conditional Category Display ---
+			// Populate basic fields
+			sessionIdInput.value = sessionId;
+			lessonTitleDisplay.value = userTitle || '';
+			lessonSubjectTextarea.value = lessonSubject;
+			lessonNotesDisplay.value = notes || '';
+			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
+			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || ''; // Store original main category ID
+			
+			// --- Determine Category Display and Auto-Detect State ---
 			if (subCategoryId && mainCategoryName && subCategoryName) {
-				// Lesson already has a category assigned
-				isAutoDetectingCategory = false;
-				existingCategoryDisplayArea.classList.remove('d-none');
-				autoDetectCheckboxArea.classList.add('d-none');
-				autoDetectCheckbox.checked = false; // Ensure checkbox is off
+				// Case 1: Both Main and Sub categories are fully defined via SubCategory
 				existingMainCategoryNameSpan.textContent = mainCategoryName;
 				existingSubCategoryNameSpan.textContent = subCategoryName;
+				existingCategoryNote.textContent = 'Content will be generated for this category.';
+				existingCategoryDisplayArea.classList.remove('d-none');
+				autoDetectCheckboxArea.classList.add('d-none'); // Hide checkbox
+				isAutoDetectingCategory = false; // Not auto-detecting
+			} else if (selectedMainCategoryId && mainCategoryName && !subCategoryId) {
+				// Case 2: Only Main category is defined (via selected_main_category_id)
+				existingMainCategoryNameSpan.textContent = mainCategoryName;
+				existingSubCategoryNameSpan.textContent = '(None - will be auto-detected)';
+				existingCategoryNote.textContent = 'Sub-category will be auto-detected based on content.';
+				existingCategoryDisplayArea.classList.remove('d-none');
+				autoDetectCheckboxArea.classList.add('d-none'); // Hide checkbox (auto-detect for sub is implied)
+				isAutoDetectingCategory = true; // Auto-detecting sub-category
 			} else {
-				// Lesson needs category detection (or has none)
-				isAutoDetectingCategory = true; // Default state when no category is pre-set
-				existingCategoryDisplayArea.classList.add('d-none');
-				autoDetectCheckboxArea.classList.remove('d-none');
+				// Case 3: No category assigned, or incomplete data - Default to full auto-detect
+				existingCategoryDisplayArea.classList.add('d-none'); // Hide existing display
+				autoDetectCheckboxArea.classList.remove('d-none'); // Show checkbox
 				autoDetectCheckbox.checked = true; // Default to checked
-				existingMainCategoryNameSpan.textContent = '';
-				existingSubCategoryNameSpan.textContent = '';
+				isAutoDetectingCategory = true; // Auto-detecting both
 			}
 			
 			// Update isAutoDetectingCategory based on checkbox change *only if* the checkbox area is visible
-			if (!autoDetectCheckboxArea.classList.contains('d-none')) {
-				autoDetectCheckbox.addEventListener('change', () => {
+			// This listener should be inside 'show.bs.modal' to reset correctly each time
+			const autoDetectChangeHandler = () => {
+				if (!autoDetectCheckboxArea.classList.contains('d-none')) {
 					isAutoDetectingCategory = autoDetectCheckbox.checked;
-				});
-				// Set initial state based on checkbox
+				}
+			};
+			// Remove previous listener if any to prevent duplicates
+			autoDetectCheckbox.removeEventListener('change', autoDetectChangeHandler);
+			// Add the listener
+			autoDetectCheckbox.addEventListener('change', autoDetectChangeHandler);
+			// Set initial state based on checkbox visibility and checked status
+			if (!autoDetectCheckboxArea.classList.contains('d-none')) {
 				isAutoDetectingCategory = autoDetectCheckbox.checked;
-			}
+			} // else it's already set based on the cases above
 			
 		});
 		
 		generateContentModal.addEventListener('hidden.bs.modal', () => {
 			// Clear fields on close to prevent stale data
 			sessionIdInput.value = '';
+			lessonTitleDisplay.value = '';
 			lessonSubjectTextarea.value = '';
+			lessonNotesDisplay.value = '';
 			currentSubCategoryIdInput.value = '';
+			currentSelectedMainCategoryIdInput.value = '';
 			// Reset other states if necessary
+			// (Most resets happen in 'show.bs.modal')
 		});
 	}
 	
@@ -147,12 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			const subject = lessonSubjectTextarea.value;
 			const notes = lessonNotesDisplay.value;
 			const llm = aiModelSelect.value;
-
-			const autoDetect = !existingCategoryDisplayArea.classList.contains('d-none') ? false : autoDetectCheckbox.checked;
-			
+			// Determine the auto-detect flag to send based on the *current* state of the modal/checkbox
+			const autoDetect = isAutoDetectingCategory; // Use the tracked state
 			
 			if (!sessionId || !subject || !userTitle || !llm) {
-				showToast('Missing required fields.', 'Error', 'error');
+				showToast('Missing required fields (Title, Subject, AI Model).', 'Error', 'error');
 				return;
 			}
 			
@@ -160,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			generatePreviewSpinner.classList.remove('d-none');
 			generationErrorMessage.classList.add('d-none');
 			generationErrorMessage.textContent = '';
-			previewContentArea.classList.remove('d-none');
+			previewContentArea.classList.remove('d-none'); // Show preview area immediately
 			lessonPreviewBody.innerHTML = `
                 <div class="text-center">
                     <div class="spinner-border text-primary" role="status">
@@ -171,7 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			generationOptionsArea.classList.add('d-none'); // Hide options
 			backToOptionsButton.classList.remove('d-none');
 			cancelGenerationButton.textContent = 'Cancel Generation'; // Change cancel button text
-			
 			
 			try {
 				const response = await fetch(`/lesson/${sessionId}/generate-preview`, {
@@ -203,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				// Display the preview
 				displayLessonPlanPreview(result.plan);
 				
-				// Show category suggestion only if auto-detect was intended
+				// Show category suggestion only if auto-detect was intended *and* suggestions were provided
 				if (autoDetect && currentSuggestedMainCategory && currentSuggestedSubCategory) {
 					suggestedMainCategoryText.textContent = currentSuggestedMainCategory;
 					suggestedSubCategoryText.textContent = currentSuggestedSubCategory;
@@ -221,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				generationErrorMessage.classList.remove('d-none');
 				applyGenerationButton.classList.add('d-none'); // Hide apply button on error
 			} finally {
-				generatePreviewButton.disabled = false; // Re-enable original button
+				// generatePreviewButton.disabled = false; // Keep disabled until back/cancel
 				generatePreviewSpinner.classList.add('d-none');
 			}
 		});
@@ -254,11 +248,17 @@ document.addEventListener('DOMContentLoaded', () => {
 				return;
 			}
 			
-			const originalSubCategoryId = currentSubCategoryIdInput.value; // Get original ID
+			const originalSubCategoryId = currentSubCategoryIdInput.value;
 			const sessionId = sessionIdInput.value;
 			
-			// Determine categoryInput based on modal state during *preview generation*
-			const categoryInput = isAutoDetectingCategory ? 'auto' : (originalSubCategoryId || 'auto'); // Fallback to auto if original ID missing
+			// Determine categoryInput based on whether auto-detect was active *during preview generation*
+			// The 'isAutoDetectingCategory' flag holds this state.
+			const categoryInput = isAutoDetectingCategory ? 'auto' : (originalSubCategoryId || 'auto');
+			// If not auto-detecting, send the original sub-category ID.
+			// If originalSubCategoryId is empty even when not auto-detecting (e.g., only main was selected),
+			// sending 'auto' might still be the desired behavior for the backend to handle sub-category creation.
+			// Or the backend could use the original selected_main_category_id if provided.
+			// Let's stick to sending 'auto' if isAutoDetectingCategory is true, otherwise the original sub_id (even if empty).
 			
 			applyGenerationButton.disabled = true;
 			applyGenerationSpinner.classList.remove('d-none');
@@ -270,10 +270,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			try {
 				const payload = {
 					plan: currentGeneratedPlan,
-					category_input: categoryInput,
+					category_input: categoryInput, // 'auto' or the original sub_category_id
 					// Only include suggested names if categoryInput is 'auto'
 					suggested_main_category: categoryInput === 'auto' ? currentSuggestedMainCategory : null,
 					suggested_sub_category: categoryInput === 'auto' ? currentSuggestedSubCategory : null,
+					// No need to send original IDs here; backend uses category_input to decide how to proceed
 				};
 				
 				const response = await fetch(`/lesson/${sessionId}/apply-plan`, {
@@ -293,17 +294,15 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				
 				showToast(result.message || 'Lesson content applied successfully!', 'Success', 'success');
+				
 				// Optionally close modal and refresh list or redirect
 				const modalInstance = bootstrap.Modal.getInstance(generateContentModal);
-				modalInstance.hide();
+				if (modalInstance) {
+					modalInstance.hide();
+				}
+				
 				// Simple refresh for now:
 				window.location.reload();
-				// Or redirect if provided:
-				// if (result.redirectUrl) {
-				//     window.location.href = result.redirectUrl;
-				// } else {
-				//     window.location.reload();
-				// }
 				
 			} catch (error) {
 				console.error('Error applying generated plan:', error);
@@ -318,28 +317,29 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 	
-	
 	// --- Helper to display lesson plan ---
 	function displayLessonPlanPreview(plan) {
 		if (!plan || !plan.lesson_parts || plan.lesson_parts.length === 0) {
-			lessonPreviewBody.innerHTML = '<div class="alert alert-warning">Could not generate a valid lesson plan structure.</div>';
+			lessonPreviewBody.innerHTML = '<div class="alert alert-warning">Could not generate a valid lesson plan structure. Check AI model or prompt.</div>';
 			return;
 		}
 		
 		let previewHtml = `<h4>${escapeHtml(plan.main_title || 'Lesson Preview')}</h4>`;
-		previewHtml += `<p><strong>Main Image Idea:</strong> ${escapeHtml(plan.image_prompt_idea || 'N/A')}</p>`;
+		if (plan.image_prompt_idea) {
+			previewHtml += `<p><strong>Main Image Idea:</strong> ${escapeHtml(plan.image_prompt_idea)}</p>`;
+		}
 		previewHtml += '<hr>';
 		
 		plan.lesson_parts.forEach((part, index) => {
 			previewHtml += `
                 <div class="mb-3 card">
-                  <div class="card-header">
-                    <strong>Part ${index + 1}: ${escapeHtml(part.title || 'Untitled Part')}</strong>
-                  </div>
-                  <div class="card-body">
-                     <p class="card-text">${escapeHtml(part.text || 'No content generated.')}</p>
-                     <p class="card-text"><small class="text-muted">Image Idea: ${escapeHtml(part.image_prompt_idea || 'N/A')}</small></p>
-                  </div>
+                    <div class="card-header">
+                        <strong>Part ${index + 1}: ${escapeHtml(part.title || 'Untitled Part')}</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">${escapeHtml(part.text || 'No content generated.')}</p>
+                        ${part.image_prompt_idea ? `<p class="card-text"><small class="text-muted">Image Idea: ${escapeHtml(part.image_prompt_idea)}</small></p>` : ''}
+                    </div>
                 </div>
             `;
 		});
@@ -347,4 +347,84 @@ document.addEventListener('DOMContentLoaded', () => {
 		lessonPreviewBody.innerHTML = previewHtml;
 	}
 	
-});
+	// --- Delete Lesson Button Handler ---
+	document.querySelectorAll('.delete-lesson-btn').forEach(button => {
+		button.addEventListener('click', function() {
+			const sessionId = this.dataset.lessonSessionId;
+			const deleteUrl = this.dataset.deleteUrl;
+			const lessonTitle = this.dataset.lessonTitle;
+			
+			if (confirm(`Are you sure you want to delete the lesson "${lessonTitle}" and all its associated questions and progress? This action cannot be undone.`)) {
+				// Use Fetch API for AJAX delete
+				fetch(deleteUrl, {
+					method: 'DELETE',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					}
+				})
+					.then(response => response.json())
+					.then(data => {
+						if (data.success) {
+							showToast(data.message || 'Lesson deleted successfully.', 'Success', 'success');
+							// Remove the list item from the DOM
+							const listItem = this.closest('.list-group-item');
+							if (listItem) {
+								listItem.remove();
+								// Optionally check if the parent accordion body/collapse is now empty and update counts/UI
+							} else {
+								window.location.reload(); // Fallback refresh
+							}
+						} else {
+							showToast(data.message || 'Failed to delete lesson.', 'Error', 'error');
+						}
+					})
+					.catch(error => {
+						console.error('Error deleting lesson:', error);
+						showToast('An error occurred while deleting the lesson.', 'Error', 'error');
+					});
+				
+				// If using the hidden form as fallback (not recommended with the fetch approach)
+				// const formId = `delete-form-${sessionId}`;
+				// const form = document.getElementById(formId);
+				// if (form) {
+				//     form.submit();
+				// }
+			}
+		});
+	});
+	
+	// --- Archive Progress Button Handler ---
+	document.querySelectorAll('.archive-progress-btn').forEach(button => {
+		button.addEventListener('click', function() {
+			const archiveUrl = this.dataset.archiveUrl;
+			const lessonSessionId = this.dataset.lessonSessionId; // For potential UI updates
+			
+			if (confirm('Are you sure you want to archive the current progress for this lesson? This will reset the progress tracking.')) {
+				fetch(archiveUrl, {
+					method: 'POST',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					}
+				})
+					.then(response => response.json())
+					.then(data => {
+						if (data.success) {
+							showToast(data.message || 'Progress archived successfully.', 'Success', 'success');
+							// Reload the page to show the reset progress bar
+							window.location.reload();
+						} else {
+							showToast(data.message || 'Failed to archive progress.', 'Error', 'error');
+						}
+					})
+					.catch(error => {
+						console.error('Error archiving progress:', error);
+						showToast('An error occurred while archiving progress.', 'Error', 'error');
+					});
+			}
+		});
+	});
+	
+	
+}); // End DOMContentLoaded
