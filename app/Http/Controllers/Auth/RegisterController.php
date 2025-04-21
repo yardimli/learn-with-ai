@@ -51,8 +51,8 @@
 		public function showRegistrationForm()
 		{
 			// Generate math problem
-			$num1 = rand(1, 10);
-			$num2 = rand(1, 10);
+			$num1 = rand(111, 312);
+			$num2 = rand(111, 442);
 			$mathQuestion = "What is $num1 + $num2?";
 			$correctAnswer = $num1 + $num2;
 
