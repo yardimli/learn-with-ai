@@ -154,9 +154,6 @@
 					<option value="es-ES">Spanish (Spain)</option>
 					<option value="it-IT">Italian (Italy)</option>
 					<option value="ja-JP">Japanese (Japan)</option>
-					<option value="ko-KR">Korean (South Korea)</option>
-					<option value="zh-CN">Chinese (Mandarin, Simplified)</option>
-					<option value="zh-TW">Chinese (Mandarin, Traditional)</option>
 				</select>
 				<small class="form-text text-muted">Primarily used by Google TTS. OpenAI often auto-detects.</small>
 			</div>

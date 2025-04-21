@@ -118,6 +118,23 @@
 						</select>
 					</div>
 				</div>
+				
+				{{-- Week --}}
+				<div class="col-md-3 col-lg-3 mb-2">
+					<div class="d-flex align-items-center">
+						<label for="editWeek" class="form-label me-2 mb-0 text-nowrap">
+							<i class="fas fa-calendar-day text-muted me-1"></i>Week:
+						</label>
+						<select id="editWeek" class="form-select form-select-sm">
+							<option value="" {{ is_null($lesson->week) ? 'selected' : '' }}>Select Week</option>
+							@for ($y = 1; $y <= 52; $y++)
+								<option value="{{ $y }}" {{ old('week', $lesson->week) == $y ? 'selected' : '' }}>
+									{{ $y }}
+								</option>
+							@endfor
+						</select>
+					</div>
+				</div>
 			</div>
 			
 			{{-- Notes --}}

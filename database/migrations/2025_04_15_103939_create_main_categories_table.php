@@ -10,7 +10,7 @@
 		{
 			Schema::create('main_categories', function (Blueprint $table) {
 				$table->id();
-				$table->string('name')->unique(); // Main category names must be unique
+				$table->string('name')->index();
 				$table->timestamps();
 			});
 		}

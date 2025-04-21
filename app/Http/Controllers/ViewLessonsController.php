@@ -12,6 +12,7 @@
 	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Carbon;
+	use Illuminate\Support\Facades\Auth;
 	use Illuminate\Support\Facades\DB;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Validator;
@@ -30,10 +31,21 @@
 	{
 		public function listLessons()
 		{
-			$lessons = Lesson::with(['subCategory.mainCategory']) // Eager load relationships
-			->withCount('questions')
+			$userId = Auth::id();
+			$lessons = Auth::user()->lessons()
+				->with([
+					// Eager load subCategory and its mainCategory, ensuring they belong to the user
+					'subCategory' => function ($query) use ($userId) {
+						$query->where('user_id', $userId); // Filter subcategory by user
+					},
+					'subCategory.mainCategory' => function ($query) use ($userId) {
+						$query->where('user_id', $userId); // Filter main category by user
+					}
+				])
+				->withCount('questions')
 				->orderBy('created_at', 'desc')
 				->get();
+
 
 			// Calculate current progress for each lesson
 			foreach ($lessons as $lesson) {
@@ -56,7 +68,7 @@
 			});
 
 
-			$mainCategoryNames = MainCategory::orderBy('name')->pluck('name', 'id')->all();
+			$mainCategoryNames = Auth::user()->mainCategories()->orderBy('name')->pluck('name', 'id')->all();
 			$orderedMainCategoryIds = array_keys($mainCategoryNames);
 
 			// Get LLMs for the generation modal
@@ -69,6 +81,7 @@
 
 		public function archiveProgress(Lesson $lesson)
 		{
+			$this->authorize('archive', $lesson);
 			Log::info("Archive request received for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
 
 			$userAnswers = UserAnswer::where('lesson_id', $lesson->id)->get();

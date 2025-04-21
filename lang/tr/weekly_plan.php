@@ -1,0 +1,35 @@
+<?php // lang/tr/weekly_plan.php
+
+	return [
+		'week_header_numbered' => ':week. Hafta',
+		'no_lesson_for_category_period' => ':period döneminde :category için ders bulunamadı',
+		'no_lesson_tooltip' => 'Gerekli kategori ve döneme (Yıl-Ay-Hafta) uyan ders bulunamadı.',
+
+		'physical_education' => 'Beden Eğitimi',
+		'review' => 'Tekrar',
+
+		'title' => 'Haftalık Ders Planı',
+		'back_button' => 'Ders Listesine Geri Dön',
+		'no_lessons' => 'Yıl, Ay ve Hafta atanmış ders bulunamadı.',
+		'no_lessons_link' => 'Derslerinize gidin',
+		'no_lessons_suffix' => 've planlama için tarih atamak üzere düzenleyin.',
+		'week_header' => ':week. Hafta',
+		'time' => 'Zaman',
+		'monday' => 'Pazartesi',
+		'tuesday' => 'Salı',
+		'wednesday' => 'Çarşamba',
+		'thursday' => 'Perşembe',
+		'friday' => 'Cuma',
+		'saturday' => 'Cumartesi',
+		'morning' => 'Sabah',
+		'noon' => 'Öğle',
+		'afternoon' => 'Öğleden Sonra',
+		'empty_slot' => 'Beden Eğitimi / Tekrar',
+		'category_label' => 'Kategori',
+		'untitled_lesson' => 'Başlıksız Ders',
+		'no_category' => 'Kategori Yok',
+		'select_language' => 'Dil Seçin',
+		'english' => 'İngilizce (English)',
+		'traditional_chinese' => 'Geleneksel Çince (繁體中文)',
+		'turkish' => 'Türkçe',
+	];

@@ -96,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const notesInput = document.getElementById('editNotes');
 			const monthInput = document.getElementById('editMonth');
 			const yearInput = document.getElementById('editYear');
+			const weekInput = document.getElementById('editWeek');
 			
 			if (!selectedSubCategory || !selectedLanguage) {
 				showToast('Please select a sub-category and language.', 'Missing Selection', 'warning');
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					notes: notesInput ? notesInput.value : null,
 					month: monthInput ? (monthInput.value || null) : null,
 					year: yearInput ? (yearInput.value || null) : null,
+					week: weekInput ? (weekInput.value || null) : null,
 				})
 			})
 				.then(response => response.json())

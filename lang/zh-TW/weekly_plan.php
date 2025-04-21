@@ -1,0 +1,35 @@
+<?php // lang/zh-TW/weekly_plan.php
+
+	return [
+		'week_header_numbered' => '第 :week 週',
+		'no_lesson_for_category_period' => '在 :period 找不到 :category 的課程',
+		'no_lesson_tooltip' => '找不到符合所需類別和期間（年-月-週）的課程。',
+
+		'physical_education' => '體育',
+		'review' => '複習',
+
+		'title' => '每週課程計劃',
+		'back_button' => '返回課程列表',
+		'no_lessons' => '找不到已分配年、月、週的課程。',
+		'no_lessons_link' => '前往您的課程',
+		'no_lessons_suffix' => '並編輯它們以分配日期進行規劃。',
+		'week_header' => '第 :week 週',
+		'time' => '時間',
+		'monday' => '星期一',
+		'tuesday' => '星期二',
+		'wednesday' => '星期三',
+		'thursday' => '星期四',
+		'friday' => '星期五',
+		'saturday' => '星期六',
+		'morning' => '早上',
+		'noon' => '中午',
+		'afternoon' => '下午',
+		'empty_slot' => '體育/複習',
+		'category_label' => '類別',
+		'untitled_lesson' => '未命名課程',
+		'no_category' => '無類別',
+		'select_language' => '選擇語言',
+		'english' => '英語 (English)',
+		'traditional_chinese' => '繁體中文',
+		'turkish' => '土耳其語 (Türkçe)',
+	];

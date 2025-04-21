@@ -6,7 +6,9 @@
 	use App\Helpers\AudioImageHelper;
 
 	use App\Models\GeneratedImage;
-	use App\Models\Question; // Keep Question model import
+	use App\Models\Question;
+
+	// Keep Question model import
 	use App\Models\Lesson;
 	use Carbon\Carbon;
 	use Illuminate\Http\Request;
@@ -14,19 +16,30 @@
 	use Illuminate\Support\Facades\Storage;
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
+	use Illuminate\Support\Facades\Auth;
 
 	use Illuminate\Support\Facades\Http;
-	use Intervention\Image\Laravel\Facades\Image as InterventionImage; // For image resizing
-	use Illuminate\Http\UploadedFile; // For type hinting
-	use Illuminate\Support\Facades\DB; // For transactions
+	use Intervention\Image\Laravel\Facades\Image as InterventionImage;
 
-	use Exception; // Add Exception import
+	// For image resizing
+	use Illuminate\Http\UploadedFile;
+
+	// For type hinting
+	use Illuminate\Support\Facades\DB;
+
+	// For transactions
+
+	use Exception;
+
+	// Add Exception import
 
 	class GenerateAssetController extends Controller
 	{
 
 		public function generatePartAudioAjax(Request $request, Lesson $lesson, int $partIndex)
 		{
+			$this->authorize('generateAssets', $lesson);
+
 			Log::info("AJAX request to generate sentence assets for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 
 			// 1. Get Lesson Settings and Part Data
@@ -78,7 +91,7 @@
 
 			// --- Cleanup Old Audio Files for this Part ---
 			$oldSentences = $lessonParts[$partIndex]['sentences'] ?? [];
-			foreach($oldSentences as $oldSentence) {
+			foreach ($oldSentences as $oldSentence) {
 				if (!empty($oldSentence['audio_path']) && Storage::disk('public')->exists($oldSentence['audio_path'])) {
 					try {
 						Storage::disk('public')->delete($oldSentence['audio_path']);
@@ -143,7 +156,7 @@
 
 				// Eager load generated images for the response if IDs were set (unlikely on initial gen)
 				// This part is complex as IDs are inside JSON. We'll pass IDs back and let JS handle image loading.
-				$sentencesWithImageIds = array_map(function($sentence) {
+				$sentencesWithImageIds = array_map(function ($sentence) {
 					// We need the generated image URL if ID exists
 					// This requires fetching image data based on sentence['generated_image_id']
 					// Let's skip this complex lookup here and handle image display client-side based on the ID
@@ -166,6 +179,8 @@
 
 		public function generateQuestionAudioAjax(Question $question)
 		{
+			$this->authorize('generateAssets', $question->lesson);
+
 			// ... (Keep existing implementation) ...
 			Log::info("AJAX request to generate question audio for Question ID: {$question->id}");
 
@@ -222,6 +237,8 @@
 
 		public function generateAnswerAudioAjax(Question $question)
 		{
+			$this->authorize('generateAssets', $question->lesson);
+
 			Log::info("AJAX request to generate answer/feedback audio for Question ID: {$question->id}");
 			$currentAnswers = $question->answers ?? [];
 
@@ -273,6 +290,8 @@
 
 		public function generateQuestionImageAjax(Request $request, Question $question)
 		{
+			$this->authorize('generateAssets', $question->lesson);
+
 			$newPrompt = $request->input('new_prompt'); // Get potential new prompt
 
 			if ($newPrompt) {
@@ -372,6 +391,8 @@
 
 		public function uploadQuestionImageAjax(Request $request, Question $question)
 		{
+			$this->authorize('generateAssets', $question->lesson);
+
 			$validator = Validator::make($request->all(), [
 				'question_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB Max
 			]);
@@ -457,6 +478,8 @@
 
 		public function generateSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
 		{
+			$this->authorize('generateAssets', $lesson);
+
 			$validator = Validator::make($request->all(), [
 				'prompt' => 'required|string|max:1000',
 				'image_model' => 'nullable|string|max:100', // Optional: allow specifying model per sentence
@@ -525,6 +548,8 @@
 		 */
 		public function uploadSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
 		{
+			$this->authorize('generateAssets', $lesson);
+
 			$validator = Validator::make($request->all(), [
 				'sentence_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB Max
 			]);

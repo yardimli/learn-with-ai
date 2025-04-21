@@ -12,12 +12,14 @@
 	use App\Models\UserAnswerArchive;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Carbon;
+	use Illuminate\Support\Facades\Auth;
 	use Illuminate\Support\Facades\DB;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
 
 	use Illuminate\Support\Facades\Http;
+	use Illuminate\Validation\Rule;
 	use Intervention\Image\Laravel\Facades\Image as InterventionImage;
 
 	// For image resizing
@@ -35,11 +37,14 @@
 		 */
 		public function index()
 		{
-			$mainCategories = MainCategory::with(['subCategories' => function ($query) {
-				$query->orderBy('name');
-			}])->orderBy('name')->get();
+			$mainCategories = Auth::user()->mainCategories()
+				->with(['subCategories' => function ($query) {
+					$query->where('user_id', Auth::id())->orderBy('name'); // Ensure subcategories are also user's
+				}])
+				->orderBy('name')->get();
 
-			$lessons = Lesson::withCount('questions')->orderBy('created_at', 'desc')->get();
+
+			$lessons = Auth::user()->lessons()->withCount('questions')->orderBy('created_at', 'desc')->get();
 			$llms = LlmHelper::checkLLMsJson();
 
 			return view('create_lesson', compact('lessons', 'mainCategories', 'llms'));
@@ -47,6 +52,8 @@
 
 		public function createBasicLesson(Request $request)
 		{
+			$userId = Auth::id();
+
 			$validator = Validator::make($request->all(), [
 				'user_title' => 'required|string|max:255',
 				'lesson_subject' => 'required|string|max:2048',
@@ -57,8 +64,14 @@
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:10',
 				'category_selection_mode' => 'required|string|in:ai_decide,main_only,both',
-				'main_category_id' => 'nullable|exists:main_categories,id',
-				'sub_category_id' => 'nullable|exists:sub_categories,id',
+				'main_category_id' => [
+					'nullable',
+					Rule::exists('main_categories', 'id')->where('user_id', $userId)
+				],
+				'sub_category_id' => [
+					'nullable',
+					Rule::exists('sub_categories', 'id')->where('user_id', $userId)
+				],
 			]);
 
 			if ($validator->fails()) {
@@ -117,6 +130,7 @@
 
 			// --- Create Basic Lesson Record (without lesson_parts) ---
 			$lesson = Lesson::create([
+				'user_id' => $userId,
 				'user_title' => $userTitle,
 				'subject' => $lessonSubject,
 				'notes' => $notes,
@@ -219,9 +233,11 @@ PROMPT;
 
 			if ($autoDetectMain || $autoDetectSub) {
 				// Provide existing categories for context if we're auto-detecting either category level
-				$mainCategories = MainCategory::with(['subCategories' => function ($query) {
-					$query->orderBy('name');
-				}])->orderBy('name')->get();
+				$mainCategories = Auth::user()->mainCategories()
+					->with(['subCategories' => function ($query) {
+						$query->where('user_id', Auth::id())->orderBy('name');
+					}])
+					->orderBy('name')->get();
 
 				$categoriesString = '';
 				foreach ($mainCategories as $mainCategory) {
@@ -491,6 +507,7 @@ PROMPT;
 
 			// --- Create Lesson Record ---
 			$lesson = Lesson::create([
+				'user_id' => Auth::id(),
 				'subject' => $lessonSubject,
 				'title' => $plan['main_title'],
 				'image_prompt_idea' => $plan['image_prompt_idea'],
@@ -515,6 +532,9 @@ PROMPT;
 
 		public function applyGeneratedPlan(Request $request, Lesson $lesson)
 		{
+			$this->authorize('update', $lesson); // Ensure user owns the lesson
+			$userId = Auth::id();
+
 			$validator = Validator::make($request->all(), [
 				'plan' => 'required|array',
 				'plan.main_title' => 'required|string',
@@ -555,8 +575,14 @@ PROMPT;
 				DB::beginTransaction();
 				try {
 					$mainCategory = MainCategory::firstOrCreate(
-						['name' => DB::raw("LOWER('{$suggestedMainCategoryName}')")],
-						['name' => $suggestedMainCategoryName]
+						[
+							'user_id' => $userId, // Add user_id to condition
+							'name' => DB::raw("LOWER('{$suggestedMainCategoryName}')") // Case-insensitive check
+						],
+						[
+							'name' => $suggestedMainCategoryName,
+							'user_id' => $userId // Add user_id on creation
+						]
 					);
 
 					if (!$mainCategory) {
@@ -566,11 +592,13 @@ PROMPT;
 					$subCategory = SubCategory::firstOrCreate(
 						[
 							'main_category_id' => $mainCategory->id,
-							'name' => DB::raw("LOWER('{$suggestedSubCategoryName}')")
+							'user_id' => $userId, // Add user_id to condition
+							'name' => DB::raw("LOWER('{$suggestedSubCategoryName}')") // Case-insensitive check
 						],
 						[
 							'name' => $suggestedSubCategoryName,
-							'main_category_id' => $mainCategory->id
+							'main_category_id' => $mainCategory->id,
+							'user_id' => $userId // Add user_id on creation
 						]
 					);
 
@@ -595,19 +623,23 @@ PROMPT;
 				// User selected main, AI suggesting sub
 				DB::beginTransaction();
 				try {
-					$mainCategory = MainCategory::find($selectedMainCategoryId);
-					if (!$mainCategory) {
-						throw new Exception("Selected main category not found.");
-					}
+					// Find the user's main category
+					$mainCategory = MainCategory::where('id', $selectedMainCategoryId)
+						->where('user_id', $userId)
+						->first();
+					if (!$mainCategory) { throw new Exception("Selected main category not found for user."); }
 
+					// Find or create Sub Category for this user under the main category
 					$subCategory = SubCategory::firstOrCreate(
 						[
 							'main_category_id' => $mainCategory->id,
+							'user_id' => $userId, // Add user_id to condition
 							'name' => DB::raw("LOWER('{$suggestedSubCategoryName}')")
 						],
 						[
 							'name' => $suggestedSubCategoryName,
-							'main_category_id' => $mainCategory->id
+							'main_category_id' => $mainCategory->id,
+							'user_id' => $userId // Add user_id on creation
 						]
 					);
 
@@ -658,15 +690,16 @@ PROMPT;
 
 		public function showImportForm()
 		{
-			$mainCategories = MainCategory::orderBy('name')->get();
+			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->get();
 			$llms = LlmHelper::checkLLMsJson();
 			return view('lesson_import', compact('mainCategories', 'llms'));
 		}
 
 		public function processImport(Request $request)
 		{
+			$userId = Auth::id();
 			$validator = Validator::make($request->all(), [
-				'main_category_id' => 'required|exists:main_categories,id',
+				'main_category_id' => ['required', Rule::exists('main_categories', 'id')->where('user_id', $userId)],
 				'preferred_llm' => 'required|string|max:100',
 				'tts_engine' => 'required|string|in:google,openai',
 				'tts_voice' => 'required|string|max:100',
@@ -723,21 +756,48 @@ PROMPT;
 						$skippedCount++;
 						continue;
 					}
-					// 'period' is optional, but if present, should be a string
-					if (isset($lessonData['period']) && !is_string($lessonData['period'])) {
-						$errors[] = "Lesson at index {$index}: Invalid 'period' format (must be a string).";
+					// 'notes' is optional, but if present, should be a string
+					if (isset($lessonData['notes']) && !is_string($lessonData['notes'])) {
+						$errors[] = "Lesson at index {$index}: Invalid 'notes' format (must be a string).";
+						$skippedCount++;
+						continue;
+					}
+					// 'year' is optional, but if present, should be a integer
+					if (isset($lessonData['year']) && !is_int($lessonData['year'])) {
+						$errors[] = "Lesson at index {$index}: Invalid 'year' format (must be an integer).";
+						$skippedCount++;
+						continue;
+					}
+
+					// 'month' is optional, but if present, should be a integer
+					if (isset($lessonData['month']) && !is_int($lessonData['month'])) {
+						$errors[] = "Lesson at index {$index}: Invalid 'month' format (must be an integer).";
+						$skippedCount++;
+						continue;
+					}
+
+					// 'week' is optional, but if present, should be a integer
+					if (isset($lessonData['week']) && !is_int($lessonData['week'])) {
+						$errors[] = "Lesson at index {$index}: Invalid 'week' format (must be an integer).";
 						$skippedCount++;
 						continue;
 					}
 
 
 					$sessionId = Str::uuid()->toString();
-					$notes = $lessonData['period'] ?? null; // Store period in notes if present
+					$notes = $lessonData['notes'] ?? null; // Store notes in notes if present
+					$year = $lessonData['year'] ?? null; // Store year in year if present
+					$month = $lessonData['month'] ?? null; // Store month in month if present
+					$week = $lessonData['week'] ?? null; // Store week in week if present
 
 					Lesson::create([
+						'user_id' => $userId,
 						'user_title' => trim($lessonData['title']),
 						'subject' => trim($lessonData['description']),
 						'notes' => $notes,
+						'year' => $year,
+						'month' => $month,
+						'week' => $week,
 						'title' => null, // Will be populated by AI later
 						'image_prompt_idea' => null, // Will be populated by AI later
 						'lesson_parts' => '[]', // Will be populated by AI later

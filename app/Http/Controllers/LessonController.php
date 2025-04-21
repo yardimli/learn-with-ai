@@ -15,6 +15,7 @@
 	use Illuminate\Support\Facades\Storage;
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Support\Str;
+	use Illuminate\Support\Facades\Auth;
 
 	class LessonController extends Controller
 	{
@@ -28,6 +29,8 @@
 		 */
 		public function showQuestionInterface(Lesson $lesson)
 		{
+			$this->authorize('takeLesson', $lesson);
+
 			Log::info("Loading question interface for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
 
 			$state = $this->calculateCurrentState($lesson->id);
@@ -50,7 +53,8 @@
 		}
 
 
-		private function getAllPartIntros(Lesson $lesson): array {
+		private function getAllPartIntros(Lesson $lesson): array
+		{
 			$intros = [];
 			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
 			$totalParts = is_array($lessonParts) ? count($lessonParts) : 0;
@@ -352,6 +356,8 @@
 		 */
 		public function submitAnswer(Request $request, Question $question)
 		{
+			$this->authorize('takeLesson', $question->lesson);
+
 			$validator = Validator::make($request->all(), [
 				'selected_index' => 'required|integer|min:0|max:3',
 				'attempt_number' => 'required|integer|min:1', // Added to validate the attempt number

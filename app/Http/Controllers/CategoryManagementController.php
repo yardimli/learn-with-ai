@@ -10,35 +10,31 @@
 	use Illuminate\Support\Facades\Validator;
 	use Illuminate\Validation\Rule;
 	use Exception;
+	use Illuminate\Support\Facades\Auth; // Import Auth
 
 	class CategoryManagementController extends Controller
 	{
 		// ==============================
 		// Main Category Methods
 		// ==============================
-
-		/**
-		 * Display a listing of the main category_management.
-		 */
 		public function mainIndex()
 		{
-			$mainCategories = MainCategory::orderBy('name')->paginate(20);
+			// Filter by logged-in user
+			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->paginate(20);
 			return view('category_management.index', compact('mainCategories'));
 		}
 
-		/**
-		 * Show the form for creating a new main category.
-		 */
 		public function mainCreate()
 		{
+			$this->authorize('create', MainCategory::class); // Authorize creation
 			return view('category_management.create');
 		}
 
-		/**
-		 * Store a newly created main category in storage.
-		 */
 		public function mainStore(Request $request)
 		{
+			$this->authorize('create', MainCategory::class); // Authorize creation
+
+			// Use static method from model for validation rules
 			$validator = Validator::make($request->all(), MainCategory::validationRules());
 
 			if ($validator->fails()) {
@@ -48,8 +44,11 @@
 			}
 
 			try {
-				$category = MainCategory::create($validator->validated());
-				Log::info("Main Category created: ID {$category->id}, Name: {$category->name}");
+				$validatedData = $validator->validated();
+				$validatedData['user_id'] = Auth::id(); // Set user_id
+
+				$category = MainCategory::create($validatedData);
+				Log::info("Main Category created: ID {$category->id}, Name: {$category->name}, UserID: {$category->user_id}");
 				return redirect()->route('category_management.main.index')
 					->with('success', "Main Category '{$category->name}' created successfully.");
 			} catch (Exception $e) {
@@ -60,19 +59,17 @@
 			}
 		}
 
-		/**
-		 * Show the form for editing the specified main category.
-		 */
 		public function mainEdit(MainCategory $mainCategory)
 		{
+			$this->authorize('update', $mainCategory); // Authorize editing this specific category
 			return view('category_management.edit', compact('mainCategory'));
 		}
 
-		/**
-		 * Update the specified main category in storage.
-		 */
 		public function mainUpdate(Request $request, MainCategory $mainCategory)
 		{
+			$this->authorize('update', $mainCategory); // Authorize update
+
+			// Use static method from model for validation rules
 			$validator = Validator::make($request->all(), MainCategory::updateValidationRules($mainCategory->id));
 
 			if ($validator->fails()) {
@@ -83,8 +80,9 @@
 
 			try {
 				$oldName = $mainCategory->name;
+				// user_id should not be updated here
 				$mainCategory->update($validator->validated());
-				Log::info("Main Category updated: ID {$mainCategory->id}, Old: {$oldName}, New: {$mainCategory->name}");
+				Log::info("Main Category updated: ID {$mainCategory->id}, Old: {$oldName}, New: {$mainCategory->name}, UserID: {$mainCategory->user_id}");
 				return redirect()->route('category_management.main.index')
 					->with('success', "Main Category '{$oldName}' updated to '{$mainCategory->name}' successfully.");
 			} catch (Exception $e) {
@@ -95,32 +93,24 @@
 			}
 		}
 
-		/**
-		 * Remove the specified main category from storage.
-		 * Note: Sub-category_management and Lesson links will be handled by DB constraints (cascade/set null).
-		 */
 		public function mainDestroy(MainCategory $mainCategory)
 		{
-			// Optional: Check if it's safe to delete (e.g., warn if many lessons use it)
-			// $subCategoryCount = $mainCategory->subCategories()->count();
-			// $lessonCount = $mainCategory->lessons()->count();
-			// if ($subCategoryCount > 0 || $lessonCount > 0) {
-			//     // Potentially add a warning, but deletion should still work due to constraints
-			// }
+			$this->authorize('delete', $mainCategory); // Authorize deletion
 
 			try {
 				DB::beginTransaction();
 				$categoryName = $mainCategory->name;
 				$categoryId = $mainCategory->id;
+				$userId = $mainCategory->user_id;
 
-				// Deleting the main category will cascade delete sub-category_management
-				// and set lesson sub_category_id to null due to migration setup.
+				// Deleting the main category will cascade delete sub-categories (due to DB constraint)
+				// and set lesson sub_category_id to null (due to migration setup).
+				// Ensure cascade is set correctly in sub_categories migration for main_category_id
 				$mainCategory->delete();
-
 				DB::commit();
-				Log::info("Main Category deleted: ID {$categoryId}, Name: {$categoryName}");
+				Log::info("Main Category deleted: ID {$categoryId}, Name: {$categoryName}, UserID: {$userId}");
 				return redirect()->route('category_management.main.index')
-					->with('success', "Main Category '{$categoryName}' and its sub-category_management deleted successfully.");
+					->with('success', "Main Category '{$categoryName}' and its sub-categories deleted successfully.");
 			} catch (Exception $e) {
 				DB::rollBack();
 				Log::error("Error deleting main category ID {$mainCategory->id}: " . $e->getMessage());
@@ -129,81 +119,93 @@
 			}
 		}
 
-
 		// ==============================
 		// Sub Category Methods
 		// ==============================
-
-		/**
-		 * Display a listing of the sub category_management.
-		 */
 		public function subIndex(Request $request)
 		{
-			$query = SubCategory::with('mainCategory')->orderBy('name');
+			// Start query for the logged-in user's subcategories
+			$query = Auth::user()->subCategories()->with('mainCategory')->orderBy('name');
 
-			// Optional: Filter by main category
+			// Optional: Filter by main category (ensure the main category also belongs to the user)
 			if ($request->has('main_category_id') && $request->main_category_id != '') {
-				$query->where('main_category_id', $request->main_category_id);
+				$mainCatId = $request->main_category_id;
+				// Add check that the filtered main category belongs to the user
+				$query->whereHas('mainCategory', function($q) use ($mainCatId) {
+					$q->where('id', $mainCatId)->where('user_id', Auth::id());
+				});
+				// Or simply filter by main_category_id if the relationship ensures user ownership
+				// $query->where('main_category_id', $request->main_category_id);
 			}
 
 			$subCategories = $query->paginate(25);
-			$mainCategories = MainCategory::orderBy('name')->pluck('name', 'id'); // For filter dropdown
+			// Get only the user's main categories for the filter dropdown
+			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->pluck('name', 'id');
 
-			//get first main category id as default if no filter is applied
-			$main_category_id = $request->has('main_category_id') ? $request->main_category_id : $mainCategories->keys()->first();
+			// Get first main category id as default if no filter is applied
+			$main_category_id = $request->input('main_category_id', $mainCategories->keys()->first());
+			// Ensure the default ID actually belongs to the user if derived from request
+			if ($request->has('main_category_id') && !$mainCategories->has($main_category_id)) {
+				$main_category_id = $mainCategories->keys()->first(); // Fallback if invalid ID passed
+			}
+
 
 			return view('category_management.sub.index', compact('subCategories', 'mainCategories', 'main_category_id'));
 		}
 
-		/**
-		 * Show the form for creating a new sub category.
-		 * Optionally accepts a main category to pre-select.
-		 */
 		public function subCreate(Request $request, MainCategory $mainCategory = null)
 		{
-			$mainCategories = MainCategory::orderBy('name')->pluck('name', 'id');
+			$this->authorize('create', SubCategory::class);
+
+			// If a mainCategory is passed via route model binding, authorize viewing it
+			if ($mainCategory) {
+				$this->authorize('view', $mainCategory);
+			}
+
+			// Get only the user's main categories
+			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->pluck('name', 'id');
+
 			if ($mainCategories->isEmpty()) {
 				return redirect()->route('category_management.main.create')
 					->with('warning', 'You must create a Main Category before adding Sub Categories.');
 			}
-			$selectedMainCategoryId = $mainCategory->id ?? $request->input('main_category_id', old('main_category_id')); // Pre-select if provided
+
+			// Pre-select if provided via route or request, ensuring it belongs to the user
+			$selectedMainCategoryId = null;
+			if ($mainCategory) {
+				$selectedMainCategoryId = $mainCategory->id;
+			} else {
+				$requestedId = $request->input('main_category_id', old('main_category_id'));
+				if ($requestedId && $mainCategories->has($requestedId)) { // Check if ID exists in user's categories
+					$selectedMainCategoryId = $requestedId;
+				}
+			}
 
 			return view('category_management.sub.create', compact('mainCategories', 'selectedMainCategoryId'));
 		}
 
-
-		/**
-		 * Store a newly created sub category in storage.
-		 */
 		public function subStore(Request $request)
 		{
-			// Custom validation rule for uniqueness within main category
-			$rules = [
-				'name' => [
-					'required',
-					'string',
-					'max:255',
-					Rule::unique('sub_categories')->where(function ($query) use ($request) {
-						return $query->where('main_category_id', $request->main_category_id);
-					}),
-				],
-				'main_category_id' => 'required|integer|exists:main_categories,id',
-			];
+			$this->authorize('create', SubCategory::class);
 
-			$validator = Validator::make($request->all(), $rules, [
-				'name.unique' => 'The sub-category name must be unique within the selected main category.'
+			// Use static method from model for validation rules, passing the request
+			$validator = Validator::make($request->all(), SubCategory::validationRules($request), [
+				'name.unique' => 'The sub-category name must be unique within the selected main category for your account.'
 			]);
 
-
 			if ($validator->fails()) {
+				// Pass back the intended main_category_id for the redirect
 				return redirect()->route('category_management.sub.create', ['main_category_id' => $request->main_category_id])
 					->withErrors($validator)
 					->withInput();
 			}
 
 			try {
-				$category = SubCategory::create($validator->validated());
-				Log::info("Sub Category created: ID {$category->id}, Name: {$category->name}, Main ID: {$category->main_category_id}");
+				$validatedData = $validator->validated();
+				$validatedData['user_id'] = Auth::id(); // Set user_id
+
+				$category = SubCategory::create($validatedData);
+				Log::info("Sub Category created: ID {$category->id}, Name: {$category->name}, Main ID: {$category->main_category_id}, UserID: {$category->user_id}");
 				return redirect()->route('category_management.sub.index')
 					->with('success', "Sub Category '{$category->name}' created successfully.");
 			} catch (Exception $e) {
@@ -214,40 +216,24 @@
 			}
 		}
 
-		/**
-		 * Show the form for editing the specified sub category.
-		 */
 		public function subEdit(SubCategory $subCategory)
 		{
-			$mainCategories = MainCategory::orderBy('name')->pluck('name', 'id');
+			$this->authorize('update', $subCategory); // Authorize editing this specific sub-category
+
+			// Get only the user's main categories for the dropdown
+			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->pluck('name', 'id');
+
 			return view('category_management.sub.edit', compact('subCategory', 'mainCategories'));
 		}
 
-		/**
-		 * Update the specified sub category in storage.
-		 */
 		public function subUpdate(Request $request, SubCategory $subCategory)
 		{
-			// Get target main category ID from the request
-			$targetMainCategoryId = $request->input('main_category_id');
+			$this->authorize('update', $subCategory); // Authorize update
 
-			// Custom validation rule for uniqueness within the target main category, ignoring self
-			$rules = [
-				'name' => [
-					'required',
-					'string',
-					'max:255',
-					Rule::unique('sub_categories', 'name')
-						->where('main_category_id', $targetMainCategoryId)
-						->ignore($subCategory->id), // Ignore the current sub-category ID
-				],
-				'main_category_id' => 'required|integer|exists:main_categories,id',
-			];
-
-			$validator = Validator::make($request->all(), $rules, [
-				'name.unique' => 'The sub-category name must be unique within the selected main category.'
+			// Use static method from model for validation rules, passing request and ID
+			$validator = Validator::make($request->all(), SubCategory::updateValidationRules($request, $subCategory->id), [
+				'name.unique' => 'The sub-category name must be unique within the selected main category for your account.'
 			]);
-
 
 			if ($validator->fails()) {
 				return redirect()->route('category_management.sub.edit', $subCategory->id)
@@ -257,8 +243,9 @@
 
 			try {
 				$oldName = $subCategory->name;
+				// user_id should not be updated
 				$subCategory->update($validator->validated());
-				Log::info("Sub Category updated: ID {$subCategory->id}, Old: {$oldName}, New: {$subCategory->name}, Main ID: {$subCategory->main_category_id}");
+				Log::info("Sub Category updated: ID {$subCategory->id}, Old: {$oldName}, New: {$subCategory->name}, Main ID: {$subCategory->main_category_id}, UserID: {$subCategory->user_id}");
 				return redirect()->route('category_management.sub.index')
 					->with('success', "Sub Category '{$oldName}' updated to '{$subCategory->name}' successfully.");
 			} catch (Exception $e) {
@@ -269,27 +256,20 @@
 			}
 		}
 
-		/**
-		 * Remove the specified sub category from storage.
-		 * Note: Lesson links will be handled by DB constraints (set null).
-		 */
 		public function subDestroy(SubCategory $subCategory)
 		{
-			// Optional: Check if lessons are attached and warn
-			// if ($subCategory->lessons()->exists()) {
-			//     // Could redirect with a specific warning
-			// }
+			$this->authorize('delete', $subCategory); // Authorize deletion
 
 			try {
 				DB::beginTransaction();
 				$categoryName = $subCategory->name;
 				$categoryId = $subCategory->id;
+				$userId = $subCategory->user_id;
 
-				// Lessons using this sub-category will have their sub_category_id set to null
+				// Lessons using this sub-category will have their sub_category_id set to null (due to DB constraint)
 				$subCategory->delete();
-
 				DB::commit();
-				Log::info("Sub Category deleted: ID {$categoryId}, Name: {$categoryName}");
+				Log::info("Sub Category deleted: ID {$categoryId}, Name: {$categoryName}, UserID: {$userId}");
 				return redirect()->route('category_management.sub.index')
 					->with('success', "Sub Category '{$categoryName}' deleted successfully.");
 			} catch (Exception $e) {

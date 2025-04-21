@@ -38,7 +38,7 @@
 		<div id="completionMessage" class="d-none mt-4">
 			<h3 class="text-success"><i class="fas fa-check-circle me-2"></i>Lesson Complete!</h3>
 			<p>Congratulations, you've successfully answered the required questions for all parts of this lesson.</p>
-			<a href="{{ route('home') }}" class="btn btn-primary">Choose Another Lesson</a>
+			<a href="{{ route('lessons.list') }}" class="btn btn-primary">Choose Another Lesson</a>
 		</div>
 		
 		<div id="partCompletionMessage" class="d-none mt-4">

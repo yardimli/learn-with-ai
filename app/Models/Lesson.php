@@ -11,6 +11,7 @@
 		use HasFactory;
 
 		protected $fillable = [
+			'user_id',
 			'session_id',
 			'title',
 			'subject',
@@ -30,6 +31,7 @@
 			'selected_main_category_id',
 			'month',
 			'year',
+			'week',
 		];
 
 		protected $casts = [
@@ -39,12 +41,20 @@
 			'ai_generated' => 'boolean',
 			'month' => 'integer',
 			'year' => 'integer',
+			'week' => 'integer',
+			'user_id' => 'integer',
 		];
 
 		public function getRouteKeyName()
 		{
 			return 'session_id';
 		}
+
+		public function user()
+		{
+			return $this->belongsTo(User::class);
+		}
+
 
 		public function generatedImage()
 		{
@@ -54,6 +64,10 @@
 		// Define the relationship to Category
 		public function subCategory() {
 			return $this->belongsTo(SubCategory::class);
+		}
+
+		public function mainCategory() {
+			return $this->belongsTo(MainCategory::class, 'selected_main_category_id');
 		}
 
 

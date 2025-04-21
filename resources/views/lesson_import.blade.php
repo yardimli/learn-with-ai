@@ -5,7 +5,7 @@
 @section('content')
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<h1 class="mb-0">Import Lessons from JSON</h1>
-		<a href="{{ route('home') }}" class="btn btn-outline-secondary">
+		<a href="{{ route('create-lesson') }}" class="btn btn-outline-secondary">
 			<i class="fas fa-plus"></i> Create Single Lesson
 		</a>
 	</div>
@@ -142,9 +142,6 @@
 						<option value="es-ES" {{ old('tts_language_code') == 'es-ES' ? 'selected' : '' }}>Spanish (Spain)</option>
 						<option value="it-IT" {{ old('tts_language_code') == 'it-IT' ? 'selected' : '' }}>Italian (Italy)</option>
 						<option value="ja-JP" {{ old('tts_language_code') == 'ja-JP' ? 'selected' : '' }}>Japanese (Japan)</option>
-						<option value="ko-KR" {{ old('tts_language_code') == 'ko-KR' ? 'selected' : '' }}>Korean (South Korea)</option>
-						<option value="zh-CN" {{ old('tts_language_code') == 'zh-CN' ? 'selected' : '' }}>Chinese (Mandarin, Simplified)</option>
-						<option value="zh-TW" {{ old('tts_language_code') == 'zh-TW' ? 'selected' : '' }}>Chinese (Mandarin, Traditional)</option>
 					</select>
 					<small class="form-text text-muted">Primarily used by Google TTS.</small>
 				</div>
@@ -158,7 +155,9 @@
   {
     "title": "Lesson Title 1",
     "description": "Subject or description for lesson 1.",
-    "period": "Optional info like date or context"
+    "year": 2025,
+    "month": 1,
+    "notes": "Optional info like context"
   },
   {
     "title": "Lesson Title 2",

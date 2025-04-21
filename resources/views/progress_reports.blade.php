@@ -9,7 +9,7 @@
 			<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-success me-2">
 				<i class="fas fa-play"></i> {{ $currentProgress['score'] > 0 || empty($archivedProgressSets) ? 'Continue Lesson' : 'Start Lesson Again' }}
 			</a>
-			<a href="{{ route('home') }}" class="btn btn-secondary">
+			<a href="{{ route('lessons.list') }}" class="btn btn-secondary">
 				<i class="fas fa-list"></i> All Lessons
 			</a>
 		</div>

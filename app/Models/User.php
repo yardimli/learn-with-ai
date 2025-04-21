@@ -4,6 +4,7 @@
 
 	// use Illuminate\Contracts\Auth\MustVerifyEmail;
 	use Illuminate\Database\Eloquent\Factories\HasFactory;
+	use Illuminate\Database\Eloquent\Relations\HasMany;
 	use Illuminate\Foundation\Auth\User as Authenticatable;
 	use Illuminate\Notifications\Notifiable;
 	use Laravel\Sanctum\HasApiTokens;
@@ -42,4 +43,20 @@
 			'email_verified_at' => 'datetime',
 			'password' => 'hashed',
 		];
+
+		public function lessons(): HasMany
+		{
+			return $this->hasMany(Lesson::class);
+		}
+
+		public function mainCategories(): HasMany
+		{
+			return $this->hasMany(MainCategory::class);
+		}
+
+		public function subCategories(): HasMany
+		{
+			return $this->hasMany(SubCategory::class);
+		}
+
 	}

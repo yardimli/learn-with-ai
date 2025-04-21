@@ -10,6 +10,7 @@
 	use Illuminate\Support\Carbon;
 	use Illuminate\Support\Facades\DB;
 	use Illuminate\Support\Facades\Log;
+	use Illuminate\Support\Facades\Auth;
 
 	class ProgressController extends Controller
 	{
@@ -78,6 +79,8 @@
 		 */
 		public function show(Lesson $lesson)
 		{
+			$this->authorize('viewProgress', $lesson);
+
 			Log::info("Showing progress page for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
 
 			// Calculate Current Progress Score

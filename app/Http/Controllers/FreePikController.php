@@ -22,6 +22,7 @@
 	use Illuminate\Support\Str;
 	use Intervention\Image\ImageManager;
 	use Intervention\Image\Drivers\Gd\Driver;
+	use Illuminate\Support\Facades\Auth;
 
 
 	class FreePikController extends BaseController
@@ -30,6 +31,8 @@
 
 		public function searchFreepikAjax(Request $request, Question $question)
 		{
+			$this->authorize('update', $question->lesson);
+
 			$validator = Validator::make($request->all(), [
 				'query' => 'required|string|max:255',
 				'page' => 'integer|min:1',
@@ -55,6 +58,8 @@
 		 */
 		public function selectFreepikImageAjax(Request $request, Question $question)
 		{
+			$this->authorize('update', $question->lesson);
+
 			$validator = Validator::make($request->all(), [
 				'freepik_id' => 'required|numeric', // Freepik resource ID
 				'description' => 'nullable|string|max:255',
@@ -126,6 +131,8 @@
 
 		public function searchFreepikSentenceAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
 		{
+			$this->authorize('update', $lesson);
+
 			$validator = Validator::make($request->all(), [
 				'query' => 'required|string|max:255',
 				'page' => 'integer|min:1',
@@ -150,6 +157,8 @@
 		 */
 		public function selectFreepikSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
 		{
+			$this->authorize('update', $lesson);
+
 			$validator = Validator::make($request->all(), [
 				'freepik_id' => 'required|string', // Freepik's image ID
 				'description' => 'required|string|max:1000',
@@ -244,8 +253,9 @@
 			string $downloadUrl,
 			string $baseDir,
 			string $imageType = 'question',
-			bool $useFreepikApiDownload = false
-		) {
+			bool   $useFreepikApiDownload = false
+		)
+		{
 			$apiKey = env('FREEPIK_API_KEY');
 			$actualImageUrl = $downloadUrl;
 			$tempPath = null;

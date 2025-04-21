@@ -6,7 +6,7 @@
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<h1>Existing Lessons</h1>
 		<div>
-			<a href="{{ route('home') }}" class="btn btn-primary mb-1 mb-md-0">
+			<a href="{{ route('create-lesson') }}" class="btn btn-primary mb-1 mb-md-0">
 				<i class="fas fa-plus"></i> Create New Lesson
 			</a>
 			<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-md-2 mb-1 mb-md-0">
@@ -19,7 +19,7 @@
 	
 	@if (!isset($groupedLessons) || $groupedLessons->isEmpty())
 		<div class="alert alert-info text-center" role="alert">
-			No lessons created yet. <a href="{{ route('home') }}">Create your first lesson!</a>
+			No lessons created yet. <a href="{{ route('create-lesson') }}">Create your first lesson!</a>
 		</div>
 	@else
 		<div class="accordion shadow-sm" id="lessonsAccordion">

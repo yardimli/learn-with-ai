@@ -26,6 +26,7 @@
 
 	// For type hinting
 	use Illuminate\Support\Facades\DB;
+	use Illuminate\Support\Facades\Auth;
 
 	// For transactions
 
@@ -110,7 +111,7 @@ PROMPT;
 			if (!isset($result['image_prompt_idea']) || !isset($result['image_search_keywords'])) {
 				Log::error("LLM returned invalid structure for sentence image ideas.", ['response' => $result]);
 				// Attempt to extract if nested (some models wrap output)
-				if (isset($result['response']['image_prompt_idea']) && isset($result['response']['image_search_keywords'])){
+				if (isset($result['response']['image_prompt_idea']) && isset($result['response']['image_search_keywords'])) {
 					return [
 						'image_prompt_idea' => $result['response']['image_prompt_idea'],
 						'image_search_keywords' => $result['response']['image_search_keywords'],
@@ -212,17 +213,24 @@ PROMPT;
 
 		public function updateSettingsAjax(Request $request, Lesson $lesson)
 		{
+			$this->authorize('update', $lesson);
+
 			$validator = Validator::make($request->all(), [
 				'preferred_llm' => 'required|string|max:100',
 				'tts_engine' => 'required|string|in:google,openai',
 				'tts_voice' => 'required|string|max:100',
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:30',
-				'sub_category_id' => ['required', 'integer', Rule::exists('sub_categories', 'id')],
+				'sub_category_id' => [
+					'required',
+					'integer',
+					Rule::exists('sub_categories', 'id')->where('user_id', $userId)
+				],
 				'user_title' => 'nullable|string|max:255',
 				'notes' => 'nullable|string|max:5000',
 				'month' => 'nullable|integer|between:1,12',
 				'year' => 'nullable|integer|digits:4',
+				'week' => 'nullable|integer|between:1,53',
 			]);
 
 			if ($validator->fails()) {
@@ -244,6 +252,7 @@ PROMPT;
 				$lesson->notes = $request->input('notes');
 				$lesson->month = $request->input('month') ?: null;
 				$lesson->year = $request->input('year') ?: null;
+				$lesson->week = $request->input('week') ?: null;
 
 				$lesson->save();
 
@@ -264,6 +273,9 @@ PROMPT;
 		 */
 		public function edit(Lesson $lesson)
 		{
+			$this->authorize('update', $lesson);
+			$userId = Auth::id();
+
 			// Eager load questions and their associated images
 			// Order them by part, then difficulty, then their own order/id
 			$lesson->load([
@@ -315,9 +327,11 @@ PROMPT;
 			}
 
 			// Get structured Main and Sub Categories for the dropdown
-			$mainCategories = MainCategory::with(['subCategories' => function ($query) {
-				$query->orderBy('name');
-			}])->orderBy('name')->get();
+			$mainCategories = Auth::user()->mainCategories()
+				->with(['subCategories' => function ($query) use ($userId) {
+					$query->where('user_id', $userId)->orderBy('name');
+				}])
+				->orderBy('name')->get();
 
 			return view('edit_lesson', [
 				'lesson' => $lesson,
@@ -330,6 +344,8 @@ PROMPT;
 
 		public function updateQuestionTextsAjax(Request $request, Question $question)
 		{
+			$this->authorize('update', $question->lesson);
+
 			$questionId = $question->id;
 			$lessonId = $question->lesson_id;
 
@@ -444,6 +460,8 @@ PROMPT;
 		 */
 		public function generateQuestionBatchAjax(Request $request, Lesson $lesson, int $partIndex, string $difficulty)
 		{
+			$this->authorize('generateAssets', $lesson);
+
 			Log::info("AJAX request to generate '{$difficulty}' question batch for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 
 			// Validate difficulty
@@ -570,6 +588,8 @@ PROMPT;
 		 */
 		public function deleteQuestionAjax(Question $question)
 		{
+			$this->authorize('update', $question->lesson);
+
 			$questionId = $question->id;
 			$lessonId = $question->lesson_id;
 			Log::info("AJAX request to delete Question ID: {$questionId} from Lesson ID: {$lessonId}");
@@ -638,7 +658,10 @@ PROMPT;
 		 * @param int $partIndex
 		 * @return \Illuminate\Http\JsonResponse
 		 */
-		public function updatePartTextAjax(Request $request, Lesson $lesson, int $partIndex) {
+		public function updatePartTextAjax(Request $request, Lesson $lesson, int $partIndex)
+		{
+			$this->authorize('update', $lesson);
+
 			Log::info("AJAX request to update text for Lesson ID: {$lesson->id}, Part Index: {$partIndex}");
 			$validator = Validator::make($request->all(), [
 				'part_title' => 'required|string|max:255',
@@ -668,14 +691,18 @@ PROMPT;
 				// *** NEW: Clear sentence-specific assets if text changes ***
 				$oldText = $lessonParts[$partIndex]['text'] ?? '';
 				$newText = $request->input('part_text');
-				if($oldText !== $newText) {
+				if ($oldText !== $newText) {
 					Log::info("Part text changed for {$lesson->id}-{$partIndex}. Clearing sentence assets.");
 					// --- Cleanup Old Audio/Images ---
 					$oldSentences = $lessonParts[$partIndex]['sentences'] ?? [];
-					foreach($oldSentences as $oldSentence) {
+					foreach ($oldSentences as $oldSentence) {
 						// Delete Audio
 						if (!empty($oldSentence['audio_path']) && Storage::disk('public')->exists($oldSentence['audio_path'])) {
-							try { Storage::disk('public')->delete($oldSentence['audio_path']); } catch (Exception $e) { Log::warning("Could not delete old sentence audio: ".$e->getMessage());}
+							try {
+								Storage::disk('public')->delete($oldSentence['audio_path']);
+							} catch (Exception $e) {
+								Log::warning("Could not delete old sentence audio: " . $e->getMessage());
+							}
 						}
 						// Delete Linked Image (if upload/freepik)
 						if (!empty($oldSentence['generated_image_id'])) {
@@ -684,7 +711,9 @@ PROMPT;
 								try {
 									$oldImage->deleteStorageFiles();
 									$oldImage->delete();
-								} catch (Exception $e) { Log::warning("Could not delete old sentence image: ".$e->getMessage());}
+								} catch (Exception $e) {
+									Log::warning("Could not delete old sentence image: " . $e->getMessage());
+								}
 							}
 						}
 					}
