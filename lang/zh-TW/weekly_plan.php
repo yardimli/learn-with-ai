@@ -5,7 +5,7 @@
 		'no_lesson_for_category_period' => '在 :period 找不到 :category 的課程',
 		'no_lesson_tooltip' => '找不到符合所需類別和期間（年-月-週）的課程。',
 
-		'physical_education' => '體育',
+		'physical_education' => '課外教學、生活經驗',
 		'review' => '複習',
 
 		'title' => '每週課程計劃',
