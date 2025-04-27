@@ -19,6 +19,8 @@
 			<small class="text-muted">
 				Language: <span class="badge bg-secondary">{{ $lesson->language ?? 'N/A' }}</span> |
 				Total Questions: <span class="badge bg-light text-dark">{{ $lesson->questions_count ?? 0 }}</span>
+				Year/Month: <span class="badge bg-light text-dark">{{ $lesson->year ?? '?' }} / {{ $lesson->month ?? '?' }}</span>
+				Week: <span class="badge bg-light text-dark">{{ $lesson->week ?? '?' }}</span>
 			</small>
 		</p>
 		@if($lesson->notes)

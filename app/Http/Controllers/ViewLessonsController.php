@@ -43,6 +43,9 @@
 					}
 				])
 				->withCount('questions')
+				->orderBy('year', 'desc')
+				->orderBy('month', 'desc')
+				->orderBy('week', 'desc')
 				->orderBy('created_at', 'desc')
 				->get();
 
