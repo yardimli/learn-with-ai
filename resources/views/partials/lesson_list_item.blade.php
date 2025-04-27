@@ -73,6 +73,7 @@
 				        data-selected-main-category-id="{{ $lesson->selected_main_category_id ?? '' }}"
 				        data-main-category-name="{{ $lesson->subCategory?->mainCategory?->name ?? ($mainCategoryNames[$lesson->selected_main_category_id] ?? '') }}"
 				        data-sub-category-name="{{ $lesson->subCategory?->name ?? '' }}"
+				        data-preferred-llm="{{ $lesson->preferredLlm ?? '' }}"
 				        data-bs-toggle="modal"
 				        data-bs-target="#generateContentModal"
 				        title="Generate AI Content">

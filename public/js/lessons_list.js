@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const mainCategoryName = button.dataset.mainCategoryName;
 			const subCategoryName = button.dataset.subCategoryName;
 			const selectedMainCategoryId = button.dataset.selectedMainCategoryId; // Get the ID
+			const preferredLlm = button.dataset.preferredLlm;
 			
 			// Reset modal state FIRST
 			previewContentArea.classList.add('d-none');
@@ -78,6 +79,22 @@ document.addEventListener('DOMContentLoaded', () => {
 			lessonNotesDisplay.value = notes || '';
 			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
 			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || ''; // Store original main category ID
+			
+			// --- Set AI Model Select ---
+			// Reset to default first (which is set by the 'selected' attribute in HTML)
+			const defaultOption = aiModelSelect.querySelector('option[selected]');
+			if (defaultOption) {
+				aiModelSelect.value = defaultOption.value;
+			} else if (aiModelSelect.options.length > 0) {
+				aiModelSelect.selectedIndex = 0; // Fallback to first option if no default marked
+			}
+			// Now, try to set the preferred LLM if it exists and is a valid option
+			if (preferredLlm) {
+				const preferredOption = aiModelSelect.querySelector(`option[value="${preferredLlm}"]`);
+				if (preferredOption) {
+					aiModelSelect.value = preferredLlm;
+				}
+			}
 			
 			// --- Determine Category Display and Auto-Detect State ---
 			if (subCategoryId && mainCategoryName && subCategoryName) {
@@ -349,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Delete Lesson Button Handler ---
 	document.querySelectorAll('.delete-lesson-btn').forEach(button => {
-		button.addEventListener('click', function() {
+		button.addEventListener('click', function () {
 			const sessionId = this.dataset.lessonSessionId;
 			const deleteUrl = this.dataset.deleteUrl;
 			const lessonTitle = this.dataset.lessonTitle;
@@ -396,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Archive Progress Button Handler ---
 	document.querySelectorAll('.archive-progress-btn').forEach(button => {
-		button.addEventListener('click', function() {
+		button.addEventListener('click', function () {
 			const archiveUrl = this.dataset.archiveUrl;
 			const lessonSessionId = this.dataset.lessonSessionId; // For potential UI updates
 			
