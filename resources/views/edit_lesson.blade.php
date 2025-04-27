@@ -260,7 +260,7 @@
 		
 		<div class="row mb-3 pt-0 settings-row g-2"> {{-- Use g-2 for gutters --}}
 			{{-- Update Button --}}
-			<div class="col-md-2 col-lg-1 d-flex align-items-end justify-content-start">
+			<div class="col-md-4 col-lg-3 d-flex align-items-end justify-content-start">
 				<button class="btn btn-sm btn-primary" id="updateLessonSettingsBtn"
 				        title="Save Lesson Settings">
 					<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
