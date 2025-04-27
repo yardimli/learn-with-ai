@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	let allCategoriesData = {};
 	try {
 		// Use the data attribute passed from Blade
-		allCategoriesData = JSON.parse(settingsCard.dataset.categories || '{}');
+		allCategoriesData = JSON.parse(lessonSettingsCard.dataset.categories || '{}');
 	} catch (e) {
 		console.error("Error parsing categories data:", e);
 		showToast('Error loading category data.', 'Error', 'error');
