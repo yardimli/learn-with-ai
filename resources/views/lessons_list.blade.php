@@ -6,6 +6,13 @@
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<h1>Existing Lessons</h1>
 		<div>
+			<button id="generateAllButton" class="btn btn-warning mb-1 mb-md-0 me-md-2"
+			        title="Automatically generate content for all pending lessons">
+				<i class="fas fa-robot"></i>
+				<span id="generateAllText">Generate All Pending</span>
+				<span id="generateAllSpinner" class="spinner-border spinner-border-sm d-none ms-1" role="status"
+				      aria-hidden="true"></span>
+			</button>
 			<a href="{{ route('create-lesson') }}" class="btn btn-primary mb-1 mb-md-0">
 				<i class="fas fa-plus"></i> Create New Lesson
 			</a>
@@ -147,7 +154,7 @@
 		
 		</div> {{-- End Accordion --}}
 	@endif
-
+	
 	
 	
 	<div class="modal fade" id="generateContentModal" tabindex="-1" aria-labelledby="generateContentModalLabel"
@@ -269,7 +276,7 @@
 	<style>
       .sub-category-group {
           border-bottom: 1px solid var(--bs-border-color-translucent); /* Add separator between sub-groups */
-		      margin-left: 20px;
+          margin-left: 20px;
       }
 
       .sub-category-group:last-child {
