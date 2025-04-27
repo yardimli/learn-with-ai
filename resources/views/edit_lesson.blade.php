@@ -12,42 +12,48 @@
 				class="fas fa-eye"></i> Start Lesson</a>
 	</div>
 	
-	<div class="content-card mb-4">
-		<h1 class="mb-1">Edit Lesson: {{ $lesson->title }}</h1>
+	<div class="content-card mb-4" id="lessonSettingsCard" data-categories="{{ $categoriesData }}">
+		<h1 class="mb-1">Edit Lesson: {{ $lesson->user_title ?: $lesson->title }}</h1>
 		<p class="text-muted mb-3">Lesson: {{ $lesson->subject }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
 			)</p>
 		
-		<div class="row mb-3 border-top pt-3 settings-row g-2"> {{-- Use g-2 for gutters --}}
-			
-			{{-- Category --}}
+		<div class="row mb-3 border-top pt-3 settings-row g-2">
+			{{-- Main Category --}}
 			<div class="col-md-6 col-lg-3 mb-2">
 				<div class="d-flex align-items-center">
-					<label for="editSubCategorySelect" class="form-label me-2 mb-0 text-nowrap">
-						<i class="fas fa-tags text-info me-1"></i>Category:
+					<label for="editMainCategorySelect" class="form-label me-2 mb-0 text-nowrap">
+						<i class="fas fa-folder text-info me-1"></i>Main Cat: <span class="text-danger">*</span>
 					</label>
-					<select id="editSubCategorySelect" class="form-select form-select-sm" required>
-						@if(isset($mainCategories) && $mainCategories->isNotEmpty())
-							<option value="" {{ is_null($lesson->sub_category_id) ? 'selected' : '' }} disabled>Select Sub-Category</option> {{-- Placeholder --}}
-							@foreach ($mainCategories as $mainCategory)
-								<optgroup label="{{ $mainCategory->name }}">
-									@forelse ($mainCategory->subCategories as $subCategory)
-										<option value="{{ $subCategory->id }}" {{ $lesson->sub_category_id == $subCategory->id ? 'selected' : '' }}>
-											{{ $subCategory->name }}
-										</option>
-									@empty
-										<option value="" disabled class="fst-italic text-muted">No sub-categories yet</option>
-									@endforelse
-								</optgroup>
+					<select id="editMainCategorySelect" class="form-select form-select-sm" required>
+						<option value="" {{ is_null($lesson->selected_main_category_id) ? 'selected' : '' }} disabled>Select Main Category</option>
+						@if(isset($allMainCategories) && $allMainCategories->isNotEmpty())
+							@foreach ($allMainCategories as $mainCategory)
+								<option value="{{ $mainCategory->id }}" {{ $lesson->selected_main_category_id == $mainCategory->id ? 'selected' : '' }}>
+									{{ $mainCategory->name }}
+								</option>
 							@endforeach
 						@else
-							<option value="" disabled selected>No categories available</option>
+							<option value="" disabled>No main categories available</option>
 						@endif
 					</select>
 				</div>
 			</div>
 			
+			{{-- Sub Category --}}
+			<div class="col-md-6 col-lg-3 mb-2">
+				<div class="d-flex align-items-center">
+					<label for="editSubCategorySelect" class="form-label me-2 mb-0 text-nowrap">
+						<i class="fas fa-tag text-info me-1"></i>Sub Cat:
+					</label>
+					<select id="editSubCategorySelect" class="form-select form-select-sm" {{ is_null($lesson->selected_main_category_id) ? 'disabled' : '' }}>
+						{{-- Options will be populated by JS --}}
+						<option value="">-- None --</option>
+					</select>
+				</div>
+			</div>
+			
 			{{-- Language --}}
-			<div class="col-md-6 col-lg-2 mb-2">
+			<div class="col-md-6 col-lg-3 mb-2">
 				<div class="d-flex align-items-center">
 					<label for="editLanguageSelect" class="form-label me-2 mb-0 text-nowrap">
 						<i class="fas fa-globe text-secondary me-1"></i>Lang:
@@ -148,12 +154,10 @@
 					</div>
 				</div>
 			</div>
-			{{-- End New Row --}}
-			
 		</div>
 		
+		{{-- Preferred LLM --}}
 		<div class="row mb-3 pt-0 settings-row g-2"> {{-- Use g-2 for gutters --}}
-			{{-- Preferred LLM --}}
 			<div class="col-md-6 col-lg-4 mb-2 mb-lg-0">
 				<div class="d-flex align-items-center">
 					<label for="preferredLlmSelect" class="form-label me-2 mb-0 text-nowrap"><i
@@ -258,9 +262,9 @@
 			{{-- Update Button --}}
 			<div class="col-md-2 col-lg-1 d-flex align-items-end justify-content-start">
 				<button class="btn btn-sm btn-primary" id="updateLessonSettingsBtn"
-				        title="Save AI Model and Voice Settings for this Lesson">
+				        title="Save Lesson Settings">
 					<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-					<i class="fas fa-save me-1"></i>Save
+					<i class="fas fa-save me-1"></i>Save Settings
 				</button>
 			</div>
 		</div>
@@ -401,153 +405,11 @@
 	</template>
 	
 	
-	<div class="modal fade" id="freepikSearchModal" tabindex="-1" aria-labelledby="freepikSearchModalLabel"
-	     aria-hidden="true" data-bs-backdrop="static">
-		<div class="modal-dialog modal-xl modal-dialog-scrollable">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="freepikSearchModalLabel">Search Freepik for Question Image</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<input type="hidden" id="freepikModalQuestionId" value="{{$lesson->id}}">
-					<input type="hidden" id="freepikModalPartIndex" value="">
-					<input type="hidden" id="freepikModalSentenceIndex" value="">
-					<input type="hidden" id="freepikModalContext" value="question">
-					<div class="input-group mb-3">
-						<input type="text" id="freepikSearchQuery" class="form-control"
-						       placeholder="Enter search term (e.g., 'science experiment', 'cat studying')">
-						<button class="btn btn-primary" type="button" id="freepikSearchExecuteBtn">
-							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-							<i class="fas fa-search"></i> Search
-						</button>
-					</div>
-					<div id="freepikSearchError" class="alert alert-danger d-none" role="alert"></div>
-					
-					<div id="freepikSearchResults" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3"
-					     style="min-height: 200px;">
-						<div class="col-12 text-center text-muted d-none" id="freepikSearchPlaceholder">
-							Enter a search term above to find images.
-						</div>
-						<div class="col-12 text-center d-none" id="freepikSearchLoading">
-							<div class="spinner-border text-primary" role="status"></div>
-							<p>Loading images...</p>
-						</div>
-						<div class="col-12 text-center text-muted d-none" id="freepikSearchNoResults">
-							No images found for that search term.
-						</div>
-					</div>
-					
-					<nav aria-label="Freepik Search Pagination" class="mt-3 d-none" id="freepikPaginationContainer">
-						<ul class="pagination justify-content-center" id="freepikPagination">
-						</ul>
-					</nav>
-				
-				</div>
-				<div class="modal-footer">
-					<small class="text-muted me-auto">Image search powered by Freepik. Ensure compliance with Freepik's
-						terms.</small>
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-				</div>
-			</div>
-		</div>
-	</div>
+	@include('partials._freepik_modal')
+	@include('partials._question_batch_success_modal')
+	@include('partials._edit_texts_modal')
+	@include('partials._edit_part_modal')
 	
-	<div class="modal fade" id="questionBatchSuccessModal" tabindex="-1" aria-labelledby="questionBatchSuccessModalLabel"
-	     aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="questionBatchSuccessModalLabel">
-						<i class="fas fa-check-circle text-success me-2"></i>Success
-					</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<p id="questionBatchSuccessMessage">Questions were generated successfully.</p>
-					<p class="mb-0">The page will reload to show the new questions.</p>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-primary" id="questionBatchSuccessConfirm">
-						<i class="fas fa-sync-alt me-2"></i>Reload Now
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-	
-	<div class="modal fade" id="editTextsModal" tabindex="-1" aria-labelledby="editTextsModalLabel" aria-hidden="true"
-	     data-bs-backdrop="static">
-		<div class="modal-dialog modal-lg">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="editTextsModalLabel">Edit Question Texts</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<form id="editTextsForm">
-						<input type="hidden" id="editQuestionId" value="">
-						
-						<div class="mb-3">
-							<label for="editQuestionText" class="form-label">Question Text</label>
-							<textarea class="form-control" id="editQuestionText" rows="3" required></textarea>
-							<div class="invalid-feedback">Question text is required (minimum 5 characters)</div>
-						</div>
-						
-						<div id="editAnswersContainer">
-							<!-- Answers will be dynamically populated by JS -->
-						</div>
-					</form>
-					
-					<div id="editTextsError" class="alert alert-danger mt-3 d-none"></div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-					<button type="button" class="btn btn-primary" id="saveTextsBtn">
-						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-						Save Changes
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-	
-	<!-- Edit Part Modal -->
-	<div class="modal fade" id="editPartModal" tabindex="-1" aria-labelledby="editPartModalLabel" aria-hidden="true"
-	     data-bs-backdrop="static">
-		<div class="modal-dialog modal-lg">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="editPartModalLabel">Edit Lesson Part</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<form id="editPartForm">
-						<input type="hidden" id="editPartIndex" value="">
-						<div class="mb-3">
-							<label for="editPartTitle" class="form-label">Part Title</label>
-							<input type="text" class="form-control" id="editPartTitle" required>
-							<div class="invalid-feedback">Part title is required.</div>
-						</div>
-						<div class="mb-3">
-							<label for="editPartText" class="form-label">Part Text</label>
-							<textarea class="form-control" id="editPartText" rows="8" required></textarea>
-							<div class="invalid-feedback">Part text is required (minimum 10 characters)</div>
-						</div>
-					</form>
-					<div id="editPartError" class="alert alert-danger mt-3 d-none"></div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-					<button type="button" class="btn btn-primary" id="savePartBtn">
-						<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-						Save Changes
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
 @endsection
 
 @push('scripts')
@@ -557,7 +419,8 @@
 		let currentlyPlayingButton = null;
 		let existingPlayButtons = null;
 		
-		let editCategorySelect = null;
+		let editMainCategorySelect = null;
+		let editSubCategorySelect = null;
 		let editLanguageSelect = null;
 		
 		let preferredLlmSelect = null;
@@ -569,6 +432,8 @@
 		const lessonSessionId = @json($lesson->session_id);
 		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->session_id]));
 		const llmsListUrl = @json(route('api.llms.list'));
+		const initialSelectedMainCategoryId = @json($lesson->selected_main_category_id);
+		const initialSelectedSubCategoryId = @json($lesson->sub_category_id);
 	
 	</script>
 	<script src="{{ asset('js/edit_lesson.js') }}"></script>

@@ -19,6 +19,7 @@
 			'notes',
 			'image_prompt_idea',
 			'generated_image_id',
+			'selected_main_category_id',
 			'sub_category_id',
 			'language',
 			'lesson_parts',
@@ -28,7 +29,6 @@
 			'preferredLlm',
 			'ai_generated',
 			'category_selection_mode',
-			'selected_main_category_id',
 			'month',
 			'year',
 			'week',
@@ -37,6 +37,7 @@
 		protected $casts = [
 			'lesson_parts' => 'array',
 			'generated_image_id' => 'integer',
+			'selected_main_category_id' => 'integer',
 			'sub_category_id' => 'integer',
 			'ai_generated' => 'boolean',
 			'month' => 'integer',

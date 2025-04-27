@@ -4,9 +4,23 @@ document.addEventListener('DOMContentLoaded', () => {
 	ttsEngineSelect = document.getElementById('ttsEngineSelect');
 	ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
 	ttsLanguageCodeSelect = document.getElementById('ttsLanguageCodeSelect');
+	
+	editMainCategorySelect = document.getElementById('editMainCategorySelect');
 	editSubCategorySelect = document.getElementById('editSubCategorySelect');
+	
 	editLanguageSelect = document.getElementById('editLanguageSelect');
 	updateSettingsBtn = document.getElementById('updateLessonSettingsBtn');
+	
+	// --- Data ---
+	let allCategoriesData = {};
+	try {
+		// Use the data attribute passed from Blade
+		allCategoriesData = JSON.parse(settingsCard.dataset.categories || '{}');
+	} catch (e) {
+		console.error("Error parsing categories data:", e);
+		showToast('Error loading category data.', 'Error', 'error');
+	}
+
 
 // --- Voice Selector Logic ---
 	if (ttsEngineSelect && ttsVoiceSelect) {
@@ -89,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedEngine = ttsEngineSelect.value;
 			const selectedVoice = ttsVoiceSelect.value;
 			const selectedLangCode = ttsLanguageCodeSelect.value;
+			const selectedMainCategory = editMainCategorySelect.value;    // <-- Get Main Category ID
 			const selectedSubCategory = editSubCategorySelect.value;    // <-- Get Category ID
 			const selectedLanguage = editLanguageSelect.value;    // <-- Get Lesson Language
 			
@@ -98,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const yearInput = document.getElementById('editYear');
 			const weekInput = document.getElementById('editWeek');
 			
-			if (!selectedSubCategory || !selectedLanguage) {
+			if (!selectedMainCategory || !selectedLanguage) {
 				showToast('Please select a sub-category and language.', 'Missing Selection', 'warning');
 				return;
 			}
@@ -118,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					tts_engine: selectedEngine,
 					tts_voice: selectedVoice,
 					tts_language_code: selectedLangCode,
+					main_category_id: selectedMainCategory,
 					sub_category_id: selectedSubCategory,
 					language: selectedLanguage,
 					
@@ -167,5 +183,50 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 		});
 	}
+	
+	function populateSubCategories() {
+		const selectedMainId = editMainCategorySelect.value;
+		// Clear existing options (keep the first '-- None --' option)
+		while (editSubCategorySelect.options.length > 1) {
+			editSubCategorySelect.remove(1);
+		}
+		
+		if (selectedMainId && allCategoriesData[selectedMainId] && allCategoriesData[selectedMainId].subCategories) {
+			editSubCategorySelect.disabled = false;
+			const subCats = allCategoriesData[selectedMainId].subCategories;
+			// Check if subCats is an object (from mapWithKeys) or array
+			const subCatKeys = Object.keys(subCats);
+			
+			if (subCatKeys.length > 0) {
+				subCatKeys.forEach(subId => {
+					const subCat = subCats[subId];
+					const option = new Option(subCat.name, subCat.id);
+					editSubCategorySelect.add(option);
+				});
+			} else {
+				// Optionally add a disabled message if no sub-categories exist
+				// const option = new Option("No sub-categories", "");
+				// option.disabled = true;
+				// editSubCategorySelect.add(option);
+			}
+			
+			// Try to re-select the initial sub-category if it belongs to this main category
+			if (initialSelectedSubCategoryId && subCats[initialSelectedSubCategoryId]) {
+				editSubCategorySelect.value = initialSelectedSubCategoryId;
+			} else {
+				editSubCategorySelect.value = ""; // Default to '-- None --'
+			}
+			
+		} else {
+			editSubCategorySelect.disabled = true;
+			editSubCategorySelect.value = ""; // Reset to '-- None --'
+		}
+	}
+	
+	if (editMainCategorySelect) {
+		editMainCategorySelect.addEventListener('change', populateSubCategories);
+		populateSubCategories();
+	}
+	
 	
 });

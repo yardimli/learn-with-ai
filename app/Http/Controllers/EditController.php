@@ -7,6 +7,7 @@
 
 	use App\Models\GeneratedImage;
 	use App\Models\MainCategory;
+	use App\Models\SubCategory;
 	use App\Models\Question;
 
 	// Keep Question model import
@@ -214,6 +215,7 @@ PROMPT;
 		public function updateSettingsAjax(Request $request, Lesson $lesson)
 		{
 			$this->authorize('update', $lesson);
+			$userId = Auth::id(); // Get current user ID
 
 			$validator = Validator::make($request->all(), [
 				'preferred_llm' => 'required|string|max:100',
@@ -221,23 +223,43 @@ PROMPT;
 				'tts_voice' => 'required|string|max:100',
 				'tts_language_code' => 'required|string|max:10',
 				'language' => 'required|string|max:30',
-				'sub_category_id' => [
+				// --- Category Validation ---
+				'main_category_id' => [ // NEW: Validate Main Category
 					'required',
 					'integer',
-					Rule::exists('sub_categories', 'id')->where('user_id', $userId)
+					Rule::exists('main_categories', 'id')->where('user_id', $userId)
 				],
+				'sub_category_id' => [ // MODIFIED: Validate Sub Category (optional, but must belong to main if provided)
+					'nullable', // Allow it to be null or empty string
+					'integer',
+					// Ensure sub-category exists, belongs to the user, AND belongs to the selected main category
+					Rule::exists('sub_categories', 'id')
+						->where('user_id', $userId)
+						->where('main_category_id', $request->input('main_category_id')) // Check parent
+				],
+				// --- End Category Validation ---
 				'user_title' => 'nullable|string|max:255',
 				'notes' => 'nullable|string|max:5000',
 				'month' => 'nullable|integer|between:1,12',
 				'year' => 'nullable|integer|digits:4',
-				'week' => 'nullable|integer|between:1,53',
+				'week' => 'nullable|integer|between:1,53', // Corrected: 53 weeks possible
 			]);
+
+			// Custom check because 'nullable' allows empty string, but we need integer or null
+			if ($request->filled('sub_category_id') && !is_numeric($request->input('sub_category_id'))) {
+				return response()->json([
+					'success' => false,
+					'message' => 'Validation failed: Invalid Sub-Category selected.'
+				], 422);
+			}
+
 
 			if ($validator->fails()) {
 				Log::warning("Lesson settings update validation failed for Lesson ID: {$lesson->id}", ['errors' => $validator->errors()]);
 				return response()->json([
 					'success' => false,
-					'message' => 'Validation failed: ' . $validator->errors()->first()
+					'message' => 'Validation failed: ' . $validator->errors()->first(),
+					'errors' => $validator->errors() // Send all errors for debugging if needed
 				], 422);
 			}
 
@@ -247,7 +269,14 @@ PROMPT;
 				$lesson->ttsVoice = $request->input('tts_voice');
 				$lesson->ttsLanguageCode = $request->input('tts_language_code');
 				$lesson->language = $request->input('language');
-				$lesson->sub_category_id = $request->input('sub_category_id');
+
+				// --- Save Category IDs ---
+				$lesson->selected_main_category_id = $request->input('main_category_id');
+				// Ensure sub_category_id is null if empty string or 0 is passed
+				$subCategoryId = $request->input('sub_category_id');
+				$lesson->sub_category_id = ($subCategoryId && is_numeric($subCategoryId) && $subCategoryId > 0) ? (int)$subCategoryId : null;
+				// --- End Save Category IDs ---
+
 				$lesson->user_title = $request->input('user_title');
 				$lesson->notes = $request->input('notes');
 				$lesson->month = $request->input('month') ?: null;
@@ -276,8 +305,7 @@ PROMPT;
 			$this->authorize('update', $lesson);
 			$userId = Auth::id();
 
-			// Eager load questions and their associated images
-			// Order them by part, then difficulty, then their own order/id
+			// Eager load necessary relationships
 			$lesson->load([
 				'questions' => function ($query) {
 					$query->orderBy('lesson_part_index', 'asc')
@@ -286,12 +314,13 @@ PROMPT;
 						->orderBy('id', 'asc');
 				},
 				'questions.generatedImage',
-				'subCategory.mainCategory' // Eager load sub and its main category
+				'subCategory', // Load selected sub-category (if any)
+				'mainCategory' // Load selected main category (should always exist if saved correctly)
 			]);
 
 			Log::info("Showing edit page for Lesson ID: {$lesson->id} (Session: {$lesson->session_id})");
 
-			// Group questions by part and difficulty for easier display in the view
+			// Group questions (remains the same)
 			$groupedQuestions = [];
 			foreach ($lesson->questions as $question) {
 				$partIndex = $question->lesson_part_index;
@@ -300,45 +329,54 @@ PROMPT;
 					$groupedQuestions[$partIndex] = ['easy' => [], 'medium' => [], 'hard' => []];
 				}
 				if (!isset($groupedQuestions[$partIndex][$difficulty])) {
-					$groupedQuestions[$partIndex][$difficulty] = []; // Ensure difficulty array exists
+					$groupedQuestions[$partIndex][$difficulty] = [];
 				}
 				$groupedQuestions[$partIndex][$difficulty][] = $question;
 			}
 
-			// Decode lesson parts if needed (it should be auto-decoded by cast)
+			// Decode lesson parts (remains the same)
 			$lessonParts = $lesson->lesson_parts;
 			if (is_string($lessonParts)) {
 				$lessonParts = json_decode($lessonParts, true);
 			}
-			// Ensure it's an array for the view
 			$lesson->lesson_parts = is_array($lessonParts) ? $lessonParts : [];
 
-			// Get available LLMs
+			// Get available LLMs (remains the same)
 			$llms = LlmHelper::checkLLMsJson();
-
-			$llm = $lesson->preferredLlm;
+			$llm = $lesson->preferredLlm ?: env('DEFAULT_LLM');
 			if (empty($llm)) {
-				$llm = env('DEFAULT_LLM');
-				Log::warning("Lesson {$lesson->id} preferredLlm is empty, falling back to default.");
-				if (empty($llm)) {
-					Log::error("No LLM configured for lesson {$lesson->id} or as default.");
-					return response()->json(['success' => false, 'message' => 'AI model configuration error.'], 500);
-				}
+				Log::error("No LLM configured for lesson {$lesson->id} or as default.");
+				// Consider returning an error view or message
+				return back()->withErrors('AI model configuration error.');
 			}
 
-			// Get structured Main and Sub Categories for the dropdown
-			$mainCategories = Auth::user()->mainCategories()
+			// Get structured Main and Sub Categories for the dropdowns
+			// Fetch all main categories for the user, WITH their associated sub-categories
+			$allMainCategories = Auth::user()->mainCategories()
 				->with(['subCategories' => function ($query) use ($userId) {
 					$query->where('user_id', $userId)->orderBy('name');
 				}])
 				->orderBy('name')->get();
+
+			// Prepare data structure for easy JS access (optional but helpful)
+			$categoriesData = $allMainCategories->mapWithKeys(function ($mainCat) {
+				return [$mainCat->id => [
+					'id' => $mainCat->id,
+					'name' => $mainCat->name,
+					'subCategories' => $mainCat->subCategories->mapWithKeys(function ($subCat) {
+						return [$subCat->id => ['id' => $subCat->id, 'name' => $subCat->name]];
+					})->all() // Convert sub-category collection to array
+				]];
+			})->toJson(); // Convert the whole structure to JSON
+
 
 			return view('edit_lesson', [
 				'lesson' => $lesson,
 				'groupedQuestions' => $groupedQuestions,
 				'llm' => $llm,
 				'llms' => $llms,
-				'mainCategories' => $mainCategories,
+				'allMainCategories' => $allMainCategories, // Pass the collection for the main dropdown
+				'categoriesData' => $categoriesData, // Pass JSON data for JS filtering
 			]);
 		}
 
