@@ -48,7 +48,7 @@
 		<div class="alert alert-info" role="alert">
 			No sub categories found.
 			@if(request()->has('main_category_id') && request('main_category_id') != '')
-				Perhaps clear the filter or <a href="{{ route('category_management.sub.create', ['main_category_id' => request('main_category_id')]) }}">create one for this main category?</a>
+				Perhaps clear the filter or <a href="{{ route('category_management.sub.create', ['mainCategory' => request('main_category_id')]) }}">create one for this main category?</a>
 			@else
 				<a href="{{ route('category_management.sub.create') }}">Create the first one!</a> (Make sure you have Main Categories first).
 			@endif

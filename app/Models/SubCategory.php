@@ -4,6 +4,8 @@
 
 	use Illuminate\Database\Eloquent\Factories\HasFactory;
 	use Illuminate\Database\Eloquent\Model;
+	use Illuminate\Http\Request;
+	use Illuminate\Support\Facades\Auth;
 	use Illuminate\Validation\Rule;
 
 	// Import Rule
@@ -32,7 +34,7 @@
 		 */
 		public function mainCategory()
 		{
-			return $this->belongsTo(MainCategory::class)->where('user_id', $this->user_id);
+			return $this->belongsTo(MainCategory::class);
 		}
 
 		/**

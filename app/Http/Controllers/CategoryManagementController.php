@@ -127,24 +127,16 @@
 			// Start query for the logged-in user's subcategories
 			$query = Auth::user()->subCategories()->with('mainCategory')->orderBy('name');
 
-			// Optional: Filter by main category (ensure the main category also belongs to the user)
 			if ($request->has('main_category_id') && $request->main_category_id != '') {
-				$mainCatId = $request->main_category_id;
-				// Add check that the filtered main category belongs to the user
-				$query->whereHas('mainCategory', function($q) use ($mainCatId) {
-					$q->where('id', $mainCatId)->where('user_id', Auth::id());
-				});
-				// Or simply filter by main_category_id if the relationship ensures user ownership
-				// $query->where('main_category_id', $request->main_category_id);
+				$query->where('main_category_id', $request->main_category_id);
 			}
 
 			$subCategories = $query->paginate(25);
-			// Get only the user's main categories for the filter dropdown
 			$mainCategories = Auth::user()->mainCategories()->orderBy('name')->pluck('name', 'id');
 
 			// Get first main category id as default if no filter is applied
 			$main_category_id = $request->input('main_category_id', $mainCategories->keys()->first());
-			// Ensure the default ID actually belongs to the user if derived from request
+
 			if ($request->has('main_category_id') && !$mainCategories->has($main_category_id)) {
 				$main_category_id = $mainCategories->keys()->first(); // Fallback if invalid ID passed
 			}

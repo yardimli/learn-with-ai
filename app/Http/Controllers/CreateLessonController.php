@@ -234,9 +234,7 @@ PROMPT;
 			if ($autoDetectMain || $autoDetectSub) {
 				// Provide existing categories for context if we're auto-detecting either category level
 				$mainCategories = Auth::user()->mainCategories()
-					->with(['subCategories' => function ($query) {
-						$query->where('user_id', Auth::id())->orderBy('name');
-					}])
+					->with('subCategories')
 					->orderBy('name')->get();
 
 				$categoriesString = '';

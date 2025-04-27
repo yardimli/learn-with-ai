@@ -29,7 +29,7 @@
 		 */
 		public function subCategories()
 		{
-			return $this->hasMany(SubCategory::class)->where('user_id', $this->user_id);
+			return $this->hasMany(SubCategory::class);
 		}
 
 		/**
