@@ -22,6 +22,7 @@
 			'name',
 			'email',
 			'password',
+			'llm_generation_instructions',
 		];
 
 		/**

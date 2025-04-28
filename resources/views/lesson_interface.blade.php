@@ -3,7 +3,6 @@
 @section('title', 'Question: ' . $lesson->title)
 
 @section('content')
-	<input type="hidden" id="lessonSessionId" value="{{ $lesson->session_id }}">
 	<input type="hidden" id="lessonId" value="{{ $lesson->id }}">
 	
 	<div class="question-card">
@@ -84,7 +83,6 @@
 
 @push('scripts')
 	<script>
-		window.lessonSessionId = @json($lesson->session_id);
 		window.lessonId = @json($lesson->id);
 		window.questionInitialState = @json($state);
 		window.totalLessonParts = @json($totalParts);
@@ -118,7 +116,6 @@
 		let modalNextButton = null;
 		
 		// --- State Variables ---
-		let lessonSessionId = null;
 		let lessonId = null;
 		let isAutoPlayEnabled = true;
 		let displayedPartIndex = -1;
@@ -174,7 +171,6 @@
 			closeErrorButton = document.getElementById('closeErrorButton');
 			
 			// --- State Variables ---
-			lessonSessionId = document.getElementById('lessonSessionId').value;
 			lessonId = document.getElementById('lessonId').value;
 			
 			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText }

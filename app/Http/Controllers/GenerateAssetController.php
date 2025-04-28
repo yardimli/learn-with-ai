@@ -117,7 +117,7 @@
 				];
 
 				// a) Generate Audio
-				$filenameBase = "lessons/{$lesson->session_id}/part{$partIndex}_sent{$sentenceIndex}_" . Str::slug(Str::limit($sentenceText, 20));
+				$filenameBase = "lessons/{$lesson->id}/part{$partIndex}_sent{$sentenceIndex}_" . Str::slug(Str::limit($sentenceText, 20));
 				$audioResult = AudioImageHelper::text2speech($sentenceText, $ttsVoice, $ttsLanguageCode, $filenameBase, $ttsEngine);
 
 				if ($audioResult['success']) {

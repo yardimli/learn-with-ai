@@ -12,7 +12,6 @@
 
 		protected $fillable = [
 			'user_id',
-			'session_id',
 			'title',
 			'subject',
 			'user_title',
@@ -45,11 +44,6 @@
 			'week' => 'integer',
 			'user_id' => 'integer',
 		];
-
-		public function getRouteKeyName()
-		{
-			return 'session_id';
-		}
 
 		public function user()
 		{

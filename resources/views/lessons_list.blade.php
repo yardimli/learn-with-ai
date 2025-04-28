@@ -167,7 +167,7 @@
 				</div>
 				<div class="modal-body">
 					<div id="generationOptionsArea">
-						<input type="hidden" id="sessionIdForGeneration" value="">
+						<input type="hidden" id="lessonIdForGeneration" value="">
 						<input type="hidden" id="currentSubCategoryId" value="">
 						<input type="hidden" id="currentSelectedMainCategoryId" value="">
 						
@@ -184,6 +184,12 @@
 						<div class="mb-3">
 							<label for="lessonNotesDisplay" class="form-label">Additional Notes:</label>
 							<textarea class="form-control" id="lessonNotesDisplay" rows="2"></textarea>
+						</div>
+						
+						<div class="mb-3">
+							<label for="additionalInstructionsTextarea" class="form-label">Additional Instructions (for AI):</label>
+							<textarea class="form-control" id="additionalInstructionsTextarea" rows="3" placeholder="e.g., Focus on practical examples, keep the tone informal..."></textarea>
+							<small class="form-text text-muted">These instructions will be added to the prompt sent to the AI for content generation. They are saved to your profile when you generate a preview.</small>
 						</div>
 						
 						{{-- Area to display existing category --}}

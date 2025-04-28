@@ -318,7 +318,7 @@ PROMPT;
 				'mainCategory' // Load selected main category (should always exist if saved correctly)
 			]);
 
-			Log::info("Showing edit page for Lesson ID: {$lesson->id} (Session: {$lesson->session_id})");
+			Log::info("Showing edit page for Lesson ID: {$lesson->id}");
 
 			// Group questions (remains the same)
 			$groupedQuestions = [];

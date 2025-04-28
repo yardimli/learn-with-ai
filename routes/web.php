@@ -6,6 +6,7 @@
 	use App\Http\Controllers\FreePikController;
 	use App\Http\Controllers\GenerateAssetController;
 	use App\Http\Controllers\ProgressController;
+	use App\Http\Controllers\UserController;
 	use App\Http\Controllers\ViewLessonsController;
 	use App\Http\Controllers\WeeklyPlanController;
 	use Illuminate\Support\Facades\Route;
@@ -24,12 +25,12 @@
 		Route::get('/lesson/import', [CreateLessonController::class, 'showImportForm'])->name('lesson.import.form');
 		Route::post('/lesson/import/process', [CreateLessonController::class, 'processImport'])->name('lesson.import.process');
 
-		Route::get('/progress/{lesson:session_id}', [ProgressController::class, 'show'])->name('progress.show');
+		Route::get('/progress/{lesson:id}', [ProgressController::class, 'show'])->name('progress.show');
 		Route::get('/lessons', [ViewLessonsController::class, 'listLessons'])->name('lessons.list');
 		Route::get('/weekly-plan', [WeeklyPlanController::class, 'index'])->name('weekly.plan.configure');
 		Route::post('/weekly-plan/load', [WeeklyPlanController::class, 'loadPlan'])->name('weekly.plan.load');
 
-		Route::delete('/lesson/{lesson:session_id}', [ViewLessonsController::class, 'deleteLesson'])->name('lesson.delete');
+		Route::delete('/lesson/{lesson:id}', [ViewLessonsController::class, 'deleteLesson'])->name('lesson.delete');
 		Route::post('/lesson/{lesson}/archive', [ViewLessonsController::class, 'archiveProgress'])->name('lesson.archive');
 
 		Route::post('/lesson/{lesson}/generate-preview', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.preview');
@@ -106,13 +107,14 @@
 		Route::post('/question/{question}/select-freepik', [FreePikController::class, 'selectFreepikImageAjax'])->name('question.image.select_freepik');
 
 // --- Lesson Display / Taking Question ---
-		Route::get('/lesson/{lesson:session_id}/question', [LessonController::class, 'showQuestionInterface'])
+		Route::get('/lesson/{lesson:id}/question', [LessonController::class, 'showQuestionInterface'])
 			->name('question.interface');
-		Route::post('/lesson/{lesson:session_id}/part-questions', [LessonController::class, 'getPartQuestionsAjax'])
+		Route::post('/lesson/{lesson:id}/part-questions', [LessonController::class, 'getPartQuestionsAjax'])
 			->name('question.part_questions');
 		Route::post('/question/{question}/submit', [LessonController::class, 'submitAnswer'])
 			->name('question.submit_answer');
 
+		Route::get('/user/llm-instructions', [UserController::class, 'getLlmInstructions'])->name('user.llm.instructions');
 	});
 
 	Route::get('/api/llms-list', function () {

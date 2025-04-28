@@ -96,9 +96,8 @@
 			$categorySelectionMode = $request->input('category_selection_mode');
 			$mainCategoryId = $request->input('main_category_id');
 			$subCategoryId = $request->input('sub_category_id');
-			$sessionId = Str::uuid()->toString();
 
-			Log::info("Creating basic lesson. Session ID: {$sessionId}, Lesson: '{$lessonSubject}', Lang: {$language}, CategoryMode: {$categorySelectionMode}");
+			Log::info("Creating basic lesson. Lesson: '{$lessonSubject}', Lang: {$language}, CategoryMode: {$categorySelectionMode}");
 
 			// Determine category mode flags for AI generation later
 			$aiDetectMain = ($categorySelectionMode === 'ai_decide');
@@ -137,7 +136,6 @@
 				'title' => null, // Will be populated by AI later
 				'image_prompt_idea' => null, // Will be populated by AI later
 				'lesson_parts' => '[]', // Will be populated by AI later
-				'session_id' => $sessionId,
 				'preferredLlm' => $preferredLlm,
 				'ttsEngine' => $ttsEngine,
 				'ttsVoice' => $ttsVoice,
@@ -150,7 +148,7 @@
 			]);
 
 
-			Log::info("Basic lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}, SubCategoryID: {$finalSubCategoryId}, Mode: {$categorySelectionMode}");
+			Log::info("Basic lesson record created with ID: {$lesson->id}, SubCategoryID: {$finalSubCategoryId}, Mode: {$categorySelectionMode}");
 
 			return response()->json([
 				'success' => true,
@@ -197,7 +195,7 @@ Constraints:
 - All text content (titles, lesson text) should be clear, concise, and factually accurate.
 - Generate content suitable for a general audience.
 - The `suggested_main_category` and `suggested_sub_category` fields MUST always be included.
-- Try to reuse an existing `suggested_main_category` and `suggested_sub_category` if appropriate, otherwise suggest a new one.
+- Try to reuse an existing `suggested_main_category` and `suggested_sub_category`, otherwise suggest a new one.
 PROMPT;
 
 		public static function generateLessonStructure(
@@ -209,7 +207,8 @@ PROMPT;
 			string  $userTitle = '',
 			string  $notes = '',
 			?string $selectedMainCategoryName = null,
-			bool    $autoDetectSub = true
+			bool    $autoDetectSub = true,
+			?string $additionalInstructions = null
 		): array
 		{
 			$systemPrompt = self::SYSTEM_PROMPT_LESSON_STRUCTURE;
@@ -229,6 +228,11 @@ PROMPT;
 
 			if (!$autoDetectMain && $selectedMainCategoryName) {
 				$userMessageContent .= "\nSelected Main Category: " . $selectedMainCategoryName . "\n";
+			}
+
+			if (!empty($additionalInstructions)) {
+				$userMessageContent .= "\nUser's Additional Instructions:\n" . trim($additionalInstructions) . "\n"; // <-- Append here
+				Log::info("Appending additional user instructions to LLM prompt.");
 			}
 
 			if ($autoDetectMain || $autoDetectSub) {
@@ -294,6 +298,7 @@ PROMPT;
 				'subject' => 'required|string|max:1024',
 				'notes' => 'nullable|string|max:5000',
 				'auto_detect_category' => 'required|boolean',
+				'additional_instructions' => 'nullable|string|max:5000',
 			]);
 
 			if ($validator->fails()) {
@@ -304,6 +309,18 @@ PROMPT;
 			$userSubject = $request->input('subject');
 			$userTitle = $request->input('user_title');
 			$notes = $request->input('notes', '');
+			$additionalInstructions = $request->input('additional_instructions');
+			$autoDetect = $request->input('auto_detect_category');
+
+			try {
+				$user = Auth::user();
+				if ($user->llm_generation_instructions !== $additionalInstructions) {
+					$user->update(['llm_generation_instructions' => $additionalInstructions]);
+					Log::info("Updated user's LLM generation instructions.", ['user_id' => $user->id]);
+				}
+			} catch (\Exception $e) {
+				Log::error("Failed to save user's LLM generation instructions.", ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
+			}
 
 			$lesson->preferredLlm = $llm; // Update the preferred LLM in the lesson record
 			$lesson->user_title = $userTitle; // Update the user title
@@ -312,14 +329,26 @@ PROMPT;
 			$lesson->save(); // Save the lesson record
 
 			$categorySelectionMode = $lesson->category_selection_mode ?? 'ai_decide';
-			$autoDetectMain = ($categorySelectionMode === 'ai_decide');
-			$autoDetectSub = ($categorySelectionMode === 'ai_decide' || $categorySelectionMode === 'main_only');
+			$autoDetectMain = $autoDetect;
+			$autoDetectSub = $autoDetect;
+
+//			$autoDetectMain = ($categorySelectionMode === 'ai_decide');
+//			$autoDetectSub = ($categorySelectionMode === 'ai_decide' || $categorySelectionMode === 'main_only');
 
 			// If main category is pre-selected but sub is AI-decided, provide that context
 			$selectedMainCategoryName = null;
-			if ($categorySelectionMode === 'main_only' && $lesson->selected_main_category_id) {
-				$mainCategory = MainCategory::find($lesson->selected_main_category_id);
-				$selectedMainCategoryName = $mainCategory ? $mainCategory->name : null;
+			if ($categorySelectionMode === 'main_only') {
+				$autoDetectMain = false; // Don't ask AI to detect main
+				$autoDetectSub = true;   // Always ask AI to detect sub in this mode
+				if ($lesson->selected_main_category_id) {
+					$mainCategory = MainCategory::find($lesson->selected_main_category_id);
+					$selectedMainCategoryName = $mainCategory ? $mainCategory->name : null;
+				}
+			} else if ($categorySelectionMode === 'both') {
+				// If mode is 'both', neither should be auto-detected for the prompt context.
+				$autoDetectMain = false;
+				$autoDetectSub = false;
+				// We don't need to pass category names here as the AI isn't suggesting them.
 			}
 
 			$language = $lesson->language ?? 'English';
@@ -330,13 +359,14 @@ PROMPT;
 			$planStructureResult = self::generateLessonStructure(
 				$llm,
 				$userSubject,
-				$autoDetectMain,  // Whether to auto-detect main category
+				$autoDetectMain,
 				$language,
 				$maxRetries,
 				$userTitle,
 				$notes,
-				$selectedMainCategoryName, // Pass the selected main category if in 'main_only' mode
-				$autoDetectSub  // Whether to auto-detect sub-category
+				$selectedMainCategoryName,
+				$autoDetectSub,
+				$additionalInstructions
 			);
 
 			if (isset($planStructureResult['error'])) {
@@ -361,13 +391,13 @@ PROMPT;
 				'success' => true,
 				'plan' => $planStructureResult,
 				'lesson_id' => $lesson->id,
-				'session_id' => $lesson->session_id,
 				'language_selected' => $language,
 				'current_sub_category_id' => $lesson->sub_category_id,
 				'category_selection_mode' => $categorySelectionMode,
 				'selected_main_category_id' => $lesson->selected_main_category_id,
 				'suggested_main_category' => $planStructureResult['suggested_main_category'] ?? null,
-				'suggested_sub_category' => $planStructureResult['suggested_sub_category'] ?? null
+				'suggested_sub_category' => $planStructureResult['suggested_sub_category'] ?? null,
+				'current_instructions' => $additionalInstructions
 			];
 
 			return response()->json($responseData);
@@ -428,8 +458,7 @@ PROMPT;
 			}
 
 
-			$sessionId = Str::uuid()->toString();
-			Log::info("Confirmed creation request received. Session ID: {$sessionId}, Lesson: '{$lessonSubject}', Lang: {$language}, CatInput: {$categoryInput}");
+			Log::info("Confirmed creation request received. Lesson: '{$lessonSubject}', Lang: {$language}, CatInput: {$categoryInput}");
 
 			// --- Determine Final Sub-Category ID ---
 			$finalSubCategoryId = null;
@@ -510,7 +539,6 @@ PROMPT;
 				'title' => $plan['main_title'],
 				'image_prompt_idea' => $plan['image_prompt_idea'],
 				'lesson_parts' => $plan['lesson_parts'],
-				'session_id' => $sessionId,
 				'preferredLlm' => $preferredLlm,
 				'ttsEngine' => $ttsEngine,
 				'ttsVoice' => $ttsVoice,
@@ -519,12 +547,12 @@ PROMPT;
 				'sub_category_id' => $finalSubCategoryId,
 			]);
 
-			Log::info("Lesson record created with ID: {$lesson->id}, SessionID: {$sessionId}, SubCategoryID: {$finalSubCategoryId}.");
+			Log::info("Lesson record created with ID: {$lesson->id}, SubCategoryID: {$finalSubCategoryId}.");
 
 			return response()->json([
 				'success' => true,
 				'message' => 'Lesson created! Edit questions and generate assets.',
-				'redirectUrl' => route('lesson.edit', ['lesson' => $sessionId])
+				'redirectUrl' => route('lesson.edit', ['lesson' => $lesson->id])
 			]);
 		}
 
@@ -675,7 +703,7 @@ PROMPT;
 				return response()->json([
 					'success' => true,
 					'message' => 'Lesson content generated successfully!',
-					'redirectUrl' => route('lesson.edit', ['lesson' => $lesson->session_id])
+					'redirectUrl' => route('lesson.edit', ['lesson' => $lesson->id])
 				]);
 			} catch (\Exception $e) {
 				Log::error("Error updating lesson with generated plan: " . $e->getMessage());
@@ -782,7 +810,6 @@ PROMPT;
 					}
 
 
-					$sessionId = Str::uuid()->toString();
 					$notes = $lessonData['notes'] ?? null; // Store notes in notes if present
 					$year = $lessonData['year'] ?? null; // Store year in year if present
 					$month = $lessonData['month'] ?? null; // Store month in month if present
@@ -799,7 +826,6 @@ PROMPT;
 						'title' => null, // Will be populated by AI later
 						'image_prompt_idea' => null, // Will be populated by AI later
 						'lesson_parts' => '[]', // Will be populated by AI later
-						'session_id' => $sessionId,
 						'preferredLlm' => $preferredLlm,
 						'ttsEngine' => $ttsEngine,
 						'ttsVoice' => $ttsVoice,
@@ -811,7 +837,7 @@ PROMPT;
 						'selected_main_category_id' => $mainCategoryId,
 					]);
 					$importedCount++;
-					Log::info("JSON Import: Created lesson '{$lessonData['title']}' with SessionID: {$sessionId}");
+					Log::info("JSON Import: Created lesson '{$lessonData['title']}'");
 				}
 
 				DB::commit();

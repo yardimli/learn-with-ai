@@ -8,7 +8,7 @@ function loadQuestionsForLevel(partIndex) {
 	displayedPartIndex = partIndex;
 	updateProgressBar();
 	
-	fetch(`/lesson/${lessonSessionId}/part-questions`, {
+	fetch(`/lesson/${lessonId}/part-questions`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -429,7 +429,7 @@ function initQuestionInterface() {
 	
 	setLoadingState(true, 'Initializing...');
 	
-	if (!currentState || !lessonSessionId) {
+	if (!currentState || !lessonId) {
 		setErrorState("Failed to load initial question state. Please try refreshing the page.");
 		setLoadingState(false);
 		return;

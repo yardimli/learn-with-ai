@@ -6,7 +6,7 @@
 	<div class="d-flex justify-content-between align-items-center mb-3">
 		<h1 class="h2">{{ $lesson->title }} - Progress Report</h1>
 		<div>
-			<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-success me-2">
+			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-success me-2">
 				<i class="fas fa-play"></i> {{ $currentProgress['score'] > 0 || empty($archivedProgressSets) ? 'Continue Lesson' : 'Start Lesson Again' }}
 			</a>
 			<a href="{{ route('lessons.list') }}" class="btn btn-secondary">

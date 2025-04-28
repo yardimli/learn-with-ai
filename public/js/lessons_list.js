@@ -5,10 +5,11 @@ const CURRENT_GENERATING_TITLE = 'learnwithai_current_generating_title';
 
 document.addEventListener('DOMContentLoaded', () => {
 	const generateContentModal = document.getElementById('generateContentModal');
-	const sessionIdInput = document.getElementById('sessionIdForGeneration');
-	const lessonTitleDisplay = document.getElementById('lessonTitleDisplay'); // Ensure this ID exists
+	const lessonIdInput = document.getElementById('lessonIdForGeneration');
+	const lessonTitleDisplay = document.getElementById('lessonTitleDisplay');
 	const lessonSubjectTextarea = document.getElementById('lessonSubjectDisplay');
-	const lessonNotesDisplay = document.getElementById('lessonNotesDisplay'); // Ensure this ID exists
+	const lessonNotesDisplay = document.getElementById('lessonNotesDisplay');
+	const additionalInstructionsTextarea = document.getElementById('additionalInstructionsTextarea');
 	const aiModelSelect = document.getElementById('aiModelSelect');
 	const autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
 	const generatePreviewButton = document.getElementById('generatePreviewButton');
@@ -126,9 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Modal Setup ---
 	if (generateContentModal) {
-		generateContentModal.addEventListener('show.bs.modal', (event) => {
+		generateContentModal.addEventListener('show.bs.modal', async (event) => {
 			const button = event.relatedTarget;
-			const sessionId = button.dataset.sessionId;
+			const lessonId = button.dataset.lessonId;
 			const userTitle = button.dataset.userTitle;
 			const lessonSubject = button.dataset.lessonSubject;
 			const notes = button.dataset.notes;
@@ -158,14 +159,36 @@ document.addEventListener('DOMContentLoaded', () => {
 			autoDetectCheckboxArea.classList.add('d-none'); // Hide by default
 			autoDetectCheckbox.checked = false; // Uncheck by default
 			isAutoDetectingCategory = false; // Reset state tracking
+			additionalInstructionsTextarea.value = '';
 			
 			// Populate basic fields
-			sessionIdInput.value = sessionId;
+			lessonIdInput.value = lessonId;
 			lessonTitleDisplay.value = userTitle || '';
 			lessonSubjectTextarea.value = lessonSubject;
 			lessonNotesDisplay.value = notes || '';
 			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
 			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || ''; // Store original main category ID
+			
+			try {
+				const response = await fetch('/user/llm-instructions', { // Use the new route
+					method: 'GET',
+					headers: {
+						'Accept': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+					}
+				});
+				if (!response.ok) {
+					throw new Error(`HTTP error ${response.status}`);
+				}
+				const result = await response.json();
+				if (result.success && result.instructions) {
+					additionalInstructionsTextarea.value = result.instructions;
+				}
+			} catch (error) {
+				console.error('Error fetching user instructions:', error);
+				// Optionally show a small error message near the textarea
+				// additionalInstructionsTextarea.placeholder = 'Could not load saved instructions.';
+			}
 			
 			// --- Set AI Model Select ---
 			// Reset to default first (which is set by the 'selected' attribute in HTML)
@@ -252,10 +275,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 		generateContentModal.addEventListener('hidden.bs.modal', () => {
 			// Clear fields on close to prevent stale data
-			sessionIdInput.value = '';
+			lessonIdInput.value = '';
 			lessonTitleDisplay.value = '';
 			lessonSubjectTextarea.value = '';
 			lessonNotesDisplay.value = '';
+			additionalInstructionsTextarea.value = '';
 			currentSubCategoryIdInput.value = '';
 			currentSelectedMainCategoryIdInput.value = '';
 			
@@ -276,15 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- Generate Preview Button ---
 	if (generatePreviewButton) {
 		generatePreviewButton.addEventListener('click', async () => {
-			const sessionId = sessionIdInput.value;
+			const lessonId = lessonIdInput.value;
 			const userTitle = lessonTitleDisplay.value;
 			const subject = lessonSubjectTextarea.value;
 			const notes = lessonNotesDisplay.value;
+			const additionalInstructions = additionalInstructionsTextarea.value;
 			const llm = aiModelSelect.value;
-			// Determine the auto-detect flag to send based on the *current* state of the modal/checkbox
 			const autoDetect = isAutoDetectingCategory; // Use the tracked state
 			
-			if (!sessionId || !subject || !userTitle || !llm) {
+			if (!lessonId || !subject || !userTitle || !llm) {
 				showToast('Missing required fields (Title, Subject, AI Model).', 'Error', 'error');
 				return;
 			}
@@ -315,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			// --- End Auto-Gen ---
 			
 			try {
-				const response = await fetch(`/lesson/${sessionId}/generate-preview`, {
+				const response = await fetch(`/lesson/${lessonId}/generate-preview`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -327,7 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
 						user_title: userTitle,
 						subject: subject,
 						notes: notes,
-						auto_detect_category: autoDetect, // Send the determined flag
+						auto_detect_category: autoDetect,
+						additional_instructions: additionalInstructions,
 					}),
 				});
 				
@@ -485,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 			
 			const originalSubCategoryId = currentSubCategoryIdInput.value;
-			const sessionId = sessionIdInput.value;
+			const lessonId = lessonIdInput.value;
 			
 			// Determine categoryInput based on whether auto-detect was active *during preview generation*
 			// The 'isAutoDetectingCategory' flag holds this state.
@@ -517,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					// No need to send original IDs here; backend uses category_input to decide how to proceed
 				};
 				
-				const response = await fetch(`/lesson/${sessionId}/apply-plan`, {
+				const response = await fetch(`/lesson/${lessonId}/apply-plan`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -598,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- Delete Lesson Button Handler ---
 	document.querySelectorAll('.delete-lesson-btn').forEach(button => {
 		button.addEventListener('click', function () {
-			const sessionId = this.dataset.lessonSessionId;
+			const lessonId = this.dataset.lessonId;
 			const deleteUrl = this.dataset.deleteUrl;
 			const lessonTitle = this.dataset.lessonTitle;
 			
@@ -633,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					});
 				
 				// If using the hidden form as fallback (not recommended with the fetch approach)
-				// const formId = `delete-form-${sessionId}`;
+				// const formId = `delete-form-${lessonId}`;
 				// const form = document.getElementById(formId);
 				// if (form) {
 				//     form.submit();
@@ -646,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	document.querySelectorAll('.archive-progress-btn').forEach(button => {
 		button.addEventListener('click', function () {
 			const archiveUrl = this.dataset.archiveUrl;
-			const lessonSessionId = this.dataset.lessonSessionId; // For potential UI updates
+			const lessonId = this.dataset.lessonId; // For potential UI updates
 			
 			if (confirm('Are you sure you want to archive the current progress for this lesson? This will reset the progress tracking.')) {
 				fetch(archiveUrl, {

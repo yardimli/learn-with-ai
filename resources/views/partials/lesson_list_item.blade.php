@@ -65,7 +65,6 @@
 				{{-- Generate AI Content Button for lessons without content --}}
 				<button type="button" class="btn btn-sm btn-success me-1 generate-ai-content-btn"
 				        data-lesson-id="{{ $lesson->id }}"
-				        data-session-id="{{ $lesson->session_id }}"
 				        data-user-title="{{ $lesson->user_title }}"
 				        data-lesson-subject="{{ $lesson->subject }}"
 				        data-notes="{{ $lesson->notes }}"
@@ -82,20 +81,20 @@
 				</button>
 			@else
 				{{-- Learn button for lessons with content --}}
-				<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}"
+				<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}"
 				   class="btn btn-sm btn-success me-1" title="Start Learning">
 					<i class="fas fa-play"></i>
 					<span class="d-none d-lg-inline">Learn</span>
 				</a>
 			@endif
 			
-			<a href="{{ route('lesson.edit', ['lesson' => $lesson->session_id]) }}"
+			<a href="{{ route('lesson.edit', ['lesson' => $lesson->id]) }}"
 			   class="btn btn-sm btn-primary me-1" title="Edit Lesson Structure & Questions">
 				<i class="fas fa-edit"></i>
 				<span class="d-none d-lg-inline">Edit</span>
 			</a>
 			
-			<a href="{{ route('progress.show', ['lesson' => $lesson->session_id]) }}"
+			<a href="{{ route('progress.show', ['lesson' => $lesson->id]) }}"
 			   class="btn btn-sm btn-info me-1" title="View Learning Progress">
 				<i class="fas fa-chart-line"></i>
 				<span class="d-none d-lg-inline">Progress</span>
@@ -103,21 +102,21 @@
 			
 			<button type="button" class="btn btn-sm btn-warning archive-progress-btn me-1"
 			        title="Archive Progress & Reset"
-			        data-lesson-session-id="{{ $lesson->session_id }}"
-			        data-archive-url="{{ route('lesson.archive', ['lesson' => $lesson->session_id]) }}">
+			        data-lesson-id="{{ $lesson->id }}"
+			        data-archive-url="{{ route('lesson.archive', ['lesson' => $lesson->id]) }}">
 				<i class="fas fa-archive"></i>
 				<span class="d-none d-lg-inline">Archive</span>
 			</button>
 			
 			<button type="button" class="btn btn-sm btn-danger delete-lesson-btn"
-			        data-lesson-session-id="{{ $lesson->session_id }}"
-			        data-delete-url="{{ route('lesson.delete', $lesson->session_id) }}"
+			        data-lesson-id="{{ $lesson->id }}"
+			        data-delete-url="{{ route('lesson.delete', $lesson->id) }}"
 			        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
 			        title="Delete Lesson">
 				<i class="fas fa-trash"></i> <span class="d-none d-lg-inline">Delete</span>
 			</button>
-			<form action="{{ route('lesson.delete', $lesson->session_id) }}" method="POST" class="d-none"
-			      id="delete-form-{{ $lesson->session_id }}">
+			<form action="{{ route('lesson.delete', $lesson->id) }}" method="POST" class="d-none"
+			      id="delete-form-{{ $lesson->id }}">
 				@csrf
 				@method('DELETE')
 			</form>

@@ -20,18 +20,11 @@
 	class LessonController extends Controller
 	{
 
-		/**
-		 * Displays the main interactive question interface.
-		 * Determines the starting state based on user progress.
-		 *
-		 * @param Lesson $lesson Route model binding via session_id
-		 * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
-		 */
 		public function showQuestionInterface(Lesson $lesson)
 		{
 			$this->authorize('takeLesson', $lesson);
 
-			Log::info("Loading question interface for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
+			Log::info("Loading question interface for Lesson ID: {$lesson->id})");
 
 			$state = $this->calculateCurrentState($lesson->id);
 			$totalParts = is_array($lesson->lesson_parts) ? count($lesson->lesson_parts) : 0;
@@ -236,13 +229,6 @@
 		}
 
 
-		/**
-		 * AJAX endpoint to get all questions for a specific part and difficulty.
-		 *
-		 * @param Request $request
-		 * @param Lesson $lesson Route model binding via session_id
-		 * @return \Illuminate\Http\JsonResponse
-		 */
 		public function getPartQuestionsAjax(Request $request, Lesson $lesson)
 		{
 			$validator = Validator::make($request->all(), [
@@ -255,7 +241,7 @@
 
 			$partIndex = $request->input('partIndex');
 
-			Log::info("AJAX request for ALL questions for Lesson Session: {$lesson->session_id}, Part: {$partIndex}");
+			Log::info("AJAX request for ALL questions for Lesson ID: {$lesson->id}, Part: {$partIndex}");
 
 			try {
 				// Get all questions for this part (regardless of difficulty)

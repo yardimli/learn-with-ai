@@ -69,8 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		showSpinner(freepikSearchExecuteBtn, true);
 		
 		let url;
-		if (context === 'sentence' && lessonSessionId && partIndex !== null && sentenceIndex !== null) { // lessonSessionId from global scope
-			url = `/lesson/${lessonSessionId}/part/${partIndex}/sentence/${sentenceIndex}/search-freepik`;
+		if (context === 'sentence' && lessonId && partIndex !== null && sentenceIndex !== null) { // lessonId from global scope
+			url = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/search-freepik`;
 		} else if (context === 'question' && questionId) {
 			url = `/question/${questionId}/search-freepik`; // Existing URL
 		} else {
@@ -237,8 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	async function selectFreepikImageAction(context, freepikId, description, imgUrl, questionId = null, partIndex = null, sentenceIndex = null) {
 		let url, errorAreaId, successAreaId;
 		
-		if (context === 'sentence' && lessonSessionId && partIndex !== null && sentenceIndex !== null) {
-			url = `/lesson/${lessonSessionId}/part/${partIndex}/sentence/${sentenceIndex}/select-freepik`;
+		if (context === 'sentence' && lessonId && partIndex !== null && sentenceIndex !== null) {
+			url = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/select-freepik`;
 			errorAreaId = `sent-image-error-p${partIndex}-s${sentenceIndex}`;
 			successAreaId = `sent-image-success-p${partIndex}-s${sentenceIndex}`;
 		} else if (context === 'question' && questionId) {

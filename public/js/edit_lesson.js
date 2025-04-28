@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (generatePartAudioBtn) {
 			const btn = generatePartAudioBtn;
 			const partIndex = btn.dataset.partIndex;
-			const lessonId = btn.dataset.lessonId; // Using lesson ID now
+			const lessonId = btn.dataset.lessonId;
 			const generateUrl = btn.dataset.generateUrl;
 			const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
 			const errorArea = document.getElementById(`part-${partIndex}-error`);
@@ -489,8 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					return;
 				}
 				
-				// Construct URL (Make sure lessonSessionId is globally available or passed differently)
-				const updateUrl = `/lesson/${lessonSessionId}/part/${partIndex}/update-text`;
+				const updateUrl = `/lesson/${lessonId}/part/${partIndex}/update-text`;
 				
 				showSpinner(savePartBtn, true);
 				

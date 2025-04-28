@@ -85,7 +85,7 @@
 		public function archiveProgress(Lesson $lesson)
 		{
 			$this->authorize('archive', $lesson);
-			Log::info("Archive request received for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
+			Log::info("Archive request received for Lesson ID: {$lesson->id}");
 
 			$userAnswers = UserAnswer::where('lesson_id', $lesson->id)->get();
 
@@ -137,7 +137,7 @@
 
 		public function deleteLesson(Lesson $lesson)
 		{
-			Log::info("Delete request received for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
+			Log::info("Delete request received for Lesson ID: {$lesson->id})");
 
 			try {
 				// Delete all questions associated with the lesson

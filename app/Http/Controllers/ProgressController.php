@@ -14,15 +14,7 @@
 
 	class ProgressController extends Controller
 	{
-		/**
-		 * Calculate the score based on first correct attempts without errors.
-		 * Made public static to be reusable.
-		 *
-		 * @param int $lessonId
-		 * @param bool $useArchive If true, calculates score from UserAnswerArchive table.
-		 * @param mixed $archiveBatchId Optional: Filter archive by a specific batch ID.
-		 * @return array ['score', 'total_questions']
-		 */
+
 		public static function calculateFirstAttemptScore(int $lessonId, bool $useArchive = false, ?string $archiveBatchId = null): array // Changed to public static
 		{
 			// Get all questions relevant FOR THIS LESSON at the time of calculation
@@ -81,7 +73,7 @@
 		{
 			$this->authorize('viewProgress', $lesson);
 
-			Log::info("Showing progress page for Lesson Session: {$lesson->session_id} (ID: {$lesson->id})");
+			Log::info("Showing progress page for Lesson ID: {$lesson->id})");
 
 			// Calculate Current Progress Score
 			$currentProgress = self::calculateFirstAttemptScore($lesson->id, false);

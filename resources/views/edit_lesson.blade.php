@@ -8,13 +8,13 @@
 			Lessons</a>
 		<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2"> <i class="fas fa-tags"></i> Manage
 			Categories </a>
-		<a href="{{ route('question.interface', ['lesson' => $lesson->session_id]) }}" class="btn btn-outline-success"><i
+		<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-outline-success"><i
 				class="fas fa-eye"></i> Start Lesson</a>
 	</div>
 	
 	<div class="content-card mb-4" id="lessonSettingsCard" data-categories="{{ $categoriesData }}">
 		<h1 class="mb-1">Edit Lesson: {{ $lesson->user_title ?: $lesson->title }}</h1>
-		<p class="text-muted mb-3">Lesson: {{ $lesson->subject }} (ID: {{ $lesson->id }}, Session: {{ $lesson->session_id }}
+		<p class="text-muted mb-3">Lesson: {{ $lesson->subject }} (ID: {{ $lesson->id }}, Session: {{ $lesson->id }}
 			)</p>
 		
 		<div class="row mb-3 border-top pt-3 settings-row g-2">
@@ -295,7 +295,7 @@
 						<button class="btn btn-outline-info generate-part-audio-btn"
 						        data-part-index="{{ $partIndex }}"
 						        data-lesson-id="{{ $lesson->id }}" {{-- Changed to ID --}}
-						        data-generate-url="{{ route('lesson.part.generate.audio', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex]) }}"
+						        data-generate-url="{{ route('lesson.part.generate.audio', ['lesson' => $lesson->id, 'partIndex' => $partIndex]) }}"
 						        title="Generate audio & image prompts for each sentence. Replaces existing.">
 							<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
 							<i class="fas fa-microphone-alt"></i> {{ $audioGeneratedAt ? 'Regen Assets' : 'Gen Assets' }}
@@ -351,10 +351,10 @@
 						<div class="btn-group" role="group" aria-label="Generate Question Buttons">
 							@foreach(['easy', 'medium', 'hard'] as $difficulty)
 								<button class="btn btn-outline-success add-question-batch-btn"
-								        data-lesson-id="{{ $lesson->session_id }}"
+								        data-lesson-id="{{ $lesson->id }}"
 								        data-part-index="{{ $partIndex }}"
 								        data-difficulty="{{ $difficulty }}"
-								        data-generate-url="{{ route('question.generate.batch', ['lesson' => $lesson->session_id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
+								        data-generate-url="{{ route('question.generate.batch', ['lesson' => $lesson->id, 'partIndex' => $partIndex, 'difficulty' => $difficulty]) }}"
 								        data-target-list-id="question-list-{{ $difficulty }}-{{ $partIndex }}"
 								        data-error-area-id="question-gen-error-{{ $difficulty }}-{{ $partIndex }}">
 									<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -429,8 +429,8 @@
 		let ttsLanguageCodeSelect = null;
 		let updateSettingsBtn = null;
 		
-		const lessonSessionId = @json($lesson->session_id);
-		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->session_id]));
+		const lessonId = @json($lesson->id);
+		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->id]));
 		const llmsListUrl = @json(route('api.llms.list'));
 		const initialSelectedMainCategoryId = @json($lesson->selected_main_category_id);
 		const initialSelectedSubCategoryId = @json($lesson->sub_category_id);

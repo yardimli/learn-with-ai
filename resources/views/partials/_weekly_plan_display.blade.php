@@ -49,7 +49,7 @@
 											@php $lesson = $slotContent; @endphp
 											<div class="lesson-entry">
 												<div class="lesson-title">
-													<a href="{{ route('lesson.edit', $lesson->session_id) }}" title="{{ $lesson->title ?: $lesson->notes }}">
+													<a href="{{ route('lesson.edit', $lesson->id) }}" title="{{ $lesson->title ?: $lesson->notes }}">
 														{{ $lesson->title ?: ($lesson->notes ?: __('weekly_plan.untitled_lesson')) }}
 													</a>
 												</div>

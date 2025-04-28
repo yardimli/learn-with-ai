@@ -21,10 +21,10 @@
 	$itemContainerId = "sentence-item-{$sentenceIdBase}";
 
 	// URLs for actions (replace placeholders if using template)
-	 $lessonSessionId = $lesson->session_id ?? 'LESSON_ID_PLACEHOLDER';
-	 $generateImageUrl = $sentence ? route('sentence.generate.image', ['lesson' => $lessonSessionId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
-	 $uploadImageUrl = $sentence ? route('sentence.image.upload', ['lesson' => $lessonSessionId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
-	 $searchFreepikUrl = $sentence ? route('sentence.image.search_freepik', ['lesson' => $lessonSessionId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $lessonId = $lesson->id ?? 'LESSON_ID_PLACEHOLDER';
+	 $generateImageUrl = $sentence ? route('sentence.generate.image', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $uploadImageUrl = $sentence ? route('sentence.image.upload', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $searchFreepikUrl = $sentence ? route('sentence.image.search_freepik', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
 
 @endphp
 
