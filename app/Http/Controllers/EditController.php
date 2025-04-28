@@ -792,5 +792,203 @@ PROMPT;
 			}
 		}
 
+		public function addYoutubeVideoAjax(Request $request, Lesson $lesson)
+		{
+			// Authorization check
+			$this->authorize('update', $lesson);
+
+			$validator = Validator::make($request->all(), [
+				'youtube_video_id' => 'required|string|max:50', // Basic validation for YT ID format
+			]);
+
+			if ($validator->fails()) {
+				return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+			}
+
+			$youtubeVideoId = $request->input('youtube_video_id');
+			$rapidApiKey = env('RAPID_API_KEY');
+			$rapidApiHost = env('RAPID_API_YOUTUBE_HOST', 'youtube-media-downloader.p.rapidapi.com');
+
+			if (!$rapidApiKey) {
+				Log::error("RapidAPI Key is not configured.");
+				return response()->json(['success' => false, 'message' => 'Server configuration error (API Key missing).'], 500);
+			}
+
+			Log::info("Attempting to add YouTube video '{$youtubeVideoId}' to Lesson ID: {$lesson->id}");
+
+			try {
+				// --- 1. Fetch Video Details from RapidAPI ---
+				$response = Http::withHeaders([
+					'x-rapidapi-host' => $rapidApiHost,
+					'x-rapidapi-key' => $rapidApiKey,
+				])->timeout(30) // 30 second timeout for API call
+				->get("https://{$rapidApiHost}/v2/video/details", [
+					'videoId' => $youtubeVideoId,
+				]);
+
+				if (!$response->successful()) {
+					Log::error("RapidAPI request failed for video {$youtubeVideoId}.", [
+						'status' => $response->status(),
+						'body' => $response->body(),
+					]);
+					throw new Exception("Failed to fetch video details from API (Status: {$response->status()}).");
+				}
+
+				$videoData = $response->json();
+
+				if (!$videoData || !($videoData['status'] ?? false)) {
+					Log::error("RapidAPI returned error or invalid data for video {$youtubeVideoId}.", [
+						'response' => $videoData
+					]);
+					throw new Exception("API returned an error: " . ($videoData['errorId'] ?? 'Unknown error'));
+				}
+
+				Log::info("Successfully fetched details for video: " . ($videoData['title'] ?? 'N/A'));
+
+				// --- 2. Select Best Video Stream ---
+				$bestVideoUrl = null;
+				$highestQuality = 0; // Use height as a proxy for quality
+				if (isset($videoData['videos']['items']) && is_array($videoData['videos']['items'])) {
+					foreach ($videoData['videos']['items'] as $video) {
+						// Prefer mp4 with audio, find highest resolution
+						if (
+							isset($video['url'], $video['height'], $video['hasAudio']) &&
+							$video['hasAudio'] === true &&
+							str_contains($video['mimeType'] ?? '', 'mp4') &&
+							$video['height'] > $highestQuality
+						) {
+							$bestVideoUrl = $video['url'];
+							$highestQuality = $video['height'];
+						}
+					}
+				}
+
+				if (!$bestVideoUrl) {
+					// Fallback: Check audio-only streams if no video found (less ideal)
+					if (isset($videoData['audios']['items']) && is_array($videoData['audios']['items']) && count($videoData['audios']['items']) > 0) {
+						Log::warning("No suitable video stream found for {$youtubeVideoId}. Falling back to audio stream.");
+						$bestVideoUrl = $videoData['audios']['items'][0]['url'] ?? null; // Take the first audio stream
+					}
+
+					if (!$bestVideoUrl) {
+						Log::error("No suitable video or audio stream found for {$youtubeVideoId}.");
+						throw new Exception("Could not find a downloadable video/audio stream.");
+					}
+				}
+
+				// --- 3. Download Video ---
+				// WARNING: This is synchronous and can time out for large videos.
+				// Consider using background jobs for production.
+				$videoFileName = 'video_' . Str::random(10) . '.mp4'; // Add random string
+				$videoStoragePath = "lessons/{$lesson->id}/{$videoFileName}";
+				Log::info("Attempting to download video from {$bestVideoUrl} to {$videoStoragePath}");
+
+				// Use streaming download to avoid memory issues
+				$downloadResponse = Http::timeout(300) // 5 minute timeout for download
+				->withOptions(['stream' => true])
+					->get($bestVideoUrl);
+
+				if (!$downloadResponse->successful()) {
+					Log::error("Failed to download video stream for {$youtubeVideoId}. Status: " . $downloadResponse->status());
+					throw new Exception("Failed to download video file (Status: {$downloadResponse->status()}).");
+				}
+
+				// Store the streamed response body directly to storage
+				$storageSuccess = Storage::disk('public')->put($videoStoragePath, $downloadResponse->getBody());
+
+				if (!$storageSuccess) {
+					Log::error("Failed to save downloaded video to storage at {$videoStoragePath}. Check permissions.");
+					throw new Exception("Failed to save video file to storage.");
+				}
+				Log::info("Successfully downloaded and saved video to {$videoStoragePath}");
+
+
+				// --- 4. Download and Combine Subtitles ---
+				$combinedSubtitles = "";
+				$subtitleContent = '';
+				if (isset($videoData['subtitles']['items']) && is_array($videoData['subtitles']['items'])) {
+					Log::info("Found " . count($videoData['subtitles']['items']) . " subtitle tracks for {$youtubeVideoId}.");
+					$subtitleUrl = '';
+					foreach ($videoData['subtitles']['items'] as $subtitle) {
+						if (isset($subtitle['url'], $subtitle['code'], $subtitle['text']) && $subtitle['code'] == 'en' && $subtitle['text'] === 'English') {
+							$subtitleUrl = $subtitle['url'];
+						}
+					}
+					if ($subtitleUrl == '') {
+						//look for english subtitles without text
+						foreach ($videoData['subtitles']['items'] as $subtitle) {
+							if (isset($subtitle['url'], $subtitle['code'], $subtitle['text']) && $subtitle['code'] == 'en') {
+								$subtitleUrl = $subtitle['url'];
+							}
+						}
+					}
+					if ($subtitleUrl !== '') {
+						try {
+							$subtitleResponse = Http::timeout(20)->get($subtitle['url']);
+							if ($subtitleResponse->successful()) {
+								$subtitleContent = $subtitleResponse->body();
+
+								// Basic VTT/SRT text extraction (remove timestamps and tags)
+								$combinedSubtitles = preg_replace('/^\d+.*\R/m', '', $subtitleContent); // Remove numbered lines (SRT)
+								$combinedSubtitles = preg_replace('/^WEBVTT.*\R/m', '', $combinedSubtitles); // Remove WEBVTT header
+								$combinedSubtitles = preg_replace('/^\R/m', '', $combinedSubtitles); // Remove empty lines at start
+								$combinedSubtitles = preg_replace('/^NOTE.*\R/m', '', $combinedSubtitles); // Remove NOTE lines
+								$combinedSubtitles = preg_replace('/^STYLE.*\R/m', '', $combinedSubtitles); // Remove STYLE lines
+								$combinedSubtitles = preg_replace('/\d{2}:\d{2}:\d{2}\.\d{3}\s+-->\s+\d{2}:\d{2}:\d{2}\.\d{3}.*\R/m', '', $combinedSubtitles); // Remove timestamp lines
+								$combinedSubtitles = preg_replace('/<[^>]+>/', ' ', $combinedSubtitles); // Remove HTML-like tags
+								$combinedSubtitles = html_entity_decode($combinedSubtitles); // Decode HTML entities
+								$combinedSubtitles = preg_replace('/\s+/', ' ', $combinedSubtitles); // Collapse multiple spaces
+								$combinedSubtitles = trim($combinedSubtitles);
+
+								if (!empty($combinedSubtitles)) {
+									Log::info("Processed subtitle track: {$subtitle['text']}");
+								}
+							} else {
+								Log::warning("Failed to download subtitle track '{$subtitle['text']}' for {$youtubeVideoId}. Status: " . $subtitleResponse->status());
+							}
+						} catch (Exception $subE) {
+							Log::warning("Error processing subtitle track '{$subtitle['text']}' for {$youtubeVideoId}: " . $subE->getMessage());
+						}
+					} else
+					{
+						Log::warning("No suitable English subtitle track found for {$youtubeVideoId}.");
+					}
+				} else {
+					Log::info("No subtitle tracks found for {$youtubeVideoId}.");
+				}
+
+				// --- 5. Update Lesson Record ---
+				$lesson->update([
+					'youtube_video_id' => $youtubeVideoId,
+					'video_api_host' => $rapidApiHost,
+					'video_api_response' => $videoData, // Store the whole response
+					'video_path' => $videoStoragePath,
+					'video_subtitles' => !empty($subtitleContent) ? trim($subtitleContent) : null,
+					'video_subtitles_text' => !empty($combinedSubtitles) ? trim($combinedSubtitles) : null,
+					// Optionally update title/subject based on video?
+					// 'user_title' => $lesson->user_title ?? $videoData['title'] ?? 'YouTube Lesson',
+					// 'subject' => $lesson->subject ?? Str::limit($videoData['description'] ?? 'Video Content', 150),
+				]);
+
+				Log::info("Successfully updated Lesson ID {$lesson->id} with video data.");
+
+				return response()->json([
+					'success' => true,
+					'message' => 'YouTube video added successfully!',
+					'video_title' => $videoData['title'] ?? 'N/A', // Send back title for UI update
+					'video_url' => $lesson->video_url // Send back the generated URL
+				]);
+
+			} catch (Exception $e) {
+				Log::error("Error adding YouTube video {$youtubeVideoId} to Lesson {$lesson->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+				// Clean up partially downloaded file if it exists
+				if (isset($videoStoragePath) && Storage::disk('public')->exists($videoStoragePath)) {
+					Storage::disk('public')->delete($videoStoragePath);
+					Log::info("Cleaned up partially downloaded video file: {$videoStoragePath}");
+				}
+				return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+			}
+		}
+
 
 	}

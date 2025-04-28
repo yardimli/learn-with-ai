@@ -79,6 +79,14 @@
 					<i class="fas fa-magic"></i>
 					<span class="d-none d-lg-inline">Generate</span>
 				</button>
+				<button type="button" class="btn btn-sm btn-info me-1 add-video-btn"
+				        data-bs-toggle="modal"
+				        data-bs-target="#addVideoModal"
+				        data-lesson-id="{{ $lesson->id }}"
+				        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
+				        title="Add YouTube Video">
+					<i class="fab fa-youtube"></i> <span class="d-none d-lg-inline">Video</span>
+				</button>
 			@else
 				{{-- Learn button for lessons with content --}}
 				<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}"

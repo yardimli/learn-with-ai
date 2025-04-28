@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const lessonNotesDisplay = document.getElementById('lessonNotesDisplay');
 	const additionalInstructionsTextarea = document.getElementById('additionalInstructionsTextarea');
 	const aiModelSelect = document.getElementById('aiModelSelect');
+	const lessonPartsCountSelect = document.getElementById('lessonPartsCountSelect');
 	const autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
 	const generatePreviewButton = document.getElementById('generatePreviewButton');
 	const generatePreviewSpinner = document.getElementById('generatePreviewSpinner');
@@ -34,6 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	const autoDetectCheckboxArea = document.getElementById('autoDetectCheckboxArea');
 	const currentSubCategoryIdInput = document.getElementById('currentSubCategoryId');
 	const currentSelectedMainCategoryIdInput = document.getElementById('currentSelectedMainCategoryId'); // Added hidden input
+	
+	const addVideoModal = document.getElementById('addVideoModal');
+	const addVideoForm = document.getElementById('addVideoForm');
+	const lessonIdForVideoInput = document.getElementById('lessonIdForVideo');
+	const lessonTitleForVideoSpan = document.getElementById('lessonTitleForVideo');
+	const youtubeVideoIdInput = document.getElementById('youtubeVideoIdInput');
+	const submitVideoButton = document.getElementById('submitVideoButton');
+	const submitVideoSpinner = document.getElementById('submitVideoSpinner');
+	const addVideoError = document.getElementById('addVideoError');
+	const addVideoProgress = document.getElementById('addVideoProgress'); // Progress indicator
 	
 	const generateAllButton = document.getElementById('generateAllButton');
 	const generateAllText = document.getElementById('generateAllText');
@@ -168,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			lessonNotesDisplay.value = notes || '';
 			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
 			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || ''; // Store original main category ID
+			lessonPartsCountSelect.value = '3';
 			
 			try {
 				const response = await fetch('/user/llm-instructions', { // Use the new route
@@ -306,7 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			const notes = lessonNotesDisplay.value;
 			const additionalInstructions = additionalInstructionsTextarea.value;
 			const llm = aiModelSelect.value;
-			const autoDetect = isAutoDetectingCategory; // Use the tracked state
+			const partsCount = lessonPartsCountSelect.value;
+			const autoDetect = isAutoDetectingCategory;
 			
 			if (!lessonId || !subject || !userTitle || !llm) {
 				showToast('Missing required fields (Title, Subject, AI Model).', 'Error', 'error');
@@ -352,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						subject: subject,
 						notes: notes,
 						auto_detect_category: autoDetect,
+						parts_count: parseInt(partsCount, 10),
 						additional_instructions: additionalInstructions,
 					}),
 				});
@@ -698,6 +712,123 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 	});
+	
+	
+	document.querySelectorAll('.add-video-btn').forEach(button => {
+		button.addEventListener('click', function() {
+			const lessonId = this.dataset.lessonId;
+			const lessonTitle = this.dataset.lessonTitle;
+			
+			// Populate modal
+			lessonIdForVideoInput.value = lessonId;
+			lessonTitleForVideoSpan.textContent = lessonTitle;
+			
+			// Reset modal state
+			youtubeVideoIdInput.value = '';
+			addVideoError.classList.add('d-none');
+			addVideoError.textContent = '';
+			addVideoProgress.classList.add('d-none'); // Hide progress
+			submitVideoButton.disabled = false;
+			submitVideoSpinner.classList.add('d-none');
+		});
+	});
+	
+	// --- Listener for Add Video Modal Form Submission ---
+	if (addVideoForm) {
+		addVideoForm.addEventListener('submit', async (event) => {
+			event.preventDefault(); // Prevent default HTML form submission
+			
+			const lessonId = lessonIdForVideoInput.value;
+			let videoId = youtubeVideoIdInput.value.trim();
+			
+			// Basic validation & attempt to extract ID from URL
+			if (!videoId) {
+				addVideoError.textContent = 'Please enter a YouTube Video ID or URL.';
+				addVideoError.classList.remove('d-none');
+				return;
+			}
+			
+			// Try to extract video ID from various YouTube URL formats
+			const urlPatterns = [
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+			];
+			
+			let extractedId = null;
+			for (const pattern of urlPatterns) {
+				const match = videoId.match(pattern);
+				if (match && match[1]) {
+					extractedId = match[1];
+					break;
+				}
+			}
+			
+			// If no match from URL patterns, assume the input *is* the ID (basic check)
+			if (!extractedId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+				extractedId = videoId;
+			}
+			
+			if (!extractedId) {
+				addVideoError.textContent = 'Invalid YouTube Video ID or URL format.';
+				addVideoError.classList.remove('d-none');
+				youtubeVideoIdInput.focus();
+				return;
+			}
+			
+			// Update the input field with the extracted ID for clarity
+			youtubeVideoIdInput.value = extractedId;
+			videoId = extractedId; // Use the extracted ID
+			
+			// --- Start processing ---
+			submitVideoButton.disabled = true;
+			submitVideoSpinner.classList.remove('d-none');
+			addVideoError.classList.add('d-none');
+			addVideoError.textContent = '';
+			addVideoProgress.classList.remove('d-none'); // Show progress indicator
+			
+			try {
+				const response = await fetch(`/lesson/${lessonId}/add-youtube`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					},
+					body: JSON.stringify({
+						youtube_video_id: videoId
+					}),
+				});
+				
+				const result = await response.json();
+				
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				
+				// Success
+				showToast(`Video '${result.video_title || ''}' added successfully!`, 'Success', 'success');
+				const modalInstance = bootstrap.Modal.getInstance(addVideoModal);
+				if (modalInstance) {
+					modalInstance.hide();
+				}
+				// Optional: Update the specific lesson item in the list dynamically
+				// Or just reload the page for simplicity
+				window.location.reload();
+				
+			} catch (error) {
+				console.error('Error adding YouTube video:', error);
+				addVideoError.textContent = `Error: ${error.message}`;
+				addVideoError.classList.remove('d-none');
+			} finally {
+				// Always re-enable button and hide spinners/progress on completion or error
+				submitVideoButton.disabled = false;
+				submitVideoSpinner.classList.add('d-none');
+				addVideoProgress.classList.add('d-none'); // Hide progress
+			}
+		});
+	}
 	
 	// --- Initial Check on Page Load ---
 	// If the flag is set, continue the process

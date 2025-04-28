@@ -157,8 +157,23 @@
 			]);
 		}
 
-		// --- Prompt for generating Lesson Structure ONLY ---
-		private const SYSTEM_PROMPT_LESSON_STRUCTURE = <<<PROMPT
+
+		public static function generateLessonStructure(
+			string  $llm,
+			string  $lessonSubject,
+			bool    $autoDetectMain = true,
+			        $lessonLanguage = 'English',
+			int     $maxRetries = 1,
+			int     $partsCount = 3,
+			string  $userTitle = '',
+			string  $notes = '',
+			?string $selectedMainCategoryName = null,
+			bool    $autoDetectSub = true,
+			?string $additionalInstructions = null
+		): array
+		{
+			// --- Prompt for generating Lesson Structure ONLY ---
+			$systemPrompt = <<<PROMPT
 You are an AI assistant specialized in creating the structure for educational micro-lessons.
 The user will provide a title and subject and potentially a list of existing MAIN category_management.
 Create in the specified language, if no language is provided, use English.
@@ -169,49 +184,32 @@ The JSON object MUST have the following structure:
     "main_title": "A concise and engaging main title for the entire lesson (max 15 words).",
     "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for the whole lesson.",
     "lesson_parts": [
+PROMPT;
+
+			for ($i = 1; $i <= $partsCount; $i++) {
+				$systemPrompt .= <<<PROMPT
         {
-            "title": "Title for Lesson Part 1 (e.g., 'Introduction to X')",
+					"title": "Title for Lesson Part {$i} (e.g., 'Introduction to X')",
             "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
-            "text": "Content for Lesson Part 1 (3-6 sentences, approx 50-120 words)."
+            "text": "Content for Lesson Part {$i} (3-6 sentences, approx 50-120 words)."
         },
-        {
-            "title": "Title for Lesson Part 2 (e.g., 'How X Works')",
-            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
-            "text": "Content for Lesson Part 2 (3-6 sentences, approx 50-120 words)."
-        },
-        {
-            "title": "Title for Lesson Part 3 (e.g., 'Importance/Applications of X')",
-            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
-            "text": "Content for Lesson Part 3 (3-6 sentences, approx 50-120 words)."
-        }
-    ],
-    "suggested_main_category": "Based on the content, suggest a concise MAIN category (e.g., 'Science', 'History', max 5 words). If existing main category_management are provided, try to match one.",
+PROMPT;
+			}
+
+			$systemPrompt .= <<<PROMPT
+			],
+			"suggested_main_category": "Based on the content, suggest a concise MAIN category (e.g., 'Science', 'History', max 5 words). If existing main category_management are provided, try to match one.",
     "suggested_sub_category": "Suggest a concise SUB-category name (e.g., 'Photosynthesis', 'World War II', max 5 words) that fits within the suggested main category."
 }
 
 Constraints:
 - The output MUST be ONLY the valid JSON object described above. No introductory text, explanations, or markdown formatting outside the JSON structure.
-- Ensure exactly 3 `lesson_parts`.
+- Ensure exactly {$partsCount} `lesson_parts`.
 - All text content (titles, lesson text) should be clear, concise, and factually accurate.
 - Generate content suitable for a general audience.
 - The `suggested_main_category` and `suggested_sub_category` fields MUST always be included.
 - Try to reuse an existing `suggested_main_category` and `suggested_sub_category`, otherwise suggest a new one.
 PROMPT;
-
-		public static function generateLessonStructure(
-			string  $llm,
-			string  $lessonSubject,
-			bool    $autoDetectMain = true,
-			        $lessonLanguage = 'English',
-			int     $maxRetries = 1,
-			string  $userTitle = '',
-			string  $notes = '',
-			?string $selectedMainCategoryName = null,
-			bool    $autoDetectSub = true,
-			?string $additionalInstructions = null
-		): array
-		{
-			$systemPrompt = self::SYSTEM_PROMPT_LESSON_STRUCTURE;
 
 			if (!$autoDetectMain && $selectedMainCategoryName) {
 				// Adjust system prompt for main_only mode
@@ -270,12 +268,12 @@ PROMPT;
 			return LlmHelper::llm_no_tool_call($llm, $systemPrompt, $chatHistoryLessonStructGen, true, $maxRetries);
 		}
 
-		public static function isValidLessonStructureResponse(?array $planData): bool
+		public static function isValidLessonStructureResponse(?array $planData, int $expectedPartsCount = 3): bool
 		{
 			if (empty($planData) || !is_array($planData)) return false;
 			if (!isset($planData['main_title']) || !is_string($planData['main_title'])) return false;
 			if (!isset($planData['image_prompt_idea']) || !is_string($planData['image_prompt_idea'])) return false;
-			if (!isset($planData['lesson_parts']) || !is_array($planData['lesson_parts']) || count($planData['lesson_parts']) !== 3) return false;
+			if (!isset($planData['lesson_parts']) || !is_array($planData['lesson_parts']) || count($planData['lesson_parts']) !== $expectedPartsCount) return false;
 
 			// Add check for the suggested category name
 			if (!isset($planData['suggested_main_category']) || !is_string($planData['suggested_main_category'])) return false;
@@ -298,6 +296,7 @@ PROMPT;
 				'subject' => 'required|string|max:1024',
 				'notes' => 'nullable|string|max:5000',
 				'auto_detect_category' => 'required|boolean',
+				'parts_count' => 'required|integer|min:1|max:4',
 				'additional_instructions' => 'nullable|string|max:5000',
 			]);
 
@@ -309,6 +308,7 @@ PROMPT;
 			$userSubject = $request->input('subject');
 			$userTitle = $request->input('user_title');
 			$notes = $request->input('notes', '');
+			$partsCount = $request->input('parts_count', 1);
 			$additionalInstructions = $request->input('additional_instructions');
 			$autoDetect = $request->input('auto_detect_category');
 
@@ -362,6 +362,7 @@ PROMPT;
 				$autoDetectMain,
 				$language,
 				$maxRetries,
+				$partsCount,
 				$userTitle,
 				$notes,
 				$selectedMainCategoryName,
@@ -375,7 +376,7 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Failed to generate lesson structure: ' . $errorMsg]);
 			}
 
-			if (!self::isValidLessonStructureResponse($planStructureResult)) {
+			if (!self::isValidLessonStructureResponse($planStructureResult, $partsCount)) {
 				$errorMsg = 'LLM returned an invalid lesson structure (check includes category).';
 				Log::error($errorMsg, ['lesson' => $userSubject, 'llm' => $llm, 'response' => $planStructureResult]);
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your lesson or using a different model.']);
@@ -442,21 +443,9 @@ PROMPT;
 			$suggestedSubCategoryName = $request->input('suggested_sub_category');
 			$plan = $request->input('plan');
 
-			// Re-validate the core plan structure (excluding suggested_category_name which is part of the LLM output validation)
-			$corePlanData = $plan;
-
 			// Use the names received from the request if available, else placeholders
 			$mainCatNameToValidate = $suggestedMainCategoryName ?? 'placeholder_main';
 			$subCatNameToValidate = $suggestedSubCategoryName ?? 'placeholder_sub';
-
-			if (!self::isValidLessonStructureResponse(array_merge($corePlanData, [
-				'suggested_main_category' => $mainCatNameToValidate,
-				'suggested_sub_category' => $subCatNameToValidate
-			]))) {
-				Log::error('Invalid final plan structure received on createLesson endpoint.', ['plan' => $plan]);
-				return response()->json(['success' => false, 'message' => 'Invalid lesson plan structure received.'], 400);
-			}
-
 
 			Log::info("Confirmed creation request received. Lesson: '{$lessonSubject}', Lang: {$language}, CatInput: {$categoryInput}");
 
@@ -471,11 +460,6 @@ PROMPT;
 						['name' => DB::raw("LOWER('{$suggestedMainCategoryName}')")], // Search condition
 						['name' => $suggestedMainCategoryName]                     // Data to insert if not found
 					);
-					// If using case-sensitive collation, can simplify:
-					// $mainCategory = MainCategory::firstOrCreate(
-					//     ['name' => $suggestedMainCategoryName]
-					// );
-
 
 					if (!$mainCategory) {
 						throw new Exception("Could not find or create main category.");
@@ -483,24 +467,9 @@ PROMPT;
 					Log::info("Using Main Category ID: {$mainCategory->id} for '{$mainCategory->name}'");
 
 
-					// Find or create the Sub Category under the Main Category (case-insensitive for name)
 					$subCategory = SubCategory::firstOrCreate(
-						[
-							'main_category_id' => $mainCategory->id,
-							'name' => DB::raw("LOWER('{$suggestedSubCategoryName}')") // Case-insensitive check depends on DB collation
-							// For strict case-sensitive: 'name' => $suggestedSubCategoryName
-						],
-						[
-							'name' => $suggestedSubCategoryName,
-							'main_category_id' => $mainCategory->id // Ensure main_category_id is set on create
-						]
+						['main_category_id' => $mainCategory->id, 'name' => $suggestedSubCategoryName]
 					);
-
-					// Simpler if using case-insensitive collation:
-					// $subCategory = SubCategory::firstOrCreate(
-					//    ['main_category_id' => $mainCategory->id, 'name' => $suggestedSubCategoryName]
-					// );
-
 
 					if (!$subCategory) {
 						throw new Exception("Could not find or create sub category.");
@@ -565,7 +534,7 @@ PROMPT;
 				'plan' => 'required|array',
 				'plan.main_title' => 'required|string',
 				'plan.image_prompt_idea' => 'required|string',
-				'plan.lesson_parts' => 'required|array|size:3',
+				'plan.lesson_parts' => 'required|array|min:1|max:4',
 				'plan.lesson_parts.*.title' => 'required|string',
 				'plan.lesson_parts.*.text' => 'required|string',
 				'plan.lesson_parts.*.image_prompt_idea' => 'required|string',
@@ -644,8 +613,7 @@ PROMPT;
 						'message' => 'Failed to create or assign AI-suggested categories.'
 					], 500);
 				}
-			}
-			else if ($categorySelectionMode === 'main_only' && $selectedMainCategoryId && !empty($suggestedSubCategoryName)) {
+			} else if ($categorySelectionMode === 'main_only' && $selectedMainCategoryId && !empty($suggestedSubCategoryName)) {
 				// User selected main, AI suggesting sub
 				DB::beginTransaction();
 				try {
@@ -653,7 +621,9 @@ PROMPT;
 					$mainCategory = MainCategory::where('id', $selectedMainCategoryId)
 						->where('user_id', $userId)
 						->first();
-					if (!$mainCategory) { throw new Exception("Selected main category not found for user."); }
+					if (!$mainCategory) {
+						throw new Exception("Selected main category not found for user.");
+					}
 
 					// Find or create Sub Category for this user under the main category
 					$subCategory = SubCategory::firstOrCreate(

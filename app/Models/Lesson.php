@@ -31,9 +31,16 @@
 			'month',
 			'year',
 			'week',
+			'youtube_video_id',
+			'video_api_host',
+			'video_api_response',
+			'video_path',
+			'video_subtitles',
+			'video_subtitles_text',
 		];
 
 		protected $casts = [
+			'user_id' => 'integer',
 			'lesson_parts' => 'array',
 			'generated_image_id' => 'integer',
 			'selected_main_category_id' => 'integer',
@@ -42,7 +49,7 @@
 			'month' => 'integer',
 			'year' => 'integer',
 			'week' => 'integer',
-			'user_id' => 'integer',
+			'video_api_response' => 'array',
 		];
 
 		public function user()
@@ -75,5 +82,13 @@
 		public function userAnswers()
 		{
 			return $this->hasMany(UserAnswer::class);
+		}
+
+		public function getVideoUrlAttribute(): ?string
+		{
+			if ($this->video_path && Storage::disk('public')->exists($this->video_path)) {
+				return Storage::disk('public')->url($this->video_path);
+			}
+			return null;
 		}
 	}

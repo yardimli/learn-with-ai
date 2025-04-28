@@ -188,8 +188,10 @@
 						
 						<div class="mb-3">
 							<label for="additionalInstructionsTextarea" class="form-label">Additional Instructions (for AI):</label>
-							<textarea class="form-control" id="additionalInstructionsTextarea" rows="3" placeholder="e.g., Focus on practical examples, keep the tone informal..."></textarea>
-							<small class="form-text text-muted">These instructions will be added to the prompt sent to the AI for content generation. They are saved to your profile when you generate a preview.</small>
+							<textarea class="form-control" id="additionalInstructionsTextarea" rows="3"
+							          placeholder="e.g., Focus on practical examples, keep the tone informal..."></textarea>
+							<small class="form-text text-muted">These instructions will be added to the prompt sent to the AI for
+								content generation. They are saved to your profile when you generate a preview.</small>
 						</div>
 						
 						{{-- Area to display existing category --}}
@@ -221,6 +223,15 @@
 								@empty
 									<option value="" disabled>No AI models available</option>
 								@endforelse
+							</select>
+						</div>
+						<div class="mb-3">
+							<label for="lessonPartsCountSelect" class="form-label">Number of Lesson Parts (1-4):</label>
+							<select class="form-select" id="lessonPartsCountSelect" required>
+								<option value="1">1 Part</option>
+								<option value="2">2 Parts</option>
+								<option value="3" selected>3 Parts (Default)</option>
+								<option value="4">4 Parts</option>
 							</select>
 						</div>
 						
@@ -273,6 +284,40 @@
 						Apply Content <i class="fas fa-check"></i>
 					</button>
 				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="modal fade" id="addVideoModal" tabindex="-1" aria-labelledby="addVideoModalLabel" aria-hidden="true" data-bs-backdrop="static">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<form id="addVideoForm"> {{-- Use a form element --}}
+					<div class="modal-header">
+						<h5 class="modal-title" id="addVideoModalLabel">Add YouTube Video to Lesson</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<input type="hidden" id="lessonIdForVideo" name="lesson_id" value="">
+						<p>Lesson: <strong id="lessonTitleForVideo"></strong></p>
+						<div class="mb-3">
+							<label for="youtubeVideoIdInput" class="form-label">YouTube Video ID or URL:</label>
+							<input type="text" class="form-control" id="youtubeVideoIdInput" name="youtube_video_id" placeholder="e.g., 6dWBGfH55RM or https://www.youtube.com/watch?v=6dWBGfH55RM" required>
+							<small class="form-text text-muted">Enter the unique ID from the YouTube video URL.</small>
+						</div>
+						<div id="addVideoError" class="alert alert-danger d-none mt-3"></div>
+						<div id="addVideoProgress" class="text-primary d-none mt-3">
+							<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+							Processing... This might take a minute or two depending on video size.
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						<button type="submit" class="btn btn-primary" id="submitVideoButton">
+							<span id="submitVideoSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+							Add Video
+						</button>
+					</div>
+				</form>
 			</div>
 		</div>
 	</div>

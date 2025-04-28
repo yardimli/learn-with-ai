@@ -43,6 +43,7 @@
 		Route::post('/lesson/{lesson}/part/{partIndex}/update-text', [EditController::class, 'updatePartTextAjax'])
 			->where('partIndex', '[0-9]+')
 			->name('lesson.part.update.text');
+		Route::post('/lesson/{lesson}/add-youtube', [EditController::class, 'addYoutubeVideoAjax'])->name('lesson.add.youtube');
 
 // --- Category Management ---
 		Route::prefix('manage')->name('category_management.')->group(function () {
