@@ -170,6 +170,30 @@
 						<input type="hidden" id="lessonIdForGeneration" value="">
 						<input type="hidden" id="currentSubCategoryId" value="">
 						<input type="hidden" id="currentSelectedMainCategoryId" value="">
+						<input type="hidden" id="generationSourceInput" name="generation_source" value="subject">
+						<input type="hidden" id="videoSubtitlesBase64" value=""> {{-- Store base64 subtitles --}}
+						
+						<div id="generationSourceGroup" class="mb-3 border rounded p-2 d-none">
+							<label class="form-label fw-bold">Generation Source:</label>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="generationSource" id="sourceSubject" value="subject" checked>
+								<label class="form-check-label" for="sourceSubject">
+									Use Subject & Notes
+								</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="generationSource" id="sourceVideo" value="video">
+								<label class="form-check-label" for="sourceVideo">
+									Use Video Subtitles
+								</label>
+							</div>
+						</div>
+						
+						{{-- Subtitle Display Area (Initially Hidden) --}}
+						<div id="videoSubtitlesDisplayArea" class="mb-3 d-none">
+							<label for="videoSubtitlesTextarea" class="form-label">Video Subtitles (for context):</label>
+							<textarea class="form-control" id="videoSubtitlesTextarea" rows="6" readonly style="font-size: 0.8rem; background-color: var(--bs-secondary-bg);"></textarea>
+						</div>
 						
 						<div class="mb-3">
 							<label for="lessonTitleDisplay" class="form-label">Lesson Title:</label>
@@ -234,14 +258,6 @@
 								<option value="4">4 Parts</option>
 							</select>
 						</div>
-						
-						<div class="d-grid">
-							<button id="generatePreviewButton" class="btn btn-primary">
-								<span id="generatePreviewSpinner" class="spinner-border spinner-border-sm d-none" role="status"
-								      aria-hidden="true"></span>
-								Generate Content Preview
-							</button>
-						</div>
 					</div>
 					
 					<div id="previewContentArea" class="d-none">
@@ -271,6 +287,12 @@
                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     Applying Content...
                 </span>
+					
+					<button id="generatePreviewButton" class="btn btn-primary">
+								<span id="generatePreviewSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+								      aria-hidden="true"></span>
+						Generate Content Preview
+					</button>
 					
 					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelGenerationButton">
 						Cancel
@@ -312,9 +334,10 @@
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						
 						<button type="submit" class="btn btn-primary" id="submitVideoButton">
 							<span id="submitVideoSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-							Add Video
+							<i class="fas fa-download"></i> RapidAPI Video + Captions
 						</button>
 					</div>
 				</form>

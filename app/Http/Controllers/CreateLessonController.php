@@ -169,59 +169,71 @@
 			string  $notes = '',
 			?string $selectedMainCategoryName = null,
 			bool    $autoDetectSub = true,
-			?string $additionalInstructions = null
+			?string $additionalInstructions = null,
+			?string $videoTranscript = null
 		): array
 		{
-			// --- Prompt for generating Lesson Structure ONLY ---
+			// --- System Prompt ---
 			$systemPrompt = <<<PROMPT
 You are an AI assistant specialized in creating the structure for educational micro-lessons.
-The user will provide a title and subject and potentially a list of existing MAIN category_management.
-Create in the specified language, if no language is provided, use English.
+The user will provide input (either a subject/notes OR a video transcript) and potentially a list of existing MAIN categories.
+Create the lesson structure in the specified language (default: English).
 You MUST generate the basic lesson plan structure as a single JSON object.
-
 The JSON object MUST have the following structure:
 {
-    "main_title": "A concise and engaging main title for the entire lesson (max 15 words).",
-    "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for the whole lesson.",
-    "lesson_parts": [
+  "main_title": "A concise and engaging main title for the entire lesson (max 15 words). Use the user's provided title if relevant, otherwise create one based on the content.",
+  "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for the whole lesson.",
+  "lesson_parts": [
 PROMPT;
-
 			for ($i = 1; $i <= $partsCount; $i++) {
 				$systemPrompt .= <<<PROMPT
-        {
-					"title": "Title for Lesson Part {$i} (e.g., 'Introduction to X')",
-            "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
-            "text": "Content for Lesson Part {$i} (3-6 sentences, approx 50-120 words)."
-        },
+    {
+      "title": "Title for Lesson Part {$i}",
+      "image_prompt_idea": "A short phrase or idea (max 15 words) for a single, representative image for this part.",
+      "text": "Content for Lesson Part {$i} (3-6 sentences, approx 50-120 words, based on the input provided). The part should be complete and self-contained. So questions can be generated from it.",
+    },
 PROMPT;
 			}
-
 			$systemPrompt .= <<<PROMPT
-			],
-			"suggested_main_category": "Based on the content, suggest a concise MAIN category (e.g., 'Science', 'History', max 5 words). If existing main category_management are provided, try to match one.",
-    "suggested_sub_category": "Suggest a concise SUB-category name (e.g., 'Photosynthesis', 'World War II', max 5 words) that fits within the suggested main category."
+  ],
+  "suggested_main_category": "Based on the content, suggest a concise MAIN category (e.g., 'Science', 'History', max 5 words). If existing main categories are provided, try to match one.",
+  "suggested_sub_category": "Suggest a concise SUB-category name (e.g., 'Photosynthesis', 'World War II', max 5 words) that fits within the suggested main category."
 }
 
 Constraints:
 - The output MUST be ONLY the valid JSON object described above. No introductory text, explanations, or markdown formatting outside the JSON structure.
 - Ensure exactly {$partsCount} `lesson_parts`.
-- All text content (titles, lesson text) should be clear, concise, and factually accurate.
+- All text content (titles, lesson text) should be clear, concise, and factually accurate, derived from the user's input (subject/notes or transcript).
 - Generate content suitable for a general audience.
 - The `suggested_main_category` and `suggested_sub_category` fields MUST always be included.
-- Try to reuse an existing `suggested_main_category` and `suggested_sub_category`, otherwise suggest a new one.
+- If the user provided a video transcript, base the lesson parts primarily on the transcript content. Break it down logically into {$partsCount} parts.
+- If the user provided subject/notes, base the lesson parts on that information.
+- Try to reuse an existing `suggested_main_category` and `suggested_sub_category` if appropriate based on provided category list, otherwise suggest a new one.
 PROMPT;
 
 			if (!$autoDetectMain && $selectedMainCategoryName) {
-				// Adjust system prompt for main_only mode
-				$systemPrompt .= "\n\nIMPORTANT: The user has already selected the main category as '{$selectedMainCategoryName}'. You MUST use this exact main category name in the 'suggested_main_category' field. Only suggest an appropriate sub-category that fits within this main category. If the available sub categories are not suitable, suggest a new one.";
+				$systemPrompt .= "\n\nIMPORTANT: The user has already selected the main category as '{$selectedMainCategoryName}'. You MUST use this exact main category name in the 'suggested_main_category' field. Only suggest a new sub-category that fits within this main category. If the provided sub categories don't fit.";
 			}
 
-			$userMessageContent = "Title: " . $userTitle . "\n";
-			$userMessageContent .= "Subject: " . $lessonSubject . "\n";
-			$userMessageContent .= "Language: " . $lessonLanguage . "\n";
+			// --- User Message Content ---
+			$userMessageContent = "Language: " . $lessonLanguage . "\n";
+			$userMessageContent .= "Number of Parts to Create: " . $partsCount . "\n";
+			if (!empty($userTitle)) {
+				$userMessageContent .= "User's Preferred Title (use if relevant): " . $userTitle . "\n";
+			}
 
-			if (!empty($notes)) {
-				$userMessageContent .= "Additional Notes: " . $notes . "\n";
+			// Determine input source
+			if (!empty($videoTranscript)) {
+				Log::info("Generating lesson structure from video transcript.");
+				$userMessageContent .= "\n--- Video Transcript ---\n";
+				$userMessageContent .= trim($videoTranscript);
+				$userMessageContent .= "\n--- End Transcript ---\n";
+			} else {
+				Log::info("Generating lesson structure from subject/notes.");
+				$userMessageContent .= "Subject: " . $lessonSubject . "\n";
+				if (!empty($notes)) {
+					$userMessageContent .= "Additional Notes: " . $notes . "\n";
+				}
 			}
 
 			if (!$autoDetectMain && $selectedMainCategoryName) {
@@ -229,7 +241,7 @@ PROMPT;
 			}
 
 			if (!empty($additionalInstructions)) {
-				$userMessageContent .= "\nUser's Additional Instructions:\n" . trim($additionalInstructions) . "\n"; // <-- Append here
+				$userMessageContent .= "\nUser's Additional Instructions:\n" . trim($additionalInstructions) . "\n";
 				Log::info("Appending additional user instructions to LLM prompt.");
 			}
 
@@ -260,10 +272,12 @@ PROMPT;
 
 			$chatHistoryLessonStructGen = [['role' => 'user', 'content' => $userMessageContent]];
 
-			Log::info("Requesting lesson structure generation for lesson: '{$lessonSubject}' using LLM: {$llm}. " .
-				"Auto-detect main: " . ($autoDetectMain ? 'Yes' : 'No') .
-				", Auto-detect sub: " . ($autoDetectSub ? 'Yes' : 'No') .
-				($selectedMainCategoryName ? ", Selected main: {$selectedMainCategoryName}" : ""));
+			$logSubject = $videoTranscript ? "Video Transcript based lesson" : ($lessonSubject ?? 'Unknown Subject');
+			Log::info("Requesting lesson structure generation for lesson: '{$logSubject}' using LLM: {$llm}. "
+				. "Source: " . ($videoTranscript ? 'Video' : 'Subject/Notes') . ", "
+				. "Auto-detect main: " . ($autoDetectMain ? 'Yes' : 'No') . ", Auto-detect sub: " . ($autoDetectSub ? 'Yes' : 'No')
+				. ($selectedMainCategoryName ? ", Selected main: {$selectedMainCategoryName}" : ""));
+
 
 			return LlmHelper::llm_no_tool_call($llm, $systemPrompt, $chatHistoryLessonStructGen, true, $maxRetries);
 		}
@@ -293,11 +307,13 @@ PROMPT;
 			$validator = Validator::make($request->all(), [
 				'llm' => 'required|string|max:100',
 				'user_title' => 'required|string|max:255',
-				'subject' => 'required|string|max:1024',
+				'subject' => 'required_if:generation_source,subject|nullable|string|max:1024',
 				'notes' => 'nullable|string|max:5000',
 				'auto_detect_category' => 'required|boolean',
 				'parts_count' => 'required|integer|min:1|max:4',
 				'additional_instructions' => 'nullable|string|max:5000',
+				'generation_source' => 'required|string|in:subject,video',
+				'video_subtitles' => 'required_if:generation_source,video|nullable|string',
 			]);
 
 			if ($validator->fails()) {
@@ -305,12 +321,25 @@ PROMPT;
 			}
 
 			$llm = $request->input('llm');
-			$userSubject = $request->input('subject');
 			$userTitle = $request->input('user_title');
 			$notes = $request->input('notes', '');
 			$partsCount = $request->input('parts_count', 1);
 			$additionalInstructions = $request->input('additional_instructions');
 			$autoDetect = $request->input('auto_detect_category');
+			$generationSource = $request->input('generation_source');
+
+			$userSubject = $request->input('subject');
+			$notes = $request->input('notes', '');
+			$videoSubtitles = $request->input('video_subtitles');
+
+			// If source is video, double-check the lesson model has subtitles just in case
+			if ($generationSource === 'video' && empty($videoSubtitles) && !empty($lesson->video_subtitles_text)) {
+				Log::warning("Subtitles provided in request were empty, but found in lesson model. Using model data.", ['lesson_id' => $lesson->id]);
+				$videoSubtitles = $lesson->video_subtitles_text;
+			} elseif ($generationSource === 'video' && empty($videoSubtitles)) {
+				Log::error("Generation source is video, but no subtitles were provided or found.", ['lesson_id' => $lesson->id]);
+				return response()->json(['success' => false, 'message' => 'Cannot generate from video: Subtitles are missing.'], 400);
+			}
 
 			try {
 				$user = Auth::user();
@@ -324,16 +353,15 @@ PROMPT;
 
 			$lesson->preferredLlm = $llm; // Update the preferred LLM in the lesson record
 			$lesson->user_title = $userTitle; // Update the user title
-			$lesson->subject = $userSubject; // Update the lesson name
-			$lesson->notes = $notes; // Update the notes
+			if ($generationSource === 'subject') {
+				$lesson->subject = $userSubject;
+				$lesson->notes = $notes;
+			}
 			$lesson->save(); // Save the lesson record
 
 			$categorySelectionMode = $lesson->category_selection_mode ?? 'ai_decide';
 			$autoDetectMain = $autoDetect;
 			$autoDetectSub = $autoDetect;
-
-//			$autoDetectMain = ($categorySelectionMode === 'ai_decide');
-//			$autoDetectSub = ($categorySelectionMode === 'ai_decide' || $categorySelectionMode === 'main_only');
 
 			// If main category is pre-selected but sub is AI-decided, provide that context
 			$selectedMainCategoryName = null;
@@ -354,7 +382,7 @@ PROMPT;
 			$language = $lesson->language ?? 'English';
 			$maxRetries = 1;
 
-			Log::info("Generating lesson structure... Mode: {$categorySelectionMode}");
+			Log::info("Generating lesson structure preview... Mode: {$categorySelectionMode}, Source: {$generationSource}");
 
 			$planStructureResult = self::generateLessonStructure(
 				$llm,
@@ -367,18 +395,19 @@ PROMPT;
 				$notes,
 				$selectedMainCategoryName,
 				$autoDetectSub,
-				$additionalInstructions
+				$additionalInstructions,
+				$videoSubtitles
 			);
 
 			if (isset($planStructureResult['error'])) {
 				$errorMsg = $planStructureResult['error'];
-				Log::error("LLM Structure Gen Error: " . $errorMsg, ['lesson' => $userSubject, 'llm' => $llm]);
+				Log::error("LLM Structure Gen Error: " . $errorMsg, ['lesson' => $userTitle, 'llm' => $llm, 'source' => $generationSource]);
 				return response()->json(['success' => false, 'message' => 'Failed to generate lesson structure: ' . $errorMsg]);
 			}
 
 			if (!self::isValidLessonStructureResponse($planStructureResult, $partsCount)) {
 				$errorMsg = 'LLM returned an invalid lesson structure (check includes category).';
-				Log::error($errorMsg, ['lesson' => $userSubject, 'llm' => $llm, 'response' => $planStructureResult]);
+				Log::error($errorMsg, ['lesson' => $userTitle, 'llm' => $llm, 'source' => $generationSource, 'response' => $planStructureResult]);
 				return response()->json(['success' => false, 'message' => $errorMsg . ' Please try refining your lesson or using a different model.']);
 			}
 
@@ -398,132 +427,13 @@ PROMPT;
 				'selected_main_category_id' => $lesson->selected_main_category_id,
 				'suggested_main_category' => $planStructureResult['suggested_main_category'] ?? null,
 				'suggested_sub_category' => $planStructureResult['suggested_sub_category'] ?? null,
-				'current_instructions' => $additionalInstructions
+				'current_instructions' => $additionalInstructions,
+				'auto_detect_was_on' => $autoDetect
 			];
 
 			return response()->json($responseData);
 		}
 
-		public function createLesson(Request $request)
-		{
-			// Validation rules updated
-			$validator = Validator::make($request->all(), [
-				'lesson_subject' => 'required|string|max:512',
-				'preferred_llm' => 'required|string|max:100',
-				'tts_engine' => 'required|string|in:google,openai',
-				'tts_voice' => 'required|string|max:100',
-				'tts_language_code' => 'required|string|max:10',
-				'language' => 'required|string|max:10', // Validate saved language
-				'category_input' => ['required', 'string'], // 'auto' or numeric ID string
-				'suggested_main_category' => ['nullable', 'string', 'max:255'], // Required if category_input is 'auto'
-				'suggested_sub_category' => ['nullable', 'string', 'max:255'], // Required if category_input is 'auto'
-				'plan' => 'required|array',
-				'plan.main_title' => 'required|string',
-				'plan.image_prompt_idea' => 'required|string',
-				'plan.lesson_parts' => 'required|array|size:3',
-				'plan.lesson_parts.*.title' => 'required|string',
-				'plan.lesson_parts.*.text' => 'required|string',
-				'plan.lesson_parts.*.image_prompt_idea' => 'required|string',
-				// No need to validate plan.suggested_category_name here, it's handled below
-			]);
-
-			if ($validator->fails()) {
-				Log::error('Invalid data received for lesson creation.', ['errors' => $validator->errors()->toArray(), 'data' => $request->all()]);
-				return response()->json(['success' => false, 'message' => 'Invalid data received for lesson creation. ' . $validator->errors()->first()], 422);
-			}
-
-			$lessonSubject = $request->input('lesson_subject');
-			$preferredLlm = $request->input('preferred_llm');
-			$ttsEngine = $request->input('tts_engine');
-			$ttsVoice = $request->input('tts_voice');
-			$ttsLanguageCode = $request->input('tts_language_code');
-			$language = $request->input('language');
-			$categoryInput = $request->input('category_input'); // This is sub_category_id or 'auto'
-			$suggestedMainCategoryName = $request->input('suggested_main_category');
-			$suggestedSubCategoryName = $request->input('suggested_sub_category');
-			$plan = $request->input('plan');
-
-			// Use the names received from the request if available, else placeholders
-			$mainCatNameToValidate = $suggestedMainCategoryName ?? 'placeholder_main';
-			$subCatNameToValidate = $suggestedSubCategoryName ?? 'placeholder_sub';
-
-			Log::info("Confirmed creation request received. Lesson: '{$lessonSubject}', Lang: {$language}, CatInput: {$categoryInput}");
-
-			// --- Determine Final Sub-Category ID ---
-			$finalSubCategoryId = null;
-			if ($categoryInput === 'auto' && !empty($suggestedMainCategoryName) && !empty($suggestedSubCategoryName)) {
-				Log::info("Handling auto-detected category: Main='{$suggestedMainCategoryName}', Sub='{$suggestedSubCategoryName}'");
-				DB::beginTransaction(); // Use transaction for creating category_management
-				try {
-					// Find or create the Main Category (case-insensitive)
-					$mainCategory = MainCategory::firstOrCreate(
-						['name' => DB::raw("LOWER('{$suggestedMainCategoryName}')")], // Search condition
-						['name' => $suggestedMainCategoryName]                     // Data to insert if not found
-					);
-
-					if (!$mainCategory) {
-						throw new Exception("Could not find or create main category.");
-					}
-					Log::info("Using Main Category ID: {$mainCategory->id} for '{$mainCategory->name}'");
-
-
-					$subCategory = SubCategory::firstOrCreate(
-						['main_category_id' => $mainCategory->id, 'name' => $suggestedSubCategoryName]
-					);
-
-					if (!$subCategory) {
-						throw new Exception("Could not find or create sub category.");
-					}
-					$finalSubCategoryId = $subCategory->id;
-					Log::info("Using Sub Category ID: {$finalSubCategoryId} for '{$subCategory->name}' under Main '{$mainCategory->name}'");
-
-					DB::commit();
-				} catch (\Exception $e) {
-					DB::rollBack();
-					Log::error("Failed to find/create category_management: Main='{$suggestedMainCategoryName}', Sub='{$suggestedSubCategoryName}'. Error: " . $e->getMessage());
-					// Decide fallback: proceed without category or return error?
-					// Let's return an error as category was requested via auto-detect.
-					return response()->json(['success' => false, 'message' => 'Failed to automatically create or assign category_management. Please select manually or try again.'], 500);
-				}
-
-			} elseif (is_numeric($categoryInput)) {
-				// Use the explicit Sub-Category ID provided, check if it exists
-				$subCategory = SubCategory::find($categoryInput);
-				if ($subCategory) {
-					$finalSubCategoryId = $subCategory->id;
-					Log::info("Using explicitly selected sub-category ID: {$finalSubCategoryId}");
-				} else {
-					Log::warning("Explicitly selected sub-category ID {$categoryInput} not found. Saving lesson without category.");
-					$finalSubCategoryId = null; // Or return error?
-				}
-			} else {
-				Log::warning("Invalid category input '{$categoryInput}'. Saving lesson without category.");
-				$finalSubCategoryId = null;
-			}
-
-			// --- Create Lesson Record ---
-			$lesson = Lesson::create([
-				'user_id' => Auth::id(),
-				'subject' => $lessonSubject,
-				'title' => $plan['main_title'],
-				'image_prompt_idea' => $plan['image_prompt_idea'],
-				'lesson_parts' => $plan['lesson_parts'],
-				'preferredLlm' => $preferredLlm,
-				'ttsEngine' => $ttsEngine,
-				'ttsVoice' => $ttsVoice,
-				'ttsLanguageCode' => $ttsLanguageCode,
-				'language' => $language, // Save selected language
-				'sub_category_id' => $finalSubCategoryId,
-			]);
-
-			Log::info("Lesson record created with ID: {$lesson->id}, SubCategoryID: {$finalSubCategoryId}.");
-
-			return response()->json([
-				'success' => true,
-				'message' => 'Lesson created! Edit questions and generate assets.',
-				'redirectUrl' => route('lesson.edit', ['lesson' => $lesson->id])
-			]);
-		}
 
 		public function applyGeneratedPlan(Request $request, Lesson $lesson)
 		{

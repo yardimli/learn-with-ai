@@ -49,6 +49,7 @@
 			'month' => 'integer',
 			'year' => 'integer',
 			'week' => 'integer',
+			'video_subtitles_text' => 'string',
 			'video_api_response' => 'array',
 		];
 

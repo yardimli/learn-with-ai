@@ -44,7 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	const submitVideoButton = document.getElementById('submitVideoButton');
 	const submitVideoSpinner = document.getElementById('submitVideoSpinner');
 	const addVideoError = document.getElementById('addVideoError');
-	const addVideoProgress = document.getElementById('addVideoProgress'); // Progress indicator
+	const addVideoProgress = document.getElementById('addVideoProgress');
+	
+	const generationSourceGroup = document.getElementById('generationSourceGroup');
+	const sourceSubjectRadio = document.getElementById('sourceSubject');
+	const sourceVideoRadio = document.getElementById('sourceVideo');
+	const videoSubtitlesDisplayArea = document.getElementById('videoSubtitlesDisplayArea');
+	const videoSubtitlesTextarea = document.getElementById('videoSubtitlesTextarea');
+	const videoSubtitlesBase64Input = document.getElementById('videoSubtitlesBase64');
+	const generationSourceInput = document.getElementById('generationSourceInput');
 	
 	const generateAllButton = document.getElementById('generateAllButton');
 	const generateAllText = document.getElementById('generateAllText');
@@ -149,6 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			const subCategoryName = button.dataset.subCategoryName;
 			const selectedMainCategoryId = button.dataset.selectedMainCategoryId; // Get the ID
 			const preferredLlm = button.dataset.preferredLlm;
+			const videoId = button.dataset.videoId;
+			const videoSubtitlesBase64 = button.dataset.videoSubtitles;
 			
 			// Reset modal state FIRST
 			previewContentArea.classList.add('d-none');
@@ -171,6 +181,18 @@ document.addEventListener('DOMContentLoaded', () => {
 			autoDetectCheckbox.checked = false; // Uncheck by default
 			isAutoDetectingCategory = false; // Reset state tracking
 			additionalInstructionsTextarea.value = '';
+			
+			generationSourceGroup.classList.add('d-none');
+			videoSubtitlesDisplayArea.classList.add('d-none');
+			videoSubtitlesTextarea.value = '';
+			videoSubtitlesBase64Input.value = '';
+			sourceSubjectRadio.checked = true; // Default to subject
+			generationSourceInput.value = 'subject'; // Default source
+			lessonSubjectTextarea.disabled = false; // Re-enable fields
+			lessonNotesDisplay.disabled = false;
+			lessonSubjectTextarea.classList.remove('d-none'); // Ensure visible
+			lessonNotesDisplay.classList.remove('d-none');
+			
 			
 			// Populate basic fields
 			lessonIdInput.value = lessonId;
@@ -216,6 +238,32 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (preferredOption) {
 					aiModelSelect.value = preferredLlm;
 				}
+			}
+			
+			// --- Handle Video Subtitles Option ---
+			if (videoId && videoSubtitlesBase64) {
+				try {
+					// Decode base64 subtitles
+					const decodedSubtitles = atob(videoSubtitlesBase64);
+					videoSubtitlesTextarea.value = decodedSubtitles;
+					videoSubtitlesBase64Input.value = videoSubtitlesBase64; // Store for potential later use if needed
+					
+					// Show the generation source choice
+					generationSourceGroup.classList.remove('d-none');
+					sourceVideoRadio.disabled = false; // Ensure video option is enabled
+					
+				} catch (e) {
+					console.error("Error decoding base64 subtitles:", e);
+					// Keep subtitle option hidden/disabled if decoding fails
+					generationSourceGroup.classList.add('d-none');
+					sourceVideoRadio.disabled = true;
+				}
+			} else {
+				// No video/subtitles, hide the choice and disable video option
+				generationSourceGroup.classList.add('d-none');
+				sourceVideoRadio.disabled = true;
+				sourceSubjectRadio.checked = true; // Ensure subject is selected
+				generationSourceInput.value = 'subject';
 			}
 			
 			// --- Determine Category Display and Auto-Detect State ---
@@ -284,6 +332,29 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 		});
 		
+		if (generationSourceGroup) {
+			generationSourceGroup.addEventListener('change', (event) => {
+				const selectedSource = event.target.value;
+				generationSourceInput.value = selectedSource; // Update hidden input
+				
+				if (selectedSource === 'video') {
+					videoSubtitlesDisplayArea.classList.remove('d-none');
+					// Optionally disable/hide subject and notes
+					lessonSubjectTextarea.disabled = true;
+					lessonNotesDisplay.disabled = true;
+					// Or hide them completely:
+					// lessonSubjectTextarea.classList.add('d-none');
+					// lessonNotesDisplay.classList.add('d-none');
+				} else { // source === 'subject'
+					videoSubtitlesDisplayArea.classList.add('d-none');
+					// Re-enable/show subject and notes
+					lessonSubjectTextarea.disabled = false;
+					lessonNotesDisplay.disabled = false;
+					// lessonSubjectTextarea.classList.remove('d-none');
+					// lessonNotesDisplay.classList.remove('d-none');
+				}
+			});
+		}
 		
 		generateContentModal.addEventListener('hidden.bs.modal', () => {
 			// Clear fields on close to prevent stale data
@@ -294,6 +365,18 @@ document.addEventListener('DOMContentLoaded', () => {
 			additionalInstructionsTextarea.value = '';
 			currentSubCategoryIdInput.value = '';
 			currentSelectedMainCategoryIdInput.value = '';
+			
+			// Reset video-related fields
+			generationSourceGroup.classList.add('d-none');
+			videoSubtitlesDisplayArea.classList.add('d-none');
+			videoSubtitlesTextarea.value = '';
+			videoSubtitlesBase64Input.value = '';
+			sourceSubjectRadio.checked = true;
+			generationSourceInput.value = 'subject';
+			lessonSubjectTextarea.disabled = false;
+			lessonNotesDisplay.disabled = false;
+			lessonSubjectTextarea.classList.remove('d-none');
+			lessonNotesDisplay.classList.remove('d-none');
 			
 			// Stop observer if it's running
 			if (applyButtonObserver) {
@@ -321,10 +404,22 @@ document.addEventListener('DOMContentLoaded', () => {
 			const partsCount = lessonPartsCountSelect.value;
 			const autoDetect = isAutoDetectingCategory;
 			
-			if (!lessonId || !subject || !userTitle || !llm) {
-				showToast('Missing required fields (Title, Subject, AI Model).', 'Error', 'error');
+			const generationSource = generationSourceInput.value; // Get selected source
+			let subtitles = null;
+			if (generationSource === 'video') {
+				// Get subtitles from the hidden textarea (already decoded)
+				subtitles = videoSubtitlesTextarea.value;
+				if (!subtitles) {
+					showToast('Video subtitles are missing or empty.', 'Error', 'error');
+					return; // Stop if subtitles were expected but are empty
+				}
+			}
+			
+			if (!lessonId || !userTitle || !llm || (generationSource === 'subject' && !subject)) {
+				showToast('Missing required fields (Title, AI Model, and Subject if not using subtitles).', 'Error', 'error');
 				return;
 			}
+			
 			
 			generatePreviewButton.disabled = true;
 			generatePreviewSpinner.classList.remove('d-none');
@@ -367,6 +462,9 @@ document.addEventListener('DOMContentLoaded', () => {
 						auto_detect_category: autoDetect,
 						parts_count: parseInt(partsCount, 10),
 						additional_instructions: additionalInstructions,
+						generation_source: generationSource,
+						...(generationSource === 'subject' && { subject: subject, notes: notes }),
+						...(generationSource === 'video' && { video_subtitles: subtitles })
 					}),
 				});
 				
@@ -585,6 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				
 			} catch (error) {
 				console.error('Error applying generated plan:', error);
+				lessonPreviewBody.innerHTML = `<div class="alert alert-danger">Failed to generate preview: ${escapeHtml(error.message)}</div>`;
 				generationErrorMessage.textContent = `Failed to apply content: ${escapeHtml(error.message)}`;
 				generationErrorMessage.classList.remove('d-none');
 				applyGenerationButton.disabled = false; // Re-enable on error
@@ -600,6 +699,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			} finally {
 				applyGenerationSpinner.classList.add('d-none');
+				if (!isAutoGeneratingThis) { // Use the correct variable name here
+					backToOptionsButton.disabled = false;
+					cancelGenerationButton.disabled = false;
+				}
 			}
 		});
 	}

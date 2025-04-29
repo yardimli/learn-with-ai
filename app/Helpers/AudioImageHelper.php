@@ -464,7 +464,7 @@
 					}
 
 				} elseif ($selectedEngine === 'google') {
-					$credentialsPath = base_path(env('GOOGLE_TTS_CREDENTIALS'));
+					$credentialsPath = base_path(env('GOOGLE_CREDENTIALS'));
 					if (empty($credentialsPath) || !File::exists($credentialsPath)) {
 						Log::error('Google TTS credentials path not set or file not found: ' . $credentialsPath);
 						return null;

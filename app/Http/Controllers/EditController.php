@@ -904,7 +904,7 @@ PROMPT;
 
 
 				// --- 4. Download and Combine Subtitles ---
-				$combinedSubtitles = "";
+				$plaintext = "";
 				$subtitleContent = '';
 				if (isset($videoData['subtitles']['items']) && is_array($videoData['subtitles']['items'])) {
 					Log::info("Found " . count($videoData['subtitles']['items']) . " subtitle tracks for {$youtubeVideoId}.");
@@ -927,21 +927,26 @@ PROMPT;
 							$subtitleResponse = Http::timeout(20)->get($subtitle['url']);
 							if ($subtitleResponse->successful()) {
 								$subtitleContent = $subtitleResponse->body();
+								$subtitleText = '';
+								$xml = simplexml_load_string($subtitleContent);
 
-								// Basic VTT/SRT text extraction (remove timestamps and tags)
-								$combinedSubtitles = preg_replace('/^\d+.*\R/m', '', $subtitleContent); // Remove numbered lines (SRT)
-								$combinedSubtitles = preg_replace('/^WEBVTT.*\R/m', '', $combinedSubtitles); // Remove WEBVTT header
-								$combinedSubtitles = preg_replace('/^\R/m', '', $combinedSubtitles); // Remove empty lines at start
-								$combinedSubtitles = preg_replace('/^NOTE.*\R/m', '', $combinedSubtitles); // Remove NOTE lines
-								$combinedSubtitles = preg_replace('/^STYLE.*\R/m', '', $combinedSubtitles); // Remove STYLE lines
-								$combinedSubtitles = preg_replace('/\d{2}:\d{2}:\d{2}\.\d{3}\s+-->\s+\d{2}:\d{2}:\d{2}\.\d{3}.*\R/m', '', $combinedSubtitles); // Remove timestamp lines
-								$combinedSubtitles = preg_replace('/<[^>]+>/', ' ', $combinedSubtitles); // Remove HTML-like tags
-								$combinedSubtitles = html_entity_decode($combinedSubtitles); // Decode HTML entities
-								$combinedSubtitles = preg_replace('/\s+/', ' ', $combinedSubtitles); // Collapse multiple spaces
-								$combinedSubtitles = trim($combinedSubtitles);
+								if ($xml !== false) {
+									// Extract text from each subtitle node
+									foreach ($xml->text as $textNode) {
+										$subtitleText .= (string)$textNode . ' ';
+										Log::info("Subtitle text: " . (string)$textNode);
+									}
 
-								if (!empty($combinedSubtitles)) {
-									Log::info("Processed subtitle track: {$subtitle['text']}");
+									// Process the extracted text
+									// 1. Decode HTML entities like &#39; (apostrophe)
+									$plaintext = html_entity_decode($subtitleText, ENT_QUOTES | ENT_HTML5);
+
+									// 2. Remove any extra spaces and trim
+									$plaintext = preg_replace('/\s+/', ' ', $plaintext);
+									$plaintext = trim($plaintext);
+								}
+								else {
+									Log::info("Falied to parse subtitle XML: {$subtitle['text']}");
 								}
 							} else {
 								Log::warning("Failed to download subtitle track '{$subtitle['text']}' for {$youtubeVideoId}. Status: " . $subtitleResponse->status());
@@ -964,7 +969,7 @@ PROMPT;
 					'video_api_response' => $videoData, // Store the whole response
 					'video_path' => $videoStoragePath,
 					'video_subtitles' => !empty($subtitleContent) ? trim($subtitleContent) : null,
-					'video_subtitles_text' => !empty($combinedSubtitles) ? trim($combinedSubtitles) : null,
+					'video_subtitles_text' => !empty($plaintext) ? trim($plaintext) : null,
 					// Optionally update title/subject based on video?
 					// 'user_title' => $lesson->user_title ?? $videoData['title'] ?? 'YouTube Lesson',
 					// 'subject' => $lesson->subject ?? Str::limit($videoData['description'] ?? 'Video Content', 150),
@@ -989,6 +994,5 @@ PROMPT;
 				return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
 			}
 		}
-
 
 	}

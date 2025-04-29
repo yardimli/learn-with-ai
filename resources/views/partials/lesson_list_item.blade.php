@@ -73,6 +73,8 @@
 				        data-main-category-name="{{ $lesson->subCategory?->mainCategory?->name ?? ($mainCategoryNames[$lesson->selected_main_category_id] ?? '') }}"
 				        data-sub-category-name="{{ $lesson->subCategory?->name ?? '' }}"
 				        data-preferred-llm="{{ $lesson->preferredLlm ?? '' }}"
+				        data-video-id="{{ $lesson->youtube_video_id ?? '' }}"
+				        data-video-subtitles="{{ $lesson->video_subtitles_text ? base64_encode($lesson->video_subtitles_text) : '' }}"
 				        data-bs-toggle="modal"
 				        data-bs-target="#generateContentModal"
 				        title="Generate AI Content">

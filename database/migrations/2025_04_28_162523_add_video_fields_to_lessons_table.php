@@ -14,7 +14,7 @@
 			Schema::table('lessons', function (Blueprint $table) {
 				$table->string('youtube_video_id')->nullable()->after('preferredLlm');
 				$table->string('video_api_host')->nullable()->after('youtube_video_id');
-				$table->json('video_api_response')->nullable()->after('video_api_host');
+				$table->longText('video_api_response')->nullable()->after('video_api_host');
 				$table->string('video_path')->nullable()->after('video_api_response');
 				$table->text('video_subtitles')->nullable()->after('video_path');
 				$table->text('video_subtitles_text')->nullable()->after('video_subtitles');
