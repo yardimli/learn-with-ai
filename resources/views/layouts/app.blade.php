@@ -51,6 +51,7 @@
 <nav class="navbar navbar-expand-md shadow-sm mb-4">
 	<div class="container">
 		<a class="navbar-brand" href="{{ route('lessons.list') }}">
+			<img src="/apple-touch-icon.png" alt="Logo" class="logo p-0 m-0" style="height: 34px;">
 			{{ config('app.name', 'Learn with AI') }}
 		</a>
 		<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">

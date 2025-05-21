@@ -28,8 +28,8 @@ body {
 /* Dark Mode Switch (Global Element - moved from app.blade.php) */
 .dark-mode-switch-container {
     position: fixed;
-    top: 1rem;
-    right: 1rem;
+    top: 10px;
+    right: 10px;
     z-index: 1055; /* High z-index */
     background: rgba(var(--bs-body-bg-rgb), 0.8); /* Semi-transparent background */
     padding: 0.4rem 0.6rem;
