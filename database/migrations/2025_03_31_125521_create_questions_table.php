@@ -21,7 +21,6 @@ return new class extends Migration
 	        $table->string('question_audio_path')->nullable();
 	        $table->json('answers');
 					$table->string('difficulty_level')->default('easy'); // Track difficulty
-	        $table->integer('lesson_part_index')->default(0);
 	        $table->integer('order')->default(0);
 	        $table->timestamps();
         });

@@ -17,11 +17,9 @@
 	Auth::routes();
 
 	Route::middleware(['auth'])->group(function () {
-
 // --- Lesson Creation & Setup ---
 		Route::get('/', [CreateLessonController::class, 'index'])->name('create-lesson');
 		Route::post('/lesson/save-basic', [CreateLessonController::class, 'createBasicLesson'])->name('lesson.save.basic');
-
 		Route::get('/lesson/import', [CreateLessonController::class, 'showImportForm'])->name('lesson.import.form');
 		Route::post('/lesson/import/process', [CreateLessonController::class, 'processImport'])->name('lesson.import.process');
 
@@ -36,13 +34,13 @@
 		Route::post('/lesson/{lesson}/generate-preview', [CreateLessonController::class, 'generatePlanPreview'])->name('lesson.generate.preview');
 		Route::post('/lesson/{lesson}/apply-plan', [CreateLessonController::class, 'applyGeneratedPlan'])->name('lesson.apply.plan');
 
-
 // --- Lesson Editing & Asset Management ---
 		Route::get('/lesson/{lesson}/edit', [EditController::class, 'edit'])->name('lesson.edit');
 		Route::post('/lesson/{lesson}/update-settings', [EditController::class, 'updateSettingsAjax'])->name('lesson.update.settings');
-		Route::post('/lesson/{lesson}/part/{partIndex}/update-text', [EditController::class, 'updatePartTextAjax'])
-			->where('partIndex', '[0-9]+')
-			->name('lesson.part.update.text');
+
+		Route::post('/lesson/{lesson}/update-content', [EditController::class, 'updateLessonContentAjax'])
+			->name('lesson.content.update.text'); // Kept similar name for now, JS might use it
+
 		Route::post('/lesson/{lesson}/add-youtube', [EditController::class, 'addYoutubeVideoAjax'])->name('lesson.add.youtube');
 
 // --- Category Management ---
@@ -54,10 +52,9 @@
 			Route::get('main-category_management/{mainCategory}/edit', [CategoryManagementController::class, 'mainEdit'])->name('main.edit');
 			Route::put('main-category_management/{mainCategory}', [CategoryManagementController::class, 'mainUpdate'])->name('main.update');
 			Route::delete('main-category_management/{mainCategory}', [CategoryManagementController::class, 'mainDestroy'])->name('main.destroy');
-
-			// Sub Categories (Example: could be nested or flat)
-			Route::get('sub-category_management', [CategoryManagementController::class, 'subIndex'])->name('sub.index'); // Maybe show all or grouped
-			Route::get('main-category_management/{mainCategory}/sub-category_management/create', [CategoryManagementController::class, 'subCreate'])->name('sub.create'); // Create nested
+			// Sub Categories
+			Route::get('sub-category_management', [CategoryManagementController::class, 'subIndex'])->name('sub.index');
+			Route::get('main-category_management/{mainCategory}/sub-category_management/create', [CategoryManagementController::class, 'subCreate'])->name('sub.create');
 			Route::post('sub-category_management', [CategoryManagementController::class, 'subStore'])->name('sub.store');
 			Route::get('sub-category_management/{subCategory}/edit', [CategoryManagementController::class, 'subEdit'])->name('sub.edit');
 			Route::put('sub-category_management/{subCategory}', [CategoryManagementController::class, 'subUpdate'])->name('sub.update');
@@ -65,9 +62,9 @@
 		});
 // --- End Category Management ---
 
-// Generate Question Batch
-		Route::post('/lesson/{lesson}/part/{partIndex}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])
-			->where(['partIndex' => '[0-9]+', 'difficulty' => 'easy|medium|hard'])
+// MODIFIED: Generate Question Batch (no partIndex)
+		Route::post('/lesson/{lesson}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])
+			->where(['difficulty' => 'easy|medium|hard'])
 			->name('question.generate.batch');
 
 // Question Text/Answer Update
@@ -79,28 +76,27 @@
 			->name('question.delete');
 
 // Generate Assets
-		Route::post('/lesson/{lesson}/part/{partIndex}/generate-audio', [GenerateAssetController::class, 'generatePartAudioAjax'])
-			->where('partIndex', '[0-9]+')
-			->name('lesson.part.generate.audio');
-		Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/generate-image', [GenerateAssetController::class, 'generateSentenceImageAjax'])
-			->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+// MODIFIED: Route for lesson content assets (was part audio)
+		Route::post('/lesson/{lesson}/generate-content-assets', [GenerateAssetController::class, 'generateLessonContentAssetsAjax'])
+			->name('lesson.content.generate.assets'); // New name
+
+// MODIFIED: Sentence asset routes (no partIndex)
+		Route::post('/lesson/{lesson}/sentence/{sentenceIndex}/generate-image', [GenerateAssetController::class, 'generateSentenceImageAjax'])
+			->where(['sentenceIndex' => '[0-9]+'])
 			->name('sentence.generate.image');
-
-		Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/upload-image', [GenerateAssetController::class, 'uploadSentenceImageAjax'])
-			->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		Route::post('/lesson/{lesson}/sentence/{sentenceIndex}/upload-image', [GenerateAssetController::class, 'uploadSentenceImageAjax'])
+			->where(['sentenceIndex' => '[0-9]+'])
 			->name('sentence.image.upload');
-
-		Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/search-freepik', [FreePikController::class, 'searchFreepikSentenceAjax'])
-			->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		Route::post('/lesson/{lesson}/sentence/{sentenceIndex}/search-freepik', [FreePikController::class, 'searchFreepikSentenceAjax'])
+			->where(['sentenceIndex' => '[0-9]+'])
 			->name('sentence.image.search_freepik');
-
-		Route::post('/lesson/{lesson}/part/{partIndex}/sentence/{sentenceIndex}/select-freepik', [FreePikController::class, 'selectFreepikSentenceImageAjax'])
-			->where(['partIndex' => '[0-9]+', 'sentenceIndex' => '[0-9]+'])
+		Route::post('/lesson/{lesson}/sentence/{sentenceIndex}/select-freepik', [FreePikController::class, 'selectFreepikSentenceImageAjax'])
+			->where(['sentenceIndex' => '[0-9]+'])
 			->name('sentence.image.select_freepik');
 
 		Route::post('/question/{question}/generate-audio/question', [GenerateAssetController::class, 'generateQuestionAudioAjax'])->name('question.generate.audio.question');
 		Route::post('/question/{question}/generate-audio/answers', [GenerateAssetController::class, 'generateAnswerAudioAjax'])->name('question.generate.audio.answers');
-		Route::post('/question/{question}/generate-image', [GenerateAssetController::class, 'generateQuestionImageAjax'])->name('question.generate.image'); // For LLM generation/regeneration
+		Route::post('/question/{question}/generate-image', [GenerateAssetController::class, 'generateQuestionImageAjax'])->name('question.generate.image');
 
 // --- Question Image Upload & Freepik ---
 		Route::post('/question/{question}/upload-image', [GenerateAssetController::class, 'uploadQuestionImageAjax'])->name('question.image.upload');
@@ -110,8 +106,10 @@
 // --- Lesson Display / Taking Question ---
 		Route::get('/lesson/{lesson:id}/question', [LessonController::class, 'showQuestionInterface'])
 			->name('question.interface');
-		Route::post('/lesson/{lesson:id}/part-questions', [LessonController::class, 'getPartQuestionsAjax'])
-			->name('question.part_questions');
+// MODIFIED: Route for lesson questions (was part questions)
+		Route::post('/lesson/{lesson:id}/questions', [LessonController::class, 'getLessonQuestionsAjax'])
+			->name('lesson.questions'); // New name
+
 		Route::post('/question/{question}/submit', [LessonController::class, 'submitAnswer'])
 			->name('question.submit_answer');
 

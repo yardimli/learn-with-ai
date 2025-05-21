@@ -311,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					// Show placeholder if list becomes empty
 					if (newCount === 0 && listContainer) {
 						const difficulty = listContainer.id.split('-')[1]; // Extract difficulty from ID like 'question-list-easy-0'
-						listContainer.innerHTML = `<p class="placeholder-text">No ${difficulty} questions created yet for this part.</p>`;
+						listContainer.innerHTML = `<p class="placeholder-text">No ${difficulty} questions created yet.</p>`;
 					}
 				}
 				

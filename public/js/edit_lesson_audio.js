@@ -209,12 +209,13 @@ function updateAnswerAudioStatus(questionId, success = true, answersData = null)
 	}
 }
 
-function updatePartAudioStatus(partIndex, success, resultData = null) {
-	const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
-	const errorArea = document.getElementById(`part-${partIndex}-error`);
-	const generateButton = document.querySelector(`.generate-part-audio-btn[data-part-index="${partIndex}"]`);
-	const sentencesListContainer = document.getElementById(`sentences-list-${partIndex}`);
-	const noSentencesMsg = document.getElementById(`no-sentences-msg-${partIndex}`);
+function updateLessonSentenceAssetsStatus(success, resultData = null) {
+	console.log("updateLessonSentenceAssetsStatus called with success:", success, "resultData:", resultData);
+	const statusEl = document.getElementById('lesson-content-audio-status');
+	const errorArea = document.getElementById('lesson-content-error');
+	const generateButton = document.getElementById('generate-lesson-sentence-assets-btn');
+	const sentencesListContainer = document.getElementById('sentences-list-lesson');
+	const noSentencesMsg = document.getElementById(`no-sentences-msg-lesson`);
 	
 	if (errorArea) hideError(errorArea);
 	if (!statusEl || !sentencesListContainer) return;
@@ -232,12 +233,12 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 		
 		if (sentences.length > 0) {
 			const sentenceTemplate = document.getElementById('sentence-item-template').innerHTML;
+			console.log("Sentence template:", sentenceTemplate, "Sentences:", sentences.length);
 			sentences.forEach((sentence, index) => {
 				if (!sentence.audio_url) audioErrorCount++;
 				
 				// Create new sentence item from template
 				let sentenceHtml = sentenceTemplate
-					.replace(/PART_INDEX_PLACEHOLDER/g, partIndex)
 					.replace(/SENTENCE_INDEX_PLACEHOLDER/g, index)
 					.replace('SENTENCE_TEXT_PLACEHOLDER', escapeHtml(sentence.text))
 					.replace('data-image-id=""', `data-image-id="${sentence.generated_image_id || ''}"`)
@@ -246,9 +247,9 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 				
 				// Set correct URLs (ensure routes exist and names match)
 				const lessonId = generateButton.dataset.lessonId; // Assuming lesson ID is on button now
-				const generateImageUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/generate-image`; // Construct URL manually or use route() via JS variable
-				const uploadImageUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/upload-image`;
-				const searchFreepikUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${index}/search-freepik`;
+				const generateImageUrl = `/lesson/${lessonId}/sentence/${index}/generate-image`; // Construct URL manually or use route() via JS variable
+				const uploadImageUrl = `/lesson/${lessonId}/sentence/${index}/upload-image`;
+				const searchFreepikUrl = `/lesson/${lessonId}/sentence/${index}/search-freepik`;
 				
 				sentenceHtml = sentenceHtml.replace(`data-url="#"`, `data-url="${generateImageUrl}"`);
 				sentenceHtml = sentenceHtml.replace(`data-freepik-search-url="#"`, `data-freepik-search-url="${searchFreepikUrl}"`);
@@ -257,7 +258,7 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 				sentencesListContainer.insertAdjacentHTML('beforeend', sentenceHtml);
 				
 				// Get the newly added elements to update audio/image
-				const newItemContainer = document.getElementById(`sentence-item-p${partIndex}-s${index}`);
+				const newItemContainer = document.getElementById(`sentence-item-s${index}`);
 				const audioControls = newItemContainer.querySelector('.sentence-audio-controls');
 				const imageDisplay = newItemContainer.querySelector('.sentence-image-display');
 				const fileInput = newItemContainer.querySelector('.sentence-image-file-input');
@@ -265,7 +266,7 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 				
 				// Update audio button state
 				if (audioControls) {
-					const audioErrorId = `sent-audio-error-p${partIndex}-s${index}`;
+					const audioErrorId = `sent-audio-error-s${index}`;
 					if (sentence.audio_url) {
 						const buttonHtml = `
                             <button class="btn btn-sm btn-outline-primary btn-play-pause" data-audio-url="${sentence.audio_url}" data-error-area-id="${audioErrorId}" title="Play Sentence Audio">
@@ -282,14 +283,13 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 				}
 				// Update File Input Data Attributes
 				if (fileInput) {
-					fileInput.dataset.partIndex = partIndex;
 					fileInput.dataset.sentenceIndex = index;
 					fileInput.dataset.uploadUrl = uploadImageUrl; // Store upload URL if needed elsewhere
 				}
 				
 				// Fetch and display image if ID exists
 				if (sentence.generated_image_id && imageDisplay) {
-					fetchAndDisplaySentenceImage(partIndex, index, sentence.generated_image_id);
+					fetchAndDisplaySentenceImage(index, sentence.generated_image_id);
 				} else if (imageDisplay) {
 					// Ensure placeholder if no ID
 					imageDisplay.innerHTML = '<i class="fas fa-image text-muted fa-lg"></i>';
@@ -317,7 +317,7 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 		toastType = 'error';
 		statusEl.textContent = 'Asset generation failed.';
 		if (errorArea) showError(errorArea, finalMessage);
-		sentencesListContainer.innerHTML = `<p class="text-danger fst-italic">Could not generate assets for this part.</p>`;
+		sentencesListContainer.innerHTML = `<p class="text-danger fst-italic">Could not generate assets.</p>`;
 		
 	}
 	
@@ -325,7 +325,7 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 	if (generateButton) {
 		showSpinner(generateButton, false);
 		generateButton.innerHTML = `<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span> <i class="fas fa-microphone-alt"></i> Regen Assets`;
-		generateButton.title = "Regenerate audio and image prompts for all sentences in this part";
+		generateButton.title = "Regenerate audio and image prompts for all sentences";
 	}
 	
 	// Show toast notification based on outcome
@@ -336,9 +336,9 @@ function updatePartAudioStatus(partIndex, success, resultData = null) {
 }
 
 // New helper function to fetch image details and update display
-async function fetchAndDisplaySentenceImage(partIndex, sentenceIndex, imageId) {
-	const displayArea = document.getElementById(`sent-image-display-p${partIndex}-s${sentenceIndex}`);
-	const errorArea = document.getElementById(`sent-image-error-p${partIndex}-s${sentenceIndex}`);
+async function fetchAndDisplaySentenceImage(sentenceIndex, imageId) {
+	const displayArea = document.getElementById(`sent-image-display-s${sentenceIndex}`);
+	const errorArea = document.getElementById(`sent-image-error-s${sentenceIndex}`);
 	if (!displayArea || !imageId) return;
 	
 	displayArea.innerHTML = `<div class="spinner-border spinner-border-sm text-secondary" role="status"></div>`; // Loading indicator
@@ -364,7 +364,7 @@ async function fetchAndDisplaySentenceImage(partIndex, sentenceIndex, imageId) {
 		}
 		
 	} catch (error) {
-		console.error(`Error fetching/displaying image ID ${imageId} for sentence ${partIndex}-${sentenceIndex}:`, error);
+		console.error(`Error fetching/displaying image ID ${imageId} for sentence ${sentenceIndex}:`, error);
 		displayArea.innerHTML = `<i class="fas fa-exclamation-triangle text-danger" title="Error loading image: ${error.message}"></i>`;
 		if (errorArea) showError(errorArea, 'Load failed');
 	}
@@ -404,12 +404,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	document.querySelectorAll('.sentence-item[data-image-id]').forEach(item => {
 		const imageId = item.dataset.imageId;
 		if (imageId) {
-			const partIndex = item.dataset.partIndex;
 			const sentenceIndex = item.dataset.sentenceIndex;
 			// Check if display area is just the placeholder before fetching
 			const displayArea = item.querySelector('.sentence-image-display');
 			if(displayArea && displayArea.querySelector('i.fa-image')) {
-				fetchAndDisplaySentenceImage(partIndex, sentenceIndex, imageId);
+				fetchAndDisplaySentenceImage(sentenceIndex, imageId);
 			}
 		}
 	});

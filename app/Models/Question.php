@@ -26,7 +26,6 @@
 			'question_audio_path',
 			'answers', // JSON
 			'difficulty_level',
-			'lesson_part_index',
 			'order',
 		];
 

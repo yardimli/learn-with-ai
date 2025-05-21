@@ -11,7 +11,7 @@ function buildIntroPlaybackQueue(sentences) {
 	sentences.forEach((sentence, index) => {
 		if (sentence.audio_url) {
 			// Find the corresponding span element using the correct index
-			const sentenceSpan = partIntroTextContainer?.querySelector(`.intro-sentence[data-sentence-index="${index}"]`);
+			const sentenceSpan = IntroTextContainer?.querySelector(`.intro-sentence[data-sentence-index="${index}"]`);
 			if (sentenceSpan) {
 				playbackQueue.push({
 					type: 'audio',

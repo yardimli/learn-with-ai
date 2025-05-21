@@ -129,7 +129,7 @@
 		}
 
 
-		public function searchFreepikSentenceAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
+		public function searchFreepikSentenceAjax(Request $request, Lesson $lesson, int $sentenceIndex)
 		{
 			$this->authorize('update', $lesson);
 
@@ -145,7 +145,7 @@
 			$query = $request->input('query');
 			$page = $request->input('page', 1);
 
-			Log::info("Freepik search for sentence {$partIndex}-{$sentenceIndex}, Lesson {$lesson->id}. Query: '{$query}', Page: {$page}");
+			Log::info("Freepik search for sentence {$sentenceIndex}, Lesson {$lesson->id}. Query: '{$query}', Page: {$page}");
 
 			$result = $this->performFreepikApiSearch($query, $page);
 
@@ -155,7 +155,7 @@
 		/**
 		 * AJAX: Select a Freepik image and link it to a specific sentence.
 		 */
-		public function selectFreepikSentenceImageAjax(Request $request, Lesson $lesson, int $partIndex, int $sentenceIndex)
+		public function selectFreepikSentenceImageAjax(Request $request, Lesson $lesson, int $sentenceIndex)
 		{
 			$this->authorize('update', $lesson);
 
@@ -174,15 +174,16 @@
 			$previewUrl = $request->input('download_token_or_url'); // Use the preview as the 'original' for now
 			$baseDir = 'freepik/lesson_sentence_images';
 
-			Log::info("Selecting Freepik image ID {$freepikId} for Lesson {$lesson->id}, Sentence {$partIndex}-{$sentenceIndex}");
+			Log::info("Selecting Freepik image ID {$freepikId} for Lesson {$lesson->id}, Sentence {$sentenceIndex}");
 
 			// --- Access Sentence Data ---
-			$lessonParts = is_array($lesson->lesson_parts) ? $lesson->lesson_parts : json_decode($lesson->lesson_parts, true);
-			if (!isset($lessonParts[$partIndex]['sentences'][$sentenceIndex])) {
-				Log::error("Sentence index {$sentenceIndex} not found for part {$partIndex}, lesson {$lesson->id}.");
+			$lessonInformation = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
+
+			if (!isset($lessonInformation['sentences'][$sentenceIndex])) {
+				Log::error("Sentence index {$sentenceIndex} not found, lesson {$lesson->id}.");
 				return response()->json(['success' => false, 'message' => 'Sentence not found.'], 404);
 			}
-			$sentenceData = $lessonParts[$partIndex]['sentences'][$sentenceIndex];
+			$sentenceData = $lessonInformation['sentences'][$sentenceIndex];
 			// --- End Access Sentence Data ---
 
 			// --- Delete old image if it exists and was 'upload' or 'freepik' ---
@@ -214,8 +215,8 @@
 				$imageRecord = $result['image_record'];
 
 				// Update the sentence with the new image ID
-				$lessonParts[$partIndex]['sentences'][$sentenceIndex]['generated_image_id'] = $imageRecord->id;
-				$lesson->lesson_parts = $lessonParts;
+				$lessonInformation['sentences'][$sentenceIndex]['generated_image_id'] = $imageRecord->id;
+				$lesson->lesson_content = $lessonInformation;
 				$lesson->save();
 
 				Log::info("Freepik Image {$freepikId} selected and linked for Sentence {$sentenceIndex}. New Image ID: {$imageRecord->id}");
@@ -226,7 +227,6 @@
 					'image_urls' => $result['image_urls'],
 					'prompt' => $description, // Return description as prompt/alt text
 					'image_id' => $imageRecord->id,
-					'partIndex' => $partIndex,
 					'sentenceIndex' => $sentenceIndex,
 				]);
 

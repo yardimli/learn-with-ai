@@ -21,7 +21,7 @@
 			'selected_main_category_id',
 			'sub_category_id',
 			'language',
-			'lesson_parts',
+			'lesson_content',
 			'ttsEngine',
 			'ttsVoice',
 			'ttsLanguageCode',
@@ -41,7 +41,7 @@
 
 		protected $casts = [
 			'user_id' => 'integer',
-			'lesson_parts' => 'array',
+			'lesson_content' => 'array',
 			'generated_image_id' => 'integer',
 			'selected_main_category_id' => 'integer',
 			'sub_category_id' => 'integer',

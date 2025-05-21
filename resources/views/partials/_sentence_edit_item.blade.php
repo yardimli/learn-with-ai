@@ -8,7 +8,7 @@
 	$imageUrl = null; // Will be fetched by JS if imageId exists
 
 	// Generate unique IDs based on indices
-	$sentenceIdBase = "p{$partIndex}-s{$sentenceIndex}";
+	$sentenceIdBase = "s{$sentenceIndex}";
 	$audioControlsId = "sent-audio-controls-{$sentenceIdBase}";
 	$audioErrorId = "sent-audio-error-{$sentenceIdBase}";
 	$imageDisplayId = "sent-image-display-{$sentenceIdBase}";
@@ -22,13 +22,13 @@
 
 	// URLs for actions (replace placeholders if using template)
 	 $lessonId = $lesson->id ?? 'LESSON_ID_PLACEHOLDER';
-	 $generateImageUrl = $sentence ? route('sentence.generate.image', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
-	 $uploadImageUrl = $sentence ? route('sentence.image.upload', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
-	 $searchFreepikUrl = $sentence ? route('sentence.image.search_freepik', ['lesson' => $lessonId, 'partIndex' => $partIndex, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $generateImageUrl = $sentence ? route('sentence.generate.image', ['lesson' => $lessonId, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $uploadImageUrl = $sentence ? route('sentence.image.upload', ['lesson' => $lessonId, 'sentenceIndex' => $sentenceIndex]) : '#';
+	 $searchFreepikUrl = $sentence ? route('sentence.image.search_freepik', ['lesson' => $lessonId, 'sentenceIndex' => $sentenceIndex]) : '#';
 
 @endphp
 
-<div class="sentence-item d-flex align-items-start border-bottom py-2" id="{{ $itemContainerId }}" data-part-index="{{ $partIndex }}" data-sentence-index="{{ $sentenceIndex }}" data-image-id="{{ $imageId ?? '' }}">
+<div class="sentence-item d-flex align-items-start border-bottom py-2" id="{{ $itemContainerId }}" data-sentence-index="{{ $sentenceIndex }}" data-image-id="{{ $imageId ?? '' }}">
 	{{-- Sentence Text & Audio --}}
 	<div class="flex-grow-1 me-3">
 		<p class="mb-1 sentence-text">{{ $sentenceText }}</p>

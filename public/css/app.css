@@ -140,8 +140,8 @@ body {
 
 
 
-/* Part Intro Area */
-#partIntroArea {
+/* Intro Area */
+#IntroArea {
     background-color: var(--bs-light);
     border: 1px solid var(--bs-border-color);
     border-radius: 0.375rem;
@@ -149,11 +149,11 @@ body {
     margin-bottom: 1.5rem;
     transition: opacity 0.5s ease-in-out;
 }
-.dark-mode #partIntroArea {
+.dark-mode #IntroArea {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
 }
-#partIntroArea.d-none { /* Ensure smooth fade out */
+#IntroArea.d-none { /* Ensure smooth fade out */
     opacity: 0;
 }
 
@@ -499,32 +499,10 @@ body {
 .progress-bar {
     transition: width 0.6s ease; /* Smooth transition */
 }
-.part-indicator {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 0.5rem;
-    font-size: 0.9em;
-}
-.part-label {
-    text-align: center;
-    flex: 1; /* Distribute space */
-    cursor: pointer;
-    padding: 0.2rem;
-    border-radius: 0.25rem;
-    transition: background-color 0.3s ease;
-}
-.part-label.active {
-    font-weight: bold;
-    background-color: rgba(var(--bs-primary-rgb), 0.2); /* Highlight active part */
-}
-.part-label.completed {
-    color: var(--bs-secondary-color); /* Use Bootstrap var for muted text */
-    /* text-decoration: line-through; */ /* Optional: strike-through */
-}
 
 
-/* Part Intro Area */
-#partIntroArea {
+/* Intro Area */
+#IntroArea {
     background-color: var(--bs-tertiary-bg); /* Light gray default */
     border: 1px solid var(--bs-border-color-translucent);
     border-radius: 0.375rem;
@@ -534,7 +512,7 @@ body {
     opacity: 1;
     transform: translateY(0);
 }
-#partIntroArea.d-none { /* Ensure smooth fade out */
+#IntroArea.d-none { /* Ensure smooth fade out */
     opacity: 0;
     transform: translateY(-10px); /* Slight upward move on hide */
     pointer-events: none; /* Prevent interaction when hidden */
@@ -591,14 +569,7 @@ body {
     border: 1px solid var(--bs-border-color);
 }
 
-.dark-mode .part-label.active {
-    background-color: rgba(255, 255, 255, 0.1); /* Highlight active part */
-}
-.dark-mode .part-label.completed {
-    color: rgba(255, 255, 255, 0.5); /* Muted text */
-}
-
-.dark-mode #partIntroArea {
+.dark-mode #IntroArea {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
 }

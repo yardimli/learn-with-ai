@@ -1,21 +1,20 @@
-function loadQuestionsForLevel(partIndex) {
+function loadQuestionsForLevel() {
 	if (isLoading) return;
-	setLoadingState(true, `Loading questions for Part ${partIndex + 1}...`);
+	setLoadingState(true, `Loading questions...`);
 	setErrorState(null);
-	currentPartQuestions = []; // Clear old questions
+	currentQuestions = []; // Clear old questions
 	currentQuestionIndex = -1;
 	currentQuestion = null;
-	displayedPartIndex = partIndex;
 	updateProgressBar();
 	
-	fetch(`/lesson/${lessonId}/part-questions`, {
+	fetch(`/lesson/${lessonId}/questions`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 			'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 			'Accept': 'application/json',
 		},
-		body: JSON.stringify({partIndex}) // No difficulty parameter needed anymore
+		body: JSON.stringify([])
 	})
 		.then(response => {
 			if (!response.ok) {
@@ -27,26 +26,25 @@ function loadQuestionsForLevel(partIndex) {
 		})
 		.then(data => {
 			if (!data.success) {
-				throw new Error(data.message || 'Failed to fetch questions for this part.');
+				throw new Error(data.message || 'Failed to fetch questions.');
 			}
 			
 			if (!data.questions || data.questions.length === 0) {
-				console.warn(`No questions returned for Part ${partIndex}.`);
-				setErrorState(`No questions found for Part ${partIndex + 1}. You can try another part.`);
+				console.warn(`No questions returned.`);
+				setErrorState(`No questions found.`);
 				toggleElement(questionArea, false);
-				toggleElement(partIntroArea, false);
+				toggleElement(IntroArea, false);
 				setLoadingState(false);
 				return;
 			}
 			
-			console.log(`Loaded ${data.questions.length} questions for Part ${partIndex}`);
+			console.log(`Loaded ${data.questions.length} questions`);
 			// Filter out questions that should be skipped (correct in last attempt with no wrong answers)
-			currentPartQuestions = data.questions.filter(question => !question.should_skip);
+			currentQuestions = data.questions.filter(question => !question.should_skip);
 			
-			if (currentPartQuestions.length === 0) {
-				console.log("All questions in this part were correctly answered!");
-				// Show part completion or move to next part
-				showPartCompletionMessage(partIndex);
+			if (currentQuestions.length === 0) {
+				console.log("All questions were correctly answered!");
+				showCompletionMessage();
 				setLoadingState(false);
 				return;
 			}
@@ -57,63 +55,44 @@ function loadQuestionsForLevel(partIndex) {
 			setLoadingState(false);
 		})
 		.catch(error => {
-			console.error('Error loading part questions:', error);
+			console.error('Error loading questions:', error);
 			setErrorState(`Error: ${error.message}`);
 			setLoadingState(false);
 			toggleElement(questionArea, false);
-			toggleElement(partIntroArea, false);
+			toggleElement(IntroArea, false);
 		});
 }
 
-function showPartCompletionMessage(partIndex) {
+function showCompletionMessage() {
 	setErrorState(null);
 	toggleElement(questionArea, false);
-	toggleElement(partIntroArea, false);
+	toggleElement(IntroArea, false);
 	
 	// If we have completion message element
-	const partCompletionMsg = document.getElementById('partCompletionMessage');
-	if (partCompletionMsg) {
-		partCompletionMsg.innerHTML = `
+	const CompletionMsg = document.getElementById('CompletionMessage');
+	if (CompletionMsg) {
+		CompletionMsg.innerHTML = `
             <div class="alert alert-success" role="alert">
-                <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Part ${partIndex + 1} Complete!</h4>
-                <p>You've successfully answered all questions in this part.</p>
+                <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Complete!</h4>
+                <p>You've successfully answered all questions.</p>
                 <hr>
-                <div class="d-flex justify-content-center">
-                    ${partIndex < totalParts - 1 ?
-			`<button id="continueToNextPartBtn" class="btn btn-primary me-2">Continue to Part ${partIndex + 2}</button>` :
-			''}
-                </div>
             </div>
         `;
-		toggleElement(partCompletionMsg, true);
-		
-		// Add event listeners
-		const continueBtn = document.getElementById('continueToNextPartBtn');
-		if (continueBtn && partIndex < totalParts - 1) {
-			continueBtn.addEventListener('click', () => {
-				toggleElement(partCompletionMsg, false);
-				showPartIntro(partIndex + 1);
-			});
-		}
+		toggleElement(CompletionMsg, true);
 	} else {
-		// Fallback if no dedicated element
-		if (partIndex < totalParts - 1) {
-			showPartIntro(partIndex + 1);
-		} else {
-			showCompletionScreen();
-		}
+		showIntro();
 	}
 }
 
 function displayQuestionAtIndex(index) {
-	if (index < 0 || index >= currentPartQuestions.length) {
+	if (index < 0 || index >= currentQuestions.length) {
 		console.error(`Invalid question index requested: ${index}`);
 		checkStateAndTransition();
 		return;
 	}
 	
 	currentQuestionIndex = index;
-	currentQuestion = currentPartQuestions[index];
+	currentQuestion = currentQuestions[index];
 	selectedIndex = null;
 	
 	// Store the current attempt number for this question
@@ -134,7 +113,7 @@ function updateUIForQuestion() {
 	}
 	
 	if (questionDifficulty) {
-		questionDifficulty.textContent = `Part ${currentQuestion.lesson_part_index + 1} - ${capitalizeFirstLetter(currentQuestion.difficulty_level)}`;
+		questionDifficulty.textContent = `${capitalizeFirstLetter(currentQuestion.difficulty_level)}`;
 	}
 	if (questionTextElement) {
 		questionTextElement.textContent = currentQuestion.question_text;
@@ -169,7 +148,7 @@ function updateUIForQuestion() {
 		buttons.push(button); // Add the created button to our array
 	});
 	
-
+	
 	buttons.forEach(button => {
 		questionAnswersContainer.appendChild(button);
 	});
@@ -184,7 +163,6 @@ function checkStateAndTransition() {
 	console.log("Checking state and transitioning after feedback");
 	
 	const wasCorrect = feedbackData.was_correct || false;
-	const partCompleted = feedbackData.part_completed || false;
 	const lessonCompleted = feedbackData.lesson_completed || false;
 	
 	if (lessonCompleted) {
@@ -196,17 +174,11 @@ function checkStateAndTransition() {
 	
 	if (wasCorrect) {
 		// If this was the last question in the current batch
-		if (currentQuestionIndex >= currentPartQuestions.length - 1) {
-			console.log("Last question in current batch answered correctly");
-			
-			if (partCompleted) {
-				console.log(`Part ${currentQuestion.lesson_part_index} completed!`);
-				showPartCompletionMessage(currentQuestion.lesson_part_index);
-			} else {
-				console.log(`Part ${currentQuestion.lesson_part_index} not fully completed. Reloading questions.`);
-				// Reload questions for the same part to get any remaining ones
-				loadQuestionsForLevel(currentQuestion.lesson_part_index);
-			}
+		if (currentQuestionIndex >= currentQuestions.length - 1) {
+			console.log("Last question answered correctly");
+			showCompletionScreen();
+			setInteractionsDisabled(false);
+			return;
 		} else {
 			// Move to next question in the current batch
 			console.log(`Moving to next question (index ${currentQuestionIndex + 1})`);
@@ -265,7 +237,7 @@ function submitAnswer(index) {
 			
 			console.log('Answer feedback received:', data);
 			currentState = data.newState;
-			feedbackData = data; // Store feedback data including part_completed status
+			feedbackData = data;
 			showFeedbackModal(data);
 		})
 		.catch(error => {
@@ -351,35 +323,25 @@ function showFeedbackModal(feedbackResult) {
 }
 
 function showQuestionScreen() {
-	isPartIntroVisible = false;
+	isIntroVisible = false;
 	feedbackData = null; // Ensure feedback is cleared
 	
-	if (currentQuestion) {
-		displayedPartIndex = currentQuestion.lesson_part_index;
-	} else if (currentPartQuestions.length > 0) {
-		// Fallback if currentQuestion isn't set yet but we have the list
-		displayedPartIndex = currentPartQuestions[0].lesson_part_index;
-	}
-	
 	// Hide Intro Area, Show Question Area
-	toggleElement(partIntroArea, false);
+	toggleElement(IntroArea, false);
 	toggleElement(completionMessage, false);
 	toggleElement(questionArea, true);
-	questionArea.dataset.currentPartIndex = currentState.partIndex; // Store current part index
 }
 
 function showCompletionScreen() {
 	console.log("Showing completion screen");
 	stopPlaybackSequence(true); // Stop any audio
-	isPartIntroVisible = false;
+	isIntroVisible = false;
 	feedbackData = null;
-	currentPartQuestions = [];
+	currentQuestions = [];
 	currentQuestionIndex = -1;
 	currentQuestion = null;
 	
-	displayedPartIndex = totalParts - 1;
-	
-	toggleElement(partIntroArea, false);
+	toggleElement(IntroArea, false);
 	toggleElement(questionArea, false);
 	toggleElement(completionMessage, true);
 	
@@ -392,7 +354,7 @@ function updateUI() {
 	updateProgressBar();
 	
 	// If intro is visible, only update its buttons and return
-	if (isPartIntroVisible) {
+	if (isIntroVisible) {
 		updateButtonStates(6);
 		return;
 	}
@@ -407,7 +369,7 @@ function updateUI() {
 		updateButtonStates(7);
 		return;
 	}
-
+	
 	updateButtonStates(8);
 }
 
@@ -425,7 +387,6 @@ function setupQuestionAnswerEventListeners() {
 function initQuestionInterface() {
 	console.log("Initializing Interactive Question...");
 	console.log("Initial State:", currentState);
-	console.log("Total Parts:", totalParts);
 	
 	setLoadingState(true, 'Initializing...');
 	
@@ -434,20 +395,15 @@ function initQuestionInterface() {
 		setLoadingState(false);
 		return;
 	}
-	
+	console.log(lessonIntro);
 	// Determine initial view: Completion or Intro
 	if (currentState.status === 'completed') {
-		displayedPartIndex = totalParts > 0 ? totalParts - 1 : 0;
 		showCompletionScreen();
-	} else if (currentState.partIndex >= 0 && currentState.partIndex < totalParts) {
-		displayedPartIndex = currentState.partIndex;
-		// Always show the intro for the current part first upon initial load or refresh
-		showPartIntro(currentState.partIndex);
+	} else if (currentState.status === 'inprogress') {
+			showIntro();
 	} else {
-		// Should not happen with valid state calculation, indicates an error
-		displayedPartIndex = 0;
-		setErrorState("Invalid starting state detected (Part index out of bounds). Please try refreshing.");
-		toggleElement(partIntroArea, false); // Hide potentially broken intro
+		setErrorState("Invalid starting state detected. Please try refreshing.");
+		toggleElement(IntroArea, false);
 	}
 	
 	setLoadingState(false); // Done initializing
@@ -582,14 +538,12 @@ function setupStartOverIntroButtonListener() {
 		startOverIntroButton.addEventListener('click', () => {
 			console.log("Start Over Intro clicked");
 			
-			// Find the currently displayed intro part data
-			const introData = allPartIntros[displayedPartIndex];
 			if (introData && introData.sentences && introData.sentences.length > 0 && introData.has_audio) {
 				stopPlaybackSequence(false); // Stop current playback, don't enable interactions yet
 				buildIntroPlaybackQueue(introData.sentences); // Rebuild the queue
 				startPlaybackSequence(true); // Start from the beginning
 			} else {
-				console.warn("No audio sentences found for this part to start over.");
+				console.warn("No audio sentences found to start over.");
 			}
 		});
 	}

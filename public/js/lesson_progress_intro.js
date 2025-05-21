@@ -1,15 +1,9 @@
 function setupIntroEventListeners() {
-	if (startPartQuestionButton) {
-		startPartQuestionButton.addEventListener('click', startPartQuestions);
-	}
-	// Part indicator clicks are handled during updatePartIndicators
-	if (partIndicatorContainer) {
-		// Initial setup of click listeners
-		updatePartIndicators();
+	if (startQuestionButton) {
+		startQuestionButton.addEventListener('click', startQuestions);
 	}
 }
 
-// Removed handlePartLabelClick - logic moved to updatePartIndicators
 
 function updateProgressBar() {
 	if (!progressBar || !currentState) return;
@@ -23,77 +17,21 @@ function updateProgressBar() {
 	progressBar.textContent = `${displayProgress}%`;
 	progressBar.setAttribute('aria-valuenow', displayProgress);
 	
-	updatePartIndicators(); // Update labels whenever progress changes
-}
-
-function updatePartIndicators() {
-	if (!partIndicatorContainer || !currentState) return;
-	
-	const partLabels = partIndicatorContainer.querySelectorAll('.part-label');
-	const currentActivePart = currentState.status === 'completed' ? -1 : currentState.partIndex; // No active part if completed
-	
-	partLabels.forEach(label => {
-		const index = parseInt(label.dataset.partIndex);
-		label.classList.remove('active', 'completed');
-		
-		if (currentState.status === 'completed' || index < currentActivePart) {
-			label.classList.add('completed');
-		} else if (index === currentActivePart) {
-			label.classList.add('active');
-		}
-		
-		// Add click listener if not already added
-		if (!label.dataset.listenerAdded) {
-			label.addEventListener('click', () => {
-				if (isLoading || isAutoPlaying) return; // Prevent clicks during loading/playback
-				
-				const targetPartIndex = parseInt(label.dataset.partIndex, 10);
-				console.log(`Part indicator ${targetPartIndex + 1} clicked.`);
-				
-				// Allow jumping to current or already completed parts
-				//const canJump = currentState.status === 'completed' || targetPartIndex <= currentState.partIndex;
-				const canJump = true;
-				if (canJump) {
-					stopPlaybackSequence(true); // Stop any current playback
-					if (feedbackModalInstance && isModalVisible) feedbackModalInstance.hide(); // Hide feedback modal
-					feedbackData = null;
-					setErrorState(null);
-					toggleElement(completionMessage, false);
-					showPartIntro(targetPartIndex); // Show the selected part's intro
-				} else {
-					showToast("Please complete the current part first.", "Info", "info");
-				}
-			});
-			label.dataset.listenerAdded = 'true';
-		}
-	});
 }
 
 
-function showPartIntro(partIndexToShow) {
-	console.log(`Showing intro for part ${partIndexToShow}`);
-	if (partIndexToShow < 0 || partIndexToShow >= totalParts || !allPartIntros[partIndexToShow]) {
-		console.error("Invalid partIndexToShow:", partIndexToShow);
-		setErrorState("Cannot display intro for invalid part index.");
-		toggleElement(partIntroArea, true);
-		if(partIntroTitle) partIntroTitle.textContent = "Error";
-		if(partIntroTextContainer) partIntroTextContainer.innerHTML = '<p class="text-danger">Could not load introduction content.</p>';
-		if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide controls on error
-		return;
-	}
+function showIntro() {
+	console.log(`Showing intro`);
 	
 	stopPlaybackSequence(true);
 	feedbackData = null;
-	isPartIntroVisible = true;
-	displayedPartIndex = partIndexToShow;
-	currentState.partIndex = partIndexToShow;
+	isIntroVisible = true;
 	
-	const introData = window.allPartIntros[partIndexToShow];
-	const introTitle = introData.title || `Part ${partIndexToShow + 1}`;
-	const partNumber = partIndexToShow + 1;
+	const introData = window.lessonIntro;
+	const introTitle = introData.title;
 	
 	// --- Populate Intro Area ---
-	if (partIntroTitle) partIntroTitle.textContent = `Part ${partNumber}: ${introTitle}`;
+	if (IntroTitle) IntroTitle.textContent = `${introTitle}`;
 	
 	// --- Reset Image Display ---
 	if (introSentenceImage) {
@@ -105,39 +43,38 @@ function showPartIntro(partIndexToShow) {
 	}
 	
 	// Populate Sentence Spans
-	if (partIntroTextContainer && partIntroText) {
-		partIntroTextContainer.innerHTML = ''; // Clear previous
+	if (IntroTextContainer && IntroText) {
+		IntroTextContainer.innerHTML = ''; // Clear previous
 		if (introData.sentences && introData.sentences.length > 0) {
 			introData.sentences.forEach((sentence, index) => {
 				const span = document.createElement('span');
 				span.classList.add('intro-sentence');
 				span.dataset.sentenceIndex = index;
 				span.textContent = sentence.text + ' '; // Add space
-				partIntroTextContainer.appendChild(span);
+				IntroTextContainer.appendChild(span);
 			});
-			toggleElement(partIntroText, false); // Hide placeholder P tag
+			toggleElement(IntroText, false); // Hide placeholder P tag
 		} else {
 			// Display full text if no playable sentences or just use a message
-			partIntroTextContainer.innerHTML = `<p class="text-muted">${introData.full_text || '(No introduction text available for this part.)'}</p>`;
-			toggleElement(partIntroText, false);
+			IntroTextContainer.innerHTML = `<p class="text-muted">${introData.full_text || '(No introduction text available.)'}</p>`;
+			toggleElement(IntroText, false);
 		}
-	} else if (partIntroText) {
+	} else if (IntroText) {
 		// Fallback if container issue
-		partIntroText.textContent = introData.full_text || '(No introduction text available for this part.)';
-		toggleElement(partIntroText, true);
+		IntroText.textContent = introData.full_text || '(No introduction text available.)';
+		toggleElement(IntroText, true);
 	}
 	
 	
 	// --- Show/Hide Elements ---
-	toggleElement(partIntroArea, true);
+	toggleElement(IntroArea, true);
 	toggleElement(questionArea, false);
 	toggleElement(completionMessage, false);
-	toggleElement(partCompletionMessage, false);
 	
 	// --- Update Buttons and State ---
-	if (startPartQuestionButton) {
-		startPartQuestionButton.textContent = `Start Part ${partNumber} Questions`;
-		startPartQuestionButton.disabled = false;
+	if (startQuestionButton) {
+		startQuestionButton.textContent = `Start Questions`;
+		startQuestionButton.disabled = false;
 	}
 	updateProgressBar();
 	setInteractionsDisabled(false);
@@ -167,23 +104,22 @@ function showPartIntro(partIndexToShow) {
 }
 
 
-function startPartQuestions() {
+function startQuestions() {
 	if (isLoading || interactionsDisabled) return;
 	
 	// No need to check for video play state anymore
 	
-	console.log(`Starting questions for Part ${displayedPartIndex + 1}`);
-	isPartIntroVisible = false;
+	console.log(`Starting questions`);
+	isIntroVisible = false;
 	stopPlaybackSequence(true); // Stop intro audio and enable interactions
 	
 	// Hide Intro Area, show loading state (which will then show question area)
-	toggleElement(partIntroArea, false);
+	toggleElement(IntroArea, false);
 	if (introSentenceImage) introSentenceImage.style.display = 'none';
 	if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
 	
 	if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide controls when leaving intro
 	toggleElement(questionArea, false); // Hide question area initially
 	
-	// Load questions for the currently displayed part index
-	loadQuestionsForLevel(displayedPartIndex);
+	loadQuestionsForLevel();
 }

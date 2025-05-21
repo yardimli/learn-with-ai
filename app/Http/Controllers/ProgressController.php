@@ -29,7 +29,6 @@
 			$score = 0;
 			$answerModel = $useArchive ? UserAnswerArchive::class : UserAnswer::class;
 
-			// Prepare base query parts
 			$baseQueryConditions = [
 				['lesson_id', '=', $lessonId],
 				['attempt_number', '=', 1],

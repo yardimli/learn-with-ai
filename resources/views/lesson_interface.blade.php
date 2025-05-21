@@ -4,15 +4,13 @@
 
 @section('content')
 	<input type="hidden" id="lessonId" value="{{ $lesson->id }}">
-	
 	<div class="question-card">
 		<h3 class="text-center mb-3" id="lessonTitle">{{ $lesson->title }}</h3>
 		
-		@include('partials.lesson_progress_intro', ['totalParts' => $totalParts])
+		@include('partials.lesson_progress_intro', [])
 		
 		<div id="questionArea" class="d-none">
 			<div class="row">
-				<!-- Left Column: Question Text & Image -->
 				<div class="col-12 col-md-5 text-center text-md-start mb-3 mb-md-0">
 					<div id="questionQuestionContainer" class="p-3 border rounded question-container position-relative">
 						<p id="questionDifficulty" class="text-muted small mb-2"></p>
@@ -24,36 +22,26 @@
 						</div>
 					</div>
 				</div>
-				
-				<!-- Right Column: Answers & Feedback -->
 				<div class="col-12 col-md-7">
-					<!-- Answer Buttons -->
 					<div id="questionAnswersContainer" class="d-grid gap-3 mb-4">
 					</div>
-				</div> <!-- End Right Column -->
-			</div> <!-- End Row -->
-		</div> <!-- End Question Area -->
+				</div>
+			</div>
+		</div>
 		
 		<div id="completionMessage" class="d-none mt-4">
 			<h3 class="text-success"><i class="fas fa-check-circle me-2"></i>Lesson Complete!</h3>
-			<p>Congratulations, you've successfully answered the required questions for all parts of this lesson.</p>
+			<p>Congratulations, you've successfully answered the required questions for this lesson.</p>
 			<a href="{{ route('lessons.list') }}" class="btn btn-primary">Choose Another Lesson</a>
-		</div>
-		
-		<div id="partCompletionMessage" class="d-none mt-4">
 		</div>
 		
 		<div class="auto-play-switch-container mb-3">
 			<div class="form-check form-switch">
-				<input class="form-check-input" type="checkbox" role="switch" id="autoPlayAudioSwitch"
-				       checked>
+				<input class="form-check-input" type="checkbox" role="switch" id="autoPlayAudioSwitch" checked>
 				<label class="form-check-label small" for="autoPlayAudioSwitch">Auto-play Audio</label>
 			</div>
 		</div>
-	
-	
-	</div> {{-- End Question Card --}}
-	
+	</div>
 	
 	<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true"
 	     data-bs-backdrop="static" data-bs-keyboard="false">
@@ -61,8 +49,6 @@
 			<div class="modal-content">
 				<div class="modal-header">
 					<h5 class="modal-title" id="feedbackModalLabel">Feedback</h5>
-					{{-- No close button on header, force using footer buttons --}}
-					{{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
 				</div>
 				<div class="modal-body">
 					<p id="feedbackModalText">Your feedback text here.</p>
@@ -78,26 +64,20 @@
 			</div>
 		</div>
 	</div>
-
 @endsection
 
 @push('scripts')
 	<script>
 		window.lessonId = @json($lesson->id);
 		window.questionInitialState = @json($state);
-		window.totalLessonParts = @json($totalParts);
-		window.allPartIntros = @json($allPartIntros);
+		window.lessonIntro = @json($lessonIntro);
 		
-		
-		// --- DOM Element References ---
-		let partIntroTextContainer = null; // Container for sentence spans
+		let IntroTextContainer = null;
 		let introPlaybackControls = null;
 		let startOverIntroButton = null;
-		
 		let introSentenceImageContainer = null;
 		let introSentenceImage = null;
 		let introSentenceImagePlaceholder = null;
-		
 		let questionArea = null;
 		let questionDifficulty = null;
 		let questionTextElement = null;
@@ -105,9 +85,8 @@
 		let noImagePlaceholder = null;
 		let questionAnswersContainer = null;
 		let completionMessage = null;
-		
 		let feedbackModal = null;
-		let feedbackModalInstance = null; // To store the Bootstrap modal object
+		let feedbackModalInstance = null;
 		let feedbackModalLabel = null;
 		let feedbackModalText = null;
 		let playFeedbackModalButton = null;
@@ -115,26 +94,18 @@
 		let modalTryAgainButton = null;
 		let modalNextButton = null;
 		
-		// --- State Variables ---
 		let lessonId = null;
 		let isAutoPlayEnabled = true;
-		let displayedPartIndex = -1;
-		
-		let totalParts = window.totalLessonParts || 0;
 		let difficulties = ['easy', 'medium', 'hard'];
-		
-		let currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText }
-		let currentPartQuestions = [];
+		let currentState = window.questionInitialState || null;
+		let currentLessonQuestions = [];
 		let currentQuestionIndex = -1;
 		let currentQuestion = null;
-		
 		let selectedIndex = null;
 		let isLoading = false;
 		let interactionsDisabled = false;
-		
 		let isModalVisible = false;
 		
-		// TTS Playback State
 		let playbackQueue = [];
 		let currentPlaybackIndex = -1;
 		let isAutoPlaying = false;
@@ -143,25 +114,19 @@
 		let feedbackAudioPlayer = null;
 		let autoPlayAudioSwitch = null;
 		
-		// Progress and Intro
 		let progressBar = null;
-		let partIndicatorContainer = null;
-		let partIntroArea = null;
-		let partIntroTitle = null;
-		let partIntroText = null;
-		let startPartQuestionButton = null;
-		
-		let isPartIntroVisible = false; // Track if intro or question area is shown
+		let IntroArea = null;
+		let IntroTitle = null;
+		let IntroText = null;
+		let startQuestionButton = null; // Renamed to startLessonQuestionButton
+		let isIntroVisible = false; // Renamed to isLessonIntroVisible
 		
 		let loadingOverlay = null;
 		let loadingMessageEl = null;
 		let errorMessageArea = null;
 		let errorMessageText = null;
 		let closeErrorButton = null;
-		
-		let currentAttemptNumber = 1; // Track current attempt number
-		let partCompletionMessage = null; // Reference to part completion element
-		
+		let currentAttemptNumber = 1;
 		
 		document.addEventListener('DOMContentLoaded', () => {
 			loadingOverlay = document.getElementById('loadingOverlay');
@@ -170,43 +135,34 @@
 			errorMessageText = document.getElementById('errorMessageText');
 			closeErrorButton = document.getElementById('closeErrorButton');
 			
-			// --- State Variables ---
 			lessonId = document.getElementById('lessonId').value;
-			
-			currentState = window.questionInitialState || null; // { partIndex, difficulty, correctCounts, status, requiredCorrect, currentPartIntroText }
-			currentPartQuestions = [];
+			currentState = window.questionInitialState || null;
+			currentLessonQuestions = [];
 			currentQuestionIndex = -1;
 			currentQuestion = null;
-			
 			selectedIndex = null;
 			isLoading = false;
 			interactionsDisabled = false;
 			
 			progressBar = document.getElementById('progressBar');
-			partIndicatorContainer = document.getElementById('partIndicatorContainer');
-			partIntroArea = document.getElementById('partIntroArea');
-			partIntroTitle = document.getElementById('partIntroTitle');
-			partIntroText = document.getElementById('partIntroText');
-			partIntroTextContainer = document.getElementById('partIntroTextContainer');
-			
+			IntroArea = document.getElementById('IntroArea');
+			IntroTitle = document.getElementById('IntroTitle');
+			IntroText = document.getElementById('IntroText');
+			IntroTextContainer = document.getElementById('IntroTextContainer');
 			introSentenceImageContainer = document.getElementById('introSentenceImageContainer');
 			introSentenceImage = document.getElementById('introSentenceImage');
 			introSentenceImagePlaceholder = document.getElementById('introSentenceImagePlaceholder');
-			
-			startPartQuestionButton = document.getElementById('startPartQuestionButton');
-			
+			startQuestionButton = document.getElementById('startQuestionButton'); // Should be startLessonQuestionButton
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
 			autoPlayAudioSwitch = document.getElementById('autoPlayAudioSwitch');
 			
-			// --- DOM Element References ---
 			questionArea = document.getElementById('questionArea');
 			questionDifficulty = document.getElementById('questionDifficulty');
 			questionTextElement = document.getElementById('questionTextElement');
 			questionImageElement = document.getElementById('questionImageElement');
 			noImagePlaceholder = document.getElementById('noImagePlaceholder');
 			questionAnswersContainer = document.getElementById('questionAnswersContainer');
-			
 			feedbackModal = document.getElementById('feedbackModal');
 			feedbackModalLabel = document.getElementById('feedbackModalLabel');
 			feedbackModalText = document.getElementById('feedbackModalText');
@@ -214,20 +170,15 @@
 			feedbackAudioError = document.getElementById('feedbackAudioError');
 			modalTryAgainButton = document.getElementById('modalTryAgainButton');
 			modalNextButton = document.getElementById('modalNextButton');
-			
 			completionMessage = document.getElementById('completionMessage');
-			partCompletionMessage = document.getElementById('partCompletionMessage');
 			
-			// Intro playback controls
 			introPlaybackControls = document.getElementById('introPlaybackControls');
 			startOverIntroButton = document.getElementById('startOverIntroButton');
 			
-			
 			console.log('Interactive Question JS Loaded');
 			
-			// --- Load Auto-Play Preference ---
 			const savedAutoPlayPref = localStorage.getItem('autoPlayAudioEnabled');
-			isAutoPlayEnabled = savedAutoPlayPref !== null ? (savedAutoPlayPref === 'true') : true; // Default true if not set
+			isAutoPlayEnabled = savedAutoPlayPref !== null ? (savedAutoPlayPref === 'true') : true;
 			if (autoPlayAudioSwitch) {
 				autoPlayAudioSwitch.checked = isAutoPlayEnabled;
 			}
@@ -239,13 +190,8 @@
 			setupQuestionAnswerEventListeners();
 			setupHelperEventListeners();
 			setupStartOverIntroButtonListener();
-			
 			initQuestionInterface();
-			
 		});
-		
-	
-	
 	</script>
 	<script src="{{ asset('js/lesson_helper_functions.js') }}"></script>
 	<script src="{{ asset('js/lesson_audio_functions.js') }}"></script>

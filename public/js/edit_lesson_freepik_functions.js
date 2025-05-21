@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	const freepikPaginationUl = document.getElementById('freepikPagination');
 
 	const freepikModalContextInput = document.getElementById('freepikModalContext');
-	const freepikModalPartIndexInput = document.getElementById('freepikModalPartIndex');
 	const freepikModalSentenceIndexInput = document.getElementById('freepikModalSentenceIndex');
 	
 	
@@ -30,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (freepikSearchPlaceholder) freepikSearchPlaceholder.classList.remove('d-none'); // Show placeholder
 		
 		if (freepikModalContextInput) freepikModalContextInput.value = 'question'; // Default context
-		if (freepikModalPartIndexInput) freepikModalPartIndexInput.value = '';
 		if (freepikModalSentenceIndexInput) freepikModalSentenceIndexInput.value = '';
 		
 		setFreepikModalInteractable(true); // Ensure modal is interactable
@@ -59,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 	
-	async function performFreepikSearch(context, query, page = 1, questionId = null, partIndex = null, sentenceIndex = null) {
+	async function performFreepikSearch(context, query, page = 1, questionId = null, sentenceIndex = null) {
 		hideFreepikError();
 		if (freepikSearchResultsContainer) freepikSearchResultsContainer.innerHTML = ''; // Clear previous results
 		if (freepikSearchPlaceholder) freepikSearchPlaceholder.classList.add('d-none');
@@ -69,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		showSpinner(freepikSearchExecuteBtn, true);
 		
 		let url;
-		if (context === 'sentence' && lessonId && partIndex !== null && sentenceIndex !== null) { // lessonId from global scope
-			url = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/search-freepik`;
+		if (context === 'sentence' && lessonId && sentenceIndex !== null) { // lessonId from global scope
+			url = `/lesson/${lessonId}/sentence/${sentenceIndex}/search-freepik`;
 		} else if (context === 'question' && questionId) {
 			url = `/question/${questionId}/search-freepik`; // Existing URL
 		} else {
@@ -99,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			// Display results
 			displayFreepikResults(result.results || []);
-			displayFreepikPagination(result.pagination || null, query, context, questionId, partIndex, sentenceIndex);
+			displayFreepikPagination(result.pagination || null, query, context, questionId, sentenceIndex);
 			
 			
 		} catch (error) {
@@ -146,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	// Basic Pagination Rendering
-	function displayFreepikPagination(pagination, query, context, questionId, partIndex, sentenceIndex) {
+	function displayFreepikPagination(pagination, query, context, questionId, sentenceIndex) {
 		if (!pagination || !freepikPaginationUl || !freepikPaginationContainer || pagination.total_pages <= 1) {
 			if (freepikPaginationContainer) freepikPaginationContainer.classList.add('d-none');
 			if (freepikPaginationUl) freepikPaginationUl.innerHTML = '';
@@ -186,8 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		const createPageLinkAttributes = (pageNumber) => {
 			let attrs = `href="#" class="page-link freepik-page-link" data-page="${pageNumber}" data-query="${escapeHtml(query)}" data-context="${context}"`;
 			if (context === 'question' && questionId) attrs += ` data-question-id="${questionId}"`;
-			if (context === 'sentence' && partIndex !== null && sentenceIndex !== null) {
-				attrs += ` data-part-index="${partIndex}" data-sentence-index="${sentenceIndex}"`;
+			if (context === 'sentence' && sentenceIndex !== null) {
+				attrs += ` data-sentence-index="${sentenceIndex}"`;
 			}
 			return attrs;
 		};
@@ -234,13 +232,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	
-	async function selectFreepikImageAction(context, freepikId, description, imgUrl, questionId = null, partIndex = null, sentenceIndex = null) {
+	async function selectFreepikImageAction(context, freepikId, description, imgUrl, questionId = null, sentenceIndex = null) {
 		let url, errorAreaId, successAreaId;
 		
-		if (context === 'sentence' && lessonId && partIndex !== null && sentenceIndex !== null) {
-			url = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/select-freepik`;
-			errorAreaId = `sent-image-error-p${partIndex}-s${sentenceIndex}`;
-			successAreaId = `sent-image-success-p${partIndex}-s${sentenceIndex}`;
+		if (context === 'sentence' && lessonId && sentenceIndex !== null) {
+			url = `/lesson/${lessonId}/sentence/${sentenceIndex}/select-freepik`;
+			errorAreaId = `sent-image-error-s${sentenceIndex}`;
+			successAreaId = `sent-image-success-s${sentenceIndex}`;
 		} else if (context === 'question' && questionId) {
 			url = `/question/${questionId}/select-freepik`;
 			errorAreaId = `q-image-error-${questionId}`;
@@ -276,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			// Success: Update the correct display
 			if (context === 'sentence') {
-				updateSentenceImageDisplay(partIndex, sentenceIndex, result.image_urls, result.prompt, result.image_id, 'Freepik image selected!');
+				updateSentenceImageDisplay(sentenceIndex, result.image_urls, result.prompt, result.image_id, 'Freepik image selected!');
 			} else {
 				updateQuestionImageDisplay(questionId, result.image_urls, result.prompt, 'Freepik image selected!');
 			}
@@ -320,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (searchFreepikSentenceBtn) {
 			resetFreepikModal(); // Clear previous search
 			const sentenceItem = searchFreepikSentenceBtn.closest('.sentence-item');
-			const partIndex = sentenceItem.dataset.partIndex;
 			const sentenceIndex = sentenceItem.dataset.sentenceIndex;
 			const keywordsInputId = searchFreepikSentenceBtn.dataset.keywordsInputId;
 			const keywordsInput = document.getElementById(keywordsInputId);
@@ -328,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			// Set context and indices in the modal
 			document.getElementById('freepikModalContext').value = 'sentence';
-			document.getElementById('freepikModalPartIndex').value = partIndex;
 			document.getElementById('freepikModalSentenceIndex').value = sentenceIndex;
 			document.getElementById('freepikModalQuestionId').value = ''; // Clear question ID
 			
@@ -346,11 +342,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			const context = freepikModalContextInput.value;
 			const query = freepikSearchQueryInput.value.trim();
 			const questionId = freepikModalQuestionIdInput.value; // Might be empty
-			const partIndex = freepikModalPartIndexInput.value; // Might be empty
 			const sentenceIndex = freepikModalSentenceIndexInput.value; // Might be empty
 			
 			if (query && context) {
-				performFreepikSearch(context, query, 1, questionId || null, partIndex || null, sentenceIndex || null);
+				performFreepikSearch(context, query, 1, questionId || null, sentenceIndex || null);
 			} else {
 				showFreepikError("Please enter a search term.");
 			}
@@ -365,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			const description = selectFreepikImage.dataset.description;
 			const imageUrl = selectFreepikImage.src;
 			const questionId = freepikModalQuestionIdInput.value || null;
-			const partIndex = freepikModalPartIndexInput.value || null;
 			const sentenceIndex = freepikModalSentenceIndexInput.value || null;
 			
 			if (freepikId && context) {
@@ -379,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				// Disable further clicks in modal? Optional
 				setFreepikModalInteractable(false);
 				
-				await selectFreepikImageAction(context, freepikId, description, imageUrl, questionId, partIndex, sentenceIndex);
+				await selectFreepikImageAction(context, freepikId, description, imageUrl, questionId, sentenceIndex);
 				
 				// Re-enable modal interaction on completion (success or error handled in selectFreepikImageAction)
 				setFreepikModalInteractable(true);
@@ -397,12 +391,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			const query = paginationLink.dataset.query;
 			const page = parseInt(paginationLink.dataset.page);
 			const questionId = paginationLink.dataset.questionId || null;
-			const partIndex = paginationLink.dataset.partIndex || null;
 			const sentenceIndex = paginationLink.dataset.sentenceIndex || null;
 			
 			
 			if (context && query && page) {
-				performFreepikSearch(context, query, page, questionId, partIndex, sentenceIndex);
+				performFreepikSearch(context, query, page, questionId, sentenceIndex);
 			}
 			return;
 		}

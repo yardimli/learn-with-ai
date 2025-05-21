@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	const lessonNotesDisplay = document.getElementById('lessonNotesDisplay');
 	const additionalInstructionsTextarea = document.getElementById('additionalInstructionsTextarea');
 	const aiModelSelect = document.getElementById('aiModelSelect');
-	const lessonPartsCountSelect = document.getElementById('lessonPartsCountSelect');
 	const autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
 	const generatePreviewButton = document.getElementById('generatePreviewButton');
 	const generatePreviewSpinner = document.getElementById('generatePreviewSpinner');
@@ -200,8 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			lessonSubjectTextarea.value = lessonSubject;
 			lessonNotesDisplay.value = notes || '';
 			currentSubCategoryIdInput.value = subCategoryId || ''; // Store original sub-category ID
-			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || ''; // Store original main category ID
-			lessonPartsCountSelect.value = '3';
+			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || '';
 			
 			try {
 				const response = await fetch('/user/llm-instructions', { // Use the new route
@@ -401,7 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			const notes = lessonNotesDisplay.value;
 			const additionalInstructions = additionalInstructionsTextarea.value;
 			const llm = aiModelSelect.value;
-			const partsCount = lessonPartsCountSelect.value;
 			const autoDetect = isAutoDetectingCategory;
 			
 			const generationSource = generationSourceInput.value; // Get selected source
@@ -460,11 +457,10 @@ document.addEventListener('DOMContentLoaded', () => {
 						subject: subject,
 						notes: notes,
 						auto_detect_category: autoDetect,
-						parts_count: parseInt(partsCount, 10),
 						additional_instructions: additionalInstructions,
 						generation_source: generationSource,
-						...(generationSource === 'subject' && { subject: subject, notes: notes }),
-						...(generationSource === 'video' && { video_subtitles: subtitles })
+						...(generationSource === 'subject' && {subject: subject, notes: notes}),
+						...(generationSource === 'video' && {video_subtitles: subtitles})
 					}),
 				});
 				
@@ -533,10 +529,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		const targetNode = applyGenerationButton;
 		if (!targetNode) return;
 		
-		const config = { attributes: true, attributeFilter: ['class'] };
+		const config = {attributes: true, attributeFilter: ['class']};
 		
-		const callback = function(mutationsList, observer) {
-			for(const mutation of mutationsList) {
+		const callback = function (mutationsList, observer) {
+			for (const mutation of mutationsList) {
 				if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
 					const isVisible = !targetNode.classList.contains('d-none');
 					const previewSpinnerHidden = generatePreviewSpinner.classList.contains('d-none');
@@ -709,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// --- Helper to display lesson plan ---
 	function displayLessonPlanPreview(plan) {
-		if (!plan || !plan.lesson_parts || plan.lesson_parts.length === 0) {
+		if (!plan || !plan.lesson_content || plan.lesson_content.length === 0) {
 			lessonPreviewBody.innerHTML = '<div class="alert alert-warning">Could not generate a valid lesson plan structure. Check AI model or prompt.</div>';
 			return;
 		}
@@ -720,19 +716,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		previewHtml += '<hr>';
 		
-		plan.lesson_parts.forEach((part, index) => {
-			previewHtml += `
+		previewHtml += `
                 <div class="mb-3 card">
                     <div class="card-header">
-                        <strong>Part ${index + 1}: ${escapeHtml(part.title || 'Untitled Part')}</strong>
+                        <strong>${escapeHtml(plan.lesson_content.title || 'Untitled Lesson')}</strong>
                     </div>
                     <div class="card-body">
-                        <p class="card-text">${escapeHtml(part.text || 'No content generated.')}</p>
-                        ${part.image_prompt_idea ? `<p class="card-text"><small class="text-muted">Image Idea: ${escapeHtml(part.image_prompt_idea)}</small></p>` : ''}
+                        <p class="card-text">${escapeHtml(plan.lesson_content.text || 'No content generated.')}</p>
+                        ${plan.lesson_content.image_prompt_idea ? `<p class="card-text"><small class="text-muted">Image Idea: ${escapeHtml(plan.lesson_content.image_prompt_idea)}</small></p>` : ''}
                     </div>
                 </div>
             `;
-		});
 		
 		lessonPreviewBody.innerHTML = previewHtml;
 	}
@@ -818,7 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	
 	document.querySelectorAll('.add-video-btn').forEach(button => {
-		button.addEventListener('click', function() {
+		button.addEventListener('click', function () {
 			const lessonId = this.dataset.lessonId;
 			const lessonTitle = this.dataset.lessonTitle;
 			

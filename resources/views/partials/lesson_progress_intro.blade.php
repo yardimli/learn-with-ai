@@ -3,20 +3,11 @@
 	<div class="progress" role="progressbar" aria-label="Lesson Progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="height: 25px;">
 		<div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
 	</div>
-	{{-- Part Indicator --}}
-	@if($totalParts > 0)
-		<div id="partIndicatorContainer" class="part-indicator mt-2">
-			@for ($i = 0; $i < $totalParts; $i++)
-				{{-- Use unique IDs if needed, but class/data attribute is sufficient for JS --}}
-				<span class="part-label" data-part-index="{{ $i }}">Part {{ $i + 1 }}</span>
-			@endfor
-		</div>
-	@endif
 </div>
 
-{{-- Part Introduction Area --}}
-<div id="partIntroArea" class="d-none">
-	<h4 id="partIntroTitle" class="mb-3 text-center">Part Title</h4>
+{{-- Introduction Area --}}
+<div id="IntroArea" class="d-none">
+	<h4 id="IntroTitle" class="mb-3 text-center">Intro Title</h4>
 	
 	<div class="row align-items-top">
 		<div class="col-md-4 text-center mb-3 mb-md-0">
@@ -38,14 +29,14 @@
 		
 		{{-- Right Column: Text & Controls --}}
 		<div class="col-md-8">
-			<div id="partIntroTextContainer" class="mb-3 lead" style="line-height: 1.8;">
-				<p id="partIntroText" class="text-muted">Loading intro...</p>
+			<div id="IntroTextContainer" class="mb-3 lead" style="line-height: 1.8;">
+				<p id="IntroText" class="text-muted">Loading intro...</p>
 			</div>
 			
 			
 			<div class="text-center">
-				<button id="startPartQuestionButton" class="btn btn-success btn-lg">
-					Start Part Questions
+				<button id="startQuestionButton" class="btn btn-success btn-lg">
+					Start Questions
 					<i class="fas fa-arrow-right ms-2"></i>
 				</button>
 			</div>

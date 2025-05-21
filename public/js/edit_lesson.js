@@ -83,12 +83,12 @@ function updateQuestionImageDisplay(questionId, imageUrls, prompt, successMessag
 	}
 }
 
-async function uploadSentenceImage(partIndex, sentenceIndex, file, errorAreaId) {
+async function uploadSentenceImage(sentenceIndex, file, errorAreaId) {
 	const formData = new FormData();
 	formData.append('sentence_image', file);
 	// Construct URL dynamically or get from data attribute
-	const lessonId = document.querySelector(`.generate-part-audio-btn[data-part-index="${partIndex}"]`).dataset.lessonId;
-	const url = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/upload-image`;
+	const lessonId = document.getElementById('generate-lesson-sentence-assets-btn').dataset.lessonId;
+	const url = `/lesson/${lessonId}/sentence/${sentenceIndex}/upload-image`;
 	
 	try {
 		const response = await fetch(url, {
@@ -104,26 +104,26 @@ async function uploadSentenceImage(partIndex, sentenceIndex, file, errorAreaId) 
 			throw new Error(result.message || `Upload failed. Status: ${response.status}`);
 		}
 		// Success
-		updateSentenceImageDisplay(partIndex, sentenceIndex, result.image_urls, null, result.image_id, 'Image uploaded!'); // No prompt for uploads
+		updateSentenceImageDisplay(sentenceIndex, result.image_urls, null, result.image_id, 'Image uploaded!'); // No prompt for uploads
 		
 	} catch (error) {
-		console.error(`Error uploading image for sentence ${partIndex}-${sentenceIndex}:`, error);
+		console.error(`Error uploading image for sentence ${sentenceIndex}:`, error);
 		showError(errorAreaId, `Upload Failed: ${error.message}`);
 	}
 }
 
-function updateSentenceImageDisplay(partIndex, sentenceIndex, imageUrls, prompt, imageId, successMessage = null) {
-	const displayArea = document.getElementById(`sent-image-display-p${partIndex}-s${sentenceIndex}`);
-	const sentenceItem = document.getElementById(`sentence-item-p${partIndex}-s${sentenceIndex}`);
-	const errorArea = document.getElementById(`sent-image-error-p${partIndex}-s${sentenceIndex}`);
-	const successArea = document.getElementById(`sent-image-success-p${partIndex}-s${sentenceIndex}`);
-	const promptInput = document.getElementById(`sent-prompt-input-p${partIndex}-s${sentenceIndex}`);
+function updateSentenceImageDisplay(sentenceIndex, imageUrls, prompt, imageId, successMessage = null) {
+	const displayArea = document.getElementById(`sent-image-display-s${sentenceIndex}`);
+	const sentenceItem = document.getElementById(`sentence-item-s${sentenceIndex}`);
+	const errorArea = document.getElementById(`sent-image-error-s${sentenceIndex}`);
+	const successArea = document.getElementById(`sent-image-success-s${sentenceIndex}`);
+	const promptInput = document.getElementById(`sent-prompt-input-s${sentenceIndex}`);
 	
 	hideError(errorArea);
 	hideSuccess(successArea); // Clear previous success
 	
 	if (!displayArea || !sentenceItem || !imageUrls) {
-		console.error("Missing elements or URLs for sentence image update:", partIndex, sentenceIndex);
+		console.error("Missing elements or URLs for sentence image update:", sentenceIndex);
 		showError(errorArea, "UI Update Error");
 		return;
 	}
@@ -182,14 +182,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 	
 	
-	// --- Lesson Part Edit Modal Elements ---
-	const editPartModalElement = document.getElementById('editPartModal');
-	const editPartModal = editPartModalElement ? new bootstrap.Modal(editPartModalElement) : null;
-	const editPartIndexInput = document.getElementById('editPartIndex');
-	const editPartTitleInput = document.getElementById('editPartTitle');
-	const editPartTextInput = document.getElementById('editPartText');
-	const savePartBtn = document.getElementById('savePartBtn');
-	const editPartError = document.getElementById('editPartError');
+	// --- Lesson Edit Modal Elements ---
+	const editModalElement = document.getElementById('editModal');
+	const editModal = editModalElement ? new bootstrap.Modal(editModalElement) : null;
+	const editTitleInput = document.getElementById('editTitle');
+	const editTextInput = document.getElementById('editText');
+	const saveBtn = document.getElementById('saveBtn');
+	const editError = document.getElementById('editError');
 	
 	
 	// --- Event Listeners ---
@@ -197,16 +196,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Use event delegation for dynamically added elements
 	document.body.addEventListener('click', async (event) => {
 		
-		const generatePartAudioBtn = event.target.closest('.generate-part-audio-btn');
-		if (generatePartAudioBtn) {
-			const btn = generatePartAudioBtn;
-			const partIndex = btn.dataset.partIndex;
+		const generateLessonSentenceAssetsBtn = event.target.closest('#generate-lesson-sentence-assets-btn');
+		if (generateLessonSentenceAssetsBtn) {
+			const btn = generateLessonSentenceAssetsBtn;
 			const lessonId = btn.dataset.lessonId;
 			const generateUrl = btn.dataset.generateUrl;
-			const statusEl = document.getElementById(`part-${partIndex}-audio-status`);
-			const errorArea = document.getElementById(`part-${partIndex}-error`);
+			const statusEl = document.getElementById(`audio-status`);
+			const errorArea = document.getElementById(`error`);
 			
-			if (!confirm(`Generate sentence assets (audio & image prompts) for Part ${parseInt(partIndex) + 1}? This replaces existing assets for this part.`)) {
+			if (!confirm(`Generate sentence assets (audio & image prompts)? This replaces existing assets.`)) {
 				return;
 			}
 			showSpinner(btn, true);
@@ -229,17 +227,17 @@ document.addEventListener('DOMContentLoaded', () => {
 				const result = await response.json();
 				
 				// Update status using the modified function which now handles sentence rendering
-				updatePartAudioStatus(partIndex, result.success, result);
+				updateLessonSentenceAssetsStatus(result.success, result);
 				
-				// Original toast logic is now inside updatePartAudioStatus
+				// Original toast logic is now inside updateLessonSentenceAssetsStatus
 				
 			} catch (error) {
-				console.error(`Error generating assets for part ${partIndex}:`, error);
+				console.error(`Error generating assets:`, error);
 				// Update status to failed - pass error message
-				updatePartAudioStatus(partIndex, false, { message: error.message });
+				updateLessonSentenceAssetsStatus(false, { message: error.message });
 				showToast(`Failed to generate assets: ${error.message}`, 'Error', 'error');
 			} finally {
-				// Spinner handling is now inside updatePartAudioStatus
+				// Spinner handling is now inside updateLessonSentenceAssetsStatus
 			}
 			return; // Stop processing
 		}
@@ -249,15 +247,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (genSentenceImageBtn) {
 			const btn = genSentenceImageBtn;
 			const sentenceItem = btn.closest('.sentence-item');
-			const partIndex = sentenceItem.dataset.partIndex;
 			const sentenceIndex = sentenceItem.dataset.sentenceIndex;
 			const url = btn.dataset.url;
 			const promptInputId = btn.dataset.promptInputId;
 			const promptInput = document.getElementById(promptInputId);
 			const prompt = promptInput ? promptInput.value.trim() : '';
 			const errorAreaId = btn.dataset.errorAreaId; // Ensure this is set correctly in the template
-			const imageDisplayId = `sent-image-display-p${partIndex}-s${sentenceIndex}`; // ID of the image display area
-			const successAreaId = `sent-image-success-p${partIndex}-s${sentenceIndex}`; // Hypothetical success area ID
+			const imageDisplayId = `sent-image-display-s${sentenceIndex}`; // ID of the image display area
+			const successAreaId = `sent-image-success-s${sentenceIndex}`; // Hypothetical success area ID
 			
 			
 			if (!prompt) {
@@ -284,10 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				
 				// Success: Update the specific sentence's image display
-				updateSentenceImageDisplay(partIndex, sentenceIndex, result.image_urls, result.prompt, result.image_id, 'AI image generated!');
+				updateSentenceImageDisplay(sentenceIndex, result.image_urls, result.prompt, result.image_id, 'AI image generated!');
 				
 			} catch (error) {
-				console.error(`Error generating AI image for sentence ${partIndex}-${sentenceIndex}:`, error);
+				console.error(`Error generating AI image for sentence ${sentenceIndex}:`, error);
 				showError(errorAreaId, `AI Gen Failed: ${error.message}`);
 			} finally {
 				showSpinner(btn, false);
@@ -371,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			const btn = addQuestionBatchBtn;
 			const url = btn.dataset.generateUrl;
 			const difficulty = btn.dataset.difficulty;
-			const partIndex = btn.dataset.partIndex;
 			const targetListId = btn.dataset.targetListId;
 			const errorAreaId = btn.dataset.errorAreaId;
 			const targetListElement = document.getElementById(targetListId);
@@ -404,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					// Show success message using proper Bootstrap modal
 					const successModal = new bootstrap.Modal(document.getElementById('questionBatchSuccessModal'));
 					document.getElementById('questionBatchSuccessMessage').textContent =
-						`Successfully generated ${result.questions.length} ${difficulty} questions for part ${parseInt(partIndex) + 1}.`;
+						`Successfully generated ${result.questions.length} ${difficulty} questions.`;
 					
 					// Set up the reload action when modal is confirmed
 					document.getElementById('questionBatchSuccessConfirm').onclick = function () {
@@ -420,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				
 			} catch (error) {
-				console.error(`Error generating ${difficulty} questions for part ${partIndex}:`, error);
+				console.error(`Error generating ${difficulty} questions:`, error);
 				showError(errorAreaId, `Failed: ${error.message}`);
 			} finally {
 				showSpinner(btn, false);
@@ -440,58 +436,55 @@ document.addEventListener('DOMContentLoaded', () => {
 			return;
 		}
 		
-		const editPartBtn = event.target.closest('.edit-part-text-btn');
-		if (editPartBtn && editPartModal) {
-			const partIndex = editPartBtn.dataset.partIndex;
-			const partTitle = editPartBtn.dataset.partTitle; // Get title from button data
-			const partTextElement = document.getElementById(`part-text-display-${partIndex}`);
-			const partText = partTextElement ? partTextElement.textContent : '';
+		const editBtn = event.target.closest('.edit-text-btn');
+		if (editBtn && editModal) {
+			const Title = editBtn.dataset.Title; // Get title from button data
+			const TextElement = document.getElementById(`text-display`);
+			const Text = TextElement ? TextElement.textContent : '';
 			
 			// Populate modal
-			if (editPartIndexInput) editPartIndexInput.value = partIndex;
-			if (editPartTitleInput) editPartTitleInput.value = partTitle;
-			if (editPartTextInput) editPartTextInput.value = partText;
-			if (editPartError) {
-				editPartError.classList.add('d-none');
-				editPartError.textContent = '';
+			if (editTitleInput) editTitleInput.value = Title;
+			if (editTextInput) editTextInput.value = Text;
+			if (editError) {
+				editError.classList.add('d-none');
+				editError.textContent = '';
 			}
-			if (savePartBtn) {
-				showSpinner(savePartBtn, false); // Ensure spinner is off initially
-				savePartBtn.disabled = false;
+			if (saveBtn) {
+				showSpinner(saveBtn, false); // Ensure spinner is off initially
+				saveBtn.disabled = false;
 			}
 		}
 		
-		// --- Save Lesson Part Button Click Handler ---
-		if (savePartBtn && editPartModal && editPartIndexInput && editPartTitleInput && editPartTextInput && editPartError) {
-			savePartBtn.addEventListener('click', async () => {
-				const partIndex = editPartIndexInput.value;
-				const partTitle = editPartTitleInput.value.trim(); // Get updated title
-				const partText = editPartTextInput.value.trim();
+		// --- Save Lesson Button Click Handler ---
+		if (saveBtn && editModal && editTitleInput && editTextInput && editError) {
+			saveBtn.addEventListener('click', async () => {
+				const Title = editTitleInput.value.trim(); // Get updated title
+				const Text = editTextInput.value.trim();
 				
 				// Basic validation
 				let isValid = true;
-				editPartTitleInput.classList.remove('is-invalid');
-				editPartTextInput.classList.remove('is-invalid');
-				editPartError.classList.add('d-none');
+				editTitleInput.classList.remove('is-invalid');
+				editTextInput.classList.remove('is-invalid');
+				editError.classList.add('d-none');
 				
-				if (!partTitle) {
-					editPartTitleInput.classList.add('is-invalid');
+				if (!Title) {
+					editTitleInput.classList.add('is-invalid');
 					isValid = false;
 				}
-				if (!partText || partText.length < 10) { // Example validation
-					editPartTextInput.classList.add('is-invalid');
+				if (!Text || Text.length < 10) { // Example validation
+					editTextInput.classList.add('is-invalid');
 					isValid = false;
 				}
 				
 				if (!isValid) {
-					editPartError.textContent = 'Please fill in all fields correctly.';
-					editPartError.classList.remove('d-none');
+					editError.textContent = 'Please fill in all fields correctly.';
+					editError.classList.remove('d-none');
 					return;
 				}
 				
-				const updateUrl = `/lesson/${lessonId}/part/${partIndex}/update-text`;
+				const updateUrl = `/lesson/${lessonId}/update-text`;
 				
-				showSpinner(savePartBtn, true);
+				showSpinner(saveBtn, true);
 				
 				try {
 					const response = await fetch(updateUrl, {
@@ -502,8 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
 							'Accept': 'application/json',
 						},
 						body: JSON.stringify({
-							part_title: partTitle,
-							part_text: partText
+							title: Title,
+							text: Text
 						})
 					});
 					
@@ -514,22 +507,22 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 					
 					// --- Success: Update the display on the main page ---
-					const partTextElement = document.getElementById(`part-text-display-${partIndex}`);
-					const titleElement = document.querySelector(`.edit-part-text-btn[data-part-index='${partIndex}']`).closest('h3').querySelector('span');
-					const editButton = document.querySelector(`.edit-part-text-btn[data-part-index='${partIndex}']`);
-					if (partTextElement) partTextElement.textContent = result.updated_part.text;
-					if (titleElement) titleElement.textContent = `Lesson Part ${parseInt(partIndex) + 1}: ${result.updated_part.title}`;
-					if (editButton) editButton.dataset.partTitle = result.updated_part.title; // Update button data attribute
+					const TextElement = document.getElementById(`text-display`);
+					const titleElement = document.querySelector(`.edit-text-btn`).closest('h3').querySelector('span');
+					const editButton = document.querySelector(`.edit-text-btn`);
+					if (TextElement) TextElement.textContent = result.updated.text;
+					if (titleElement) titleElement.textContent = `Lesson: ${result.updated.title}`;
+					if (editButton) editButton.dataset.Title = result.updated.title; // Update button data attribute
 					
-					editPartModal.hide();
-					showToast(result.message || 'Lesson part updated successfully!', 'Success', 'success');
+					editModal.hide();
+					showToast(result.message || 'Lesson updated successfully!', 'Success', 'success');
 					
 				} catch (error) {
-					console.error(`Error updating lesson part ${partIndex}:`, error);
-					editPartError.textContent = `Update Failed: ${error.message}`;
-					editPartError.classList.remove('d-none');
+					console.error(`Error updating lesson:`, error);
+					editError.textContent = `Update Failed: ${error.message}`;
+					editError.classList.remove('d-none');
 				} finally {
-					showSpinner(savePartBtn, false);
+					showSpinner(saveBtn, false);
 				}
 			});
 		}
@@ -548,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 		if ((isSentenceUpload || isQuestionUpload) && fileInput.files.length > 0) {
 			const file = fileInput.files[0];
-			let uploadUrl, errorAreaId, successAreaId, partIndex, sentenceIndex, questionId;
+			let uploadUrl, errorAreaId, successAreaId, sentenceIndex, questionId;
 			
 			// Show temporary loading state
 			const controlsContainer = fileInput.closest(isSentenceUpload ? '.sentence-image-controls' : '.question-image-actions'); // Find appropriate container
@@ -562,17 +555,16 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			if (isSentenceUpload) {
 				const sentenceItem = fileInput.closest('.sentence-item');
-				partIndex = sentenceItem.dataset.partIndex;
 				sentenceIndex = sentenceItem.dataset.sentenceIndex;
-				const lessonId = sentenceItem.closest('.content-card').querySelector('.generate-part-audio-btn').dataset.lessonId; // Get lessonId from part button
-				uploadUrl = `/lesson/${lessonId}/part/${partIndex}/sentence/${sentenceIndex}/upload-image`;
-				errorAreaId = `sent-image-error-p${partIndex}-s${sentenceIndex}`;
-				successAreaId = `sent-image-success-p${partIndex}-s${sentenceIndex}`;
+				const lessonId = sentenceItem.closest('.content-card').getElementById('generate-lesson-sentence-assets-btn').dataset.lessonId; // Get lessonId from button
+				uploadUrl = `/lesson/${lessonId}/sentence/${sentenceIndex}/upload-image`;
+				errorAreaId = `sent-image-error--s${sentenceIndex}`;
+				successAreaId = `sent-image-success-s${sentenceIndex}`;
 				
 				hideError(errorAreaId);
 				// hideSuccess(successAreaId); // Success message handled by update function
 				
-				await uploadSentenceImage(partIndex, sentenceIndex, file, errorAreaId); // Call specific upload function
+				await uploadSentenceImage(sentenceIndex, file, errorAreaId); // Call specific upload function
 				
 			} else if (isQuestionUpload) {
 				questionId = fileInput.dataset.questionId;

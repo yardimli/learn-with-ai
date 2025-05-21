@@ -12,7 +12,7 @@
 		public function up(): void
 		{
 			Schema::table('lessons', function (Blueprint $table) {
-				$table->string('language', 10)->nullable()->after('lesson_parts'); // e.g., 'en', 'tr', 'de'
+				$table->string('language', 10)->nullable()->after('lesson_content'); // e.g., 'en', 'tr', 'de'
 			});
 		}
 

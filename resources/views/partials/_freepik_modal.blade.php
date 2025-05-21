@@ -8,7 +8,6 @@
 			</div>
 			<div class="modal-body">
 				<input type="hidden" id="freepikModalQuestionId" value="{{$lesson->id}}">
-				<input type="hidden" id="freepikModalPartIndex" value="">
 				<input type="hidden" id="freepikModalSentenceIndex" value="">
 				<input type="hidden" id="freepikModalContext" value="question">
 				<div class="input-group mb-3">
