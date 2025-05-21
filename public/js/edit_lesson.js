@@ -183,12 +183,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	
 	// --- Lesson Edit Modal Elements ---
-	const editModalElement = document.getElementById('editModal');
-	const editModal = editModalElement ? new bootstrap.Modal(editModalElement) : null;
-	const editTitleInput = document.getElementById('editTitle');
-	const editTextInput = document.getElementById('editText');
-	const saveBtn = document.getElementById('saveBtn');
-	const editError = document.getElementById('editError');
+	const editContentModalElement = document.getElementById('editContentModal');
+	const editContentModal = editContentModalElement ? new bootstrap.Modal(editContentModalElement) : null;
+	const editContentTitleInput = document.getElementById('editContentTitle');
+	const editContentTextInput  = document.getElementById('editContentText');
+	const saveContentBtn = document.getElementById('saveContentBtn');
+	const editContentError = document.getElementById('editContentError');
 	
 	
 	// --- Event Listeners ---
@@ -436,58 +436,59 @@ document.addEventListener('DOMContentLoaded', () => {
 			return;
 		}
 		
-		const editBtn = event.target.closest('.edit-text-btn');
-		if (editBtn && editModal) {
-			const Title = editBtn.dataset.Title; // Get title from button data
-			const TextElement = document.getElementById(`text-display`);
-			const Text = TextElement ? TextElement.textContent : '';
+		const editLessonContentBtn = event.target.closest('.edit-lesson-content-btn');
+		if (editLessonContentBtn && editContentModal) {
+			console.log(editLessonContentBtn.dataset);
+			const ContentTitle = editLessonContentBtn.dataset.contentTitle; // Get title from button data
+			const ContentTextElement = document.getElementById('content-text-display');
+			const ContentText = ContentTextElement ? ContentTextElement.textContent : '';
 			
 			// Populate modal
-			if (editTitleInput) editTitleInput.value = Title;
-			if (editTextInput) editTextInput.value = Text;
-			if (editError) {
-				editError.classList.add('d-none');
-				editError.textContent = '';
+			if (editContentTitleInput) editContentTitleInput.value = ContentTitle;
+			if (editContentTextInput) editContentTextInput.value = ContentText;
+			if (editContentError) {
+				editContentError.classList.add('d-none');
+				editContentError.textContent = '';
 			}
-			if (saveBtn) {
-				showSpinner(saveBtn, false); // Ensure spinner is off initially
-				saveBtn.disabled = false;
+			if (saveContentBtn) {
+				showSpinner(saveContentBtn, false); // Ensure spinner is off initially
+				saveContentBtn.disabled = false;
 			}
 		}
 		
 		// --- Save Lesson Button Click Handler ---
-		if (saveBtn && editModal && editTitleInput && editTextInput && editError) {
-			saveBtn.addEventListener('click', async () => {
-				const Title = editTitleInput.value.trim(); // Get updated title
-				const Text = editTextInput.value.trim();
+		if (saveContentBtn && editContentModal && editContentTitleInput && editContentTextInput && editContentError) {
+			saveContentBtn.addEventListener('click', async () => {
+				const ContentTitle = editContentTitleInput.value.trim(); // Get updated title
+				const ContentText = editContentTextInput.value.trim();
 				
 				// Basic validation
 				let isValid = true;
-				editTitleInput.classList.remove('is-invalid');
-				editTextInput.classList.remove('is-invalid');
-				editError.classList.add('d-none');
+				editContentTitleInput.classList.remove('is-invalid');
+				editContentTextInput.classList.remove('is-invalid');
+				editContentError.classList.add('d-none');
 				
-				if (!Title) {
-					editTitleInput.classList.add('is-invalid');
+				if (!ContentTitle) {
+					editContentTitleInput.classList.add('is-invalid');
 					isValid = false;
 				}
-				if (!Text || Text.length < 10) { // Example validation
-					editTextInput.classList.add('is-invalid');
+				if (!ContentText || ContentText.length < 10) { // Example validation
+					editContentTextInput.classList.add('is-invalid');
 					isValid = false;
 				}
 				
 				if (!isValid) {
-					editError.textContent = 'Please fill in all fields correctly.';
-					editError.classList.remove('d-none');
+					editContentError.textContent = 'Please fill in all fields correctly.';
+					editContentError.classList.remove('d-none');
 					return;
 				}
 				
-				const updateUrl = `/lesson/${lessonId}/update-text`;
+				const updateContentUrl = `/lesson/${lessonId}/update-content`;
 				
-				showSpinner(saveBtn, true);
+				showSpinner(saveContentBtn, true);
 				
 				try {
-					const response = await fetch(updateUrl, {
+					const response = await fetch(updateContentUrl, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -495,8 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
 							'Accept': 'application/json',
 						},
 						body: JSON.stringify({
-							title: Title,
-							text: Text
+							lesson_title: ContentTitle,
+							lesson_text: ContentText
 						})
 					});
 					
@@ -508,21 +509,21 @@ document.addEventListener('DOMContentLoaded', () => {
 					
 					// --- Success: Update the display on the main page ---
 					const TextElement = document.getElementById(`text-display`);
-					const titleElement = document.querySelector(`.edit-text-btn`).closest('h3').querySelector('span');
-					const editButton = document.querySelector(`.edit-text-btn`);
-					if (TextElement) TextElement.textContent = result.updated.text;
-					if (titleElement) titleElement.textContent = `Lesson: ${result.updated.title}`;
-					if (editButton) editButton.dataset.Title = result.updated.title; // Update button data attribute
+					const titleElement = document.querySelector(`.edit-lesson-content-btn`).closest('h3').querySelector('span');
+					const editButton = document.querySelector(`.edit-lesson-content-btn`);
+					if (TextElement) TextElement.textContent = result.updated_content.text;
+					if (titleElement) titleElement.textContent = result.updated_content.title;
+					if (editButton) editButton.dataset.Title = result.updated_content.title; // Update button data attribute
 					
-					editModal.hide();
+					editContentModal.hide();
 					showToast(result.message || 'Lesson updated successfully!', 'Success', 'success');
 					
 				} catch (error) {
 					console.error(`Error updating lesson:`, error);
-					editError.textContent = `Update Failed: ${error.message}`;
-					editError.classList.remove('d-none');
+					editContentError.textContent = `Update Failed: ${error.message}`;
+					editContentError.classList.remove('d-none');
 				} finally {
-					showSpinner(saveBtn, false);
+					showSpinner(saveContentBtn, false);
 				}
 			});
 		}

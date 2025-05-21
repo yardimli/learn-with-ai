@@ -534,6 +534,9 @@ function setupModalEventListeners() {
 }
 
 function setupStartOverIntroButtonListener() {
+	const introData = window.lessonIntro;
+	const introTitle = introData.title;
+
 	if (startOverIntroButton) {
 		startOverIntroButton.addEventListener('click', () => {
 			console.log("Start Over Intro clicked");

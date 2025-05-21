@@ -44,9 +44,11 @@ function showIntro() {
 	
 	// Populate Sentence Spans
 	if (IntroTextContainer && IntroText) {
+		console.log(introData);
 		IntroTextContainer.innerHTML = ''; // Clear previous
 		if (introData.sentences && introData.sentences.length > 0) {
 			introData.sentences.forEach((sentence, index) => {
+				console.log(sentence);
 				const span = document.createElement('span');
 				span.classList.add('intro-sentence');
 				span.dataset.sentenceIndex = index;

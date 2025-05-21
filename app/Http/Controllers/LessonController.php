@@ -71,12 +71,12 @@ class LessonController extends Controller
 			}
 		}
 
-		return [[
+		return [
 			'title' => $lessonContent['title'] ?? "Lesson Content",
 			'full_text' => $this->getLessonText($lesson),
 			'sentences' => $processedSentences,
 			'has_audio' => !empty($processedSentences)
-		]];
+		];
 	}
 
 

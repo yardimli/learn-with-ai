@@ -231,8 +231,9 @@
     color: var(--bs-body-color);
 }
 .dark-mode .answer-btn:hover {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--bs-primary-bg);
     border-color: #545458;
+    color: var(--bs-primary-text-emphasis);
 }
 .dark-mode .answer-btn.selected {
     background-color: var(--bs-primary); /* Use primary color or adjust */

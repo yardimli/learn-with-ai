@@ -257,7 +257,7 @@
 					<i class="fas fa-microphone-alt"></i> {{ $audioGeneratedAt ? 'Regen Assets' : 'Gen Assets' }}
 				</button>
 				<button class="btn btn-outline-secondary edit-lesson-content-btn"
-				        data-bs-toggle="modal" data-bs-target="#editContentModal" {{-- Target new/repurposed modal --}}
+				        data-bs-toggle="modal" data-bs-target="#editContentModal"
 				        data-content-title="{{ $contentTitle }}"
 				        title="Edit Lesson Content Title & Text">
 					<i class="fas fa-edit"></i> Edit Content
@@ -291,12 +291,13 @@
 				@endif
 			@endif
 		</div>
-		<p id="lesson-content-text-display">{{ $contentText }}</p> {{-- MODIFIED: ID for text display --}}
+		
+		<p class="text-muted mt-3 mb-0" style="padding-left:4px;">Lesson Content Text:</p>
+		<p class="p-2 content-card" style=" white-space: pre-line;" id="content-text-display">{{ $contentText }}</p>
 		
 		<div class="questions-section border-top pt-3 mt-4">
 			<h4 class="mt-0 mb-3">Questions for this Lesson</h4>
 			<div class="mb-4">
-				<h5 class="mb-2">Generate New Questions</h5>
 				<div class="btn-group" role="group" aria-label="Generate Question Buttons">
 					@foreach(['easy', 'medium', 'hard'] as $difficulty)
 						<button class="btn btn-outline-success add-question-batch-btn"
