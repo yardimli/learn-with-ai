@@ -809,6 +809,14 @@ PROMPT;
 			$videoFileName = 'video_' . Str::random(10) . '.mp4'; // Ensure .mp4 extension
 			$videoStoragePath = "lessons/{$lesson->id}/{$videoFileName}";
 
+			//verify if the directory exists, if not create it
+			if (!Storage::disk('public')->exists("lessons")) {
+				Storage::disk('public')->makeDirectory("lessons");
+			}
+			if (!Storage::disk('public')->exists("lessons/{$lesson->id}")) {
+				Storage::disk('public')->makeDirectory("lessons/{$lesson->id}");
+			}
+
 			Log::info("Attempting to download video from {$bestVideoUrl} to {$videoStoragePath} for Lesson ID: {$lesson->id}");
 			$downloadResponse = Http::timeout(300)->withOptions(['stream' => true])->get($bestVideoUrl); // 5 minutes timeout for download
 
