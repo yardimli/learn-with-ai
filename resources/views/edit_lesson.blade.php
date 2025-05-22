@@ -1,21 +1,62 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Lesson Assets: ' . $lesson->title)
+@section('title', 'Edit Lesson Assets: ' . ($lesson->user_title ?: $lesson->title))
 
 @section('content')
-	<div class="d-flex justify-content-between align-items-center mb-3">
-		<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to
-			Lessons</a>
-		<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2">
-			<i class="fas fa-tags"></i> Manage Categories
-		</a>
-		<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-outline-success"><i
-				class="fas fa-eye"></i> Start Lesson</a>
+	<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+		<div>
+			<a href="{{ route('lessons.list') }}" class="btn btn-outline-secondary mb-1"><i class="fas fa-arrow-left"></i>
+				Back to Lessons</a>
+			<a href="{{ route('category_management.main.index') }}" class="btn btn-outline-info ms-2 mb-1">
+				<i class="fas fa-tags"></i> Manage Categories
+			</a>
+			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}"
+			   class="btn btn-outline-success ms-2 mb-1"><i class="fas fa-eye"></i> Start Lesson</a>
+		</div>
+		<div class="btn-group mt-2 mt-md-0" role="group" aria-label="Lesson Actions">
+			@php
+				$mainCatNameForModal = '';
+				if ($lesson->mainCategory) { // Directly selected main category
+						$mainCatNameForModal = $lesson->mainCategory->name;
+				} elseif ($lesson->subCategory && $lesson->subCategory->mainCategory) { // Main category via subcategory
+						$mainCatNameForModal = $lesson->subCategory->mainCategory->name;
+				}
+			@endphp
+			<button type="button" class="btn btn-success generate-ai-content-btn"
+			        data-lesson-id="{{ $lesson->id }}"
+			        data-user-title="{{ $lesson->user_title }}"
+			        data-lesson-subject="{{ $lesson->subject }}"
+			        data-notes="{{ $lesson->notes }}"
+			        data-sub-category-id="{{ $lesson->sub_category_id ?? '' }}"
+			        data-selected-main-category-id="{{ $lesson->selected_main_category_id ?? '' }}"
+			        data-main-category-name="{{ $mainCatNameForModal }}"
+			        data-sub-category-name="{{ $lesson->subCategory?->name ?? '' }}"
+			        data-preferred-llm="{{ $lesson->preferredLlm ?? ($llms[0]['id'] ?? '') }}"
+			        data-video-id="{{ $lesson->youtube_video_id ?? '' }}"
+			        data-video-subtitles="{{ $lesson->video_subtitles_text ? base64_encode($lesson->video_subtitles_text) : '' }}"
+			        data-bs-toggle="modal" data-bs-target="#generateContentModal"
+			        title="{{ $lesson->ai_generated ? 'Regenerate AI Content' : 'Generate AI Content' }}">
+				<i class="fas fa-magic"></i> {{ $lesson->ai_generated ? 'Regenerate Content' : 'Generate Content' }}
+			</button>
+			<button type="button" class="btn btn-info add-video-btn"
+			        data-bs-toggle="modal" data-bs-target="#addVideoModal"
+			        data-lesson-id="{{ $lesson->id }}"
+			        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
+			        title="Add or Update YouTube Video">
+				<i class="fab fa-youtube"></i> {{ $lesson->youtube_video_id ? 'Update Video' : 'Add Video' }}
+			</button>
+		</div>
 	</div>
 	
+	
 	<div class="content-card mb-4" id="lessonSettingsCard" data-categories="{{ $categoriesData }}">
-		<h1 class="mb-1">Edit Lesson: {{ $lesson->user_title ?: $lesson->title }}</h1>
-		<p class="text-muted mb-3">Lesson: {{ $lesson->subject }} (ID: {{ $lesson->id }} )</p>
+		<h5 class="mb-1">Edit Lesson</h5>
+		<p class="text-muted mb-3">{{ $lesson->subject }} (ID: {{ $lesson->id }} )
+			@if($lesson->youtube_video_id)
+				<span class="ms-2 badge bg-info text-dark" title="YouTube Video ID: {{ $lesson->youtube_video_id }}"><i
+						class="fab fa-youtube"></i> Video Linked</span>
+			@endif
+		</p>
 		
 		{{-- Settings Row --}}
 		<div class="row mb-3 border-top pt-3 settings-row g-2">
@@ -51,6 +92,7 @@
 					<select id="editSubCategorySelect"
 					        class="form-select form-select-sm" {{ is_null($lesson->selected_main_category_id) ? 'disabled' : '' }}>
 						<option value="">-- None --</option>
+						{{-- Populated by JS --}}
 					</select>
 				</div>
 			</div>
@@ -107,7 +149,11 @@
 					</label>
 					<select id="editYear" class="form-select form-select-sm">
 						<option value="" {{ is_null($lesson->year) ? 'selected' : '' }}>Select</option>
-						@php $currentYear = date('Y'); $startYear = $currentYear - 10; $endYear = $currentYear + 5; @endphp
+						@php
+							$currentYear = date('Y');
+							$startYear = $currentYear - 10;
+							$endYear = $currentYear + 5;
+						@endphp
 						@for ($y = $endYear; $y >= $startYear; $y--)
 							<option value="{{ $y }}" {{ old('year', $lesson->year) == $y ? 'selected' : '' }}>
 								{{ $y }}
@@ -136,6 +182,17 @@
 		<div class="row mb-1 pt-0 settings-row g-2">
 			<div class="col-12">
 				<div class="d-flex align-items-start">
+					<label for="editSubject" class="form-label me-2 mb-0 text-nowrap pt-1">
+						<i class="fas fa-sticky-note text-muted me-1"></i>Subject:
+					</label>
+					<textarea id="editSubject" class="form-control form-control-sm" rows="2"
+					          placeholder="lesson subject">{{ old('subject', $lesson->subject) }}</textarea>
+				</div>
+			</div>
+		</div>
+		<div class="row mb-1 pt-0 settings-row g-2">
+			<div class="col-12">
+				<div class="d-flex align-items-start">
 					<label for="editNotes" class="form-label me-2 mb-0 text-nowrap pt-1">
 						<i class="fas fa-sticky-note text-muted me-1"></i>Notes:
 					</label>
@@ -144,6 +201,7 @@
 				</div>
 			</div>
 		</div>
+		
 		{{-- LLM and TTS Settings --}}
 		<div class="row mb-3 pt-0 settings-row g-2">
 			<div class="col-md-6 col-lg-4 mb-2 mb-lg-0">
@@ -151,7 +209,15 @@
 					<label for="preferredLlmSelect" class="form-label me-2 mb-0 text-nowrap"><i
 							class="fas fa-robot text-primary me-1"></i>AI Model:</label>
 					<select id="preferredLlmSelect" class="form-select form-select-sm">
-						<option value="{{ $lesson->preferredLlm }}" selected>{{ $lesson->preferredLlm }}</option>
+						@php $defaultLlmId = env('DEFAULT_LLM', ''); @endphp
+						@forelse ($llms ?? [] as $llm_option)
+							<option value="{{ $llm_option['id'] }}"
+								{{ ($lesson->preferredLlm ?? $defaultLlmId) === $llm_option['id'] ? 'selected' : '' }}>
+								{{ $llm_option['name'] }}
+							</option>
+						@empty
+							<option value="" disabled>No AI models available</option>
+						@endforelse
 					</select>
 				</div>
 			</div>
@@ -229,11 +295,11 @@
 					class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
+	
 	{{-- MODIFIED: Display single lesson content block --}}
 	@php
 		// $lesson->lesson_content is now the single content object (array)
 		$lessonContent = $lesson->lesson_content;
-		$contentTitle = $lessonContent['title'] ?? 'Lesson Content';
 		$contentText = $lessonContent['text'] ?? '';
 		$sentences = $lessonContent['sentences'] ?? [];
 		$audioGeneratedAt = isset($lessonContent['audio_generated_at']) ? \Carbon\Carbon::parse($lessonContent['audio_generated_at'])->diffForHumans() : null;
@@ -244,10 +310,9 @@
 				}
 		}
 	@endphp
-	
 	<div class="content-card mb-4">
 		<h3 class="mb-3 d-flex justify-content-between align-items-center flex-wrap">
-			<span class="me-3">{{ $contentTitle }}</span>
+			<span class="me-3">{{ $lesson->title ?? $lesson->user_title ?? 'No Title' }}</span>
 			<div class="btn-group btn-group-sm" role="group" aria-label="Lesson Content Actions">
 				<button class="btn btn-outline-info" id="generate-lesson-sentence-assets-btn"
 				        data-lesson-id="{{ $lesson->id }}"
@@ -258,13 +323,11 @@
 				</button>
 				<button class="btn btn-outline-secondary edit-lesson-content-btn"
 				        data-bs-toggle="modal" data-bs-target="#editContentModal"
-				        data-content-title="{{ $contentTitle }}"
-				        title="Edit Lesson Content Title & Text">
+				        title="Edit Lesson Content Text">
 					<i class="fas fa-edit"></i> Edit Content
 				</button>
 			</div>
 		</h3>
-		
 		<div id="lesson-content-audio-status" class="text-muted small mb-2">
 			@if($audioGeneratedAt)
 				Assets generated: {{ $audioGeneratedAt }}
@@ -274,7 +337,8 @@
 						<span class="text-danger">({{ $audioErrorCount }} audio errors)</span>
 					@endif
 				@endif
-			@else (Sentence assets not generated yet)
+			@else
+					(Sentence assets not generated yet)
 			@endif
 		</div>
 		<div id="lesson-content-error" class="text-danger small mb-2" style="display: none;"></div>
@@ -291,9 +355,9 @@
 				@endif
 			@endif
 		</div>
-		
 		<p class="text-muted mt-3 mb-0" style="padding-left:4px;">Lesson Content Text:</p>
 		<p class="p-2 content-card" style=" white-space: pre-line;" id="content-text-display">{{ $contentText }}</p>
+		
 		
 		<div class="questions-section border-top pt-3 mt-4">
 			<h4 class="mt-0 mb-3">Questions for this Lesson</h4>
@@ -321,7 +385,9 @@
 				<div class="question-difficulty-group">
 					<h5 class="d-flex justify-content-between align-items-center">
 						<span>{{ ucfirst($difficulty) }} Questions</span>
-						<span class="badge bg-secondary rounded-pill"> {{ count($groupedQuestions[$difficulty] ?? []) }} </span>
+						<span class="badge bg-secondary rounded-pill">
+                            {{ count($groupedQuestions[$difficulty] ?? []) }}
+                        </span>
 					</h5>
 					<div class="question-list-container mt-2" id="question-list-{{ $difficulty }}-lesson"> {{-- MODIFIED: ID --}}
 						@php $questionsForDifficulty = $groupedQuestions[$difficulty] ?? []; @endphp
@@ -348,29 +414,55 @@
 	@include('partials._question_batch_success_modal')
 	@include('partials._edit_texts_modal')
 	@include('partials._edit_content_modal') {{-- Assuming you rename/create this for single content --}}
-
 @endsection
 
 @push('scripts')
 	<script>
+		// Global/shared variables for edit_lesson page
 		let sharedAudioPlayer = null;
-		let imageModal = null;
+		let imageModal = null; // For general image modal
 		let currentlyPlayingButton = null;
-		// let existingPlayButtons = null; // This might be simplified
+		
+		// Settings related (can be scoped within edit_lesson_top_settings.js if preferred)
 		let editMainCategorySelect = null;
 		let editSubCategorySelect = null;
 		let editLanguageSelect = null;
-		let preferredLlmSelect = null;
-		let ttsEngineSelect = null;
-		let ttsVoiceSelect = null;
-		let ttsLanguageCodeSelect = null;
+		let preferredLlmSelect = null; // For top settings bar
+		let ttsEngineSelect = null;    // For top settings bar
+		let ttsVoiceSelect = null;     // For top settings bar
+		let ttsLanguageCodeSelect = null; // For top settings bar
 		let updateSettingsBtn = null;
 		
 		const lessonId = @json($lesson->id);
 		const updateSettingsUrl = @json(route('lesson.update.settings', ['lesson' => $lesson->id]));
-		const llmsListUrl = @json(route('api.llms.list'));
+		const llmsListUrl = @json(route('api.llms.list')); // For AI model dropdown in modal
 		const initialSelectedMainCategoryId = @json($lesson->selected_main_category_id);
 		const initialSelectedSubCategoryId = @json($lesson->sub_category_id);
+		
+		// Variables for modals (generateContentModal, addVideoModal)
+		// These will be initialized in edit_lesson.js, similar to how they were in lessons_list.js
+		let generateContentModal = null;
+		let lessonIdInput, lessonTitleDisplay, lessonSubjectTextarea, lessonNotesDisplay, additionalInstructionsTextarea,
+			aiModelSelectModal; // Renamed aiModelSelect to aiModelSelectModal
+		let autoDetectCheckbox, generatePreviewButton, generatePreviewSpinner, previewContentArea, lessonPreviewBody;
+		let generationOptionsArea, applyGenerationButton, applyGenerationSpinner, generationErrorMessage,
+			cancelGenerationButton, backToOptionsButton;
+		let modalCategorySuggestionArea, suggestedMainCategoryText, suggestedSubCategoryText;
+		let existingCategoryDisplayArea, existingMainCategoryNameSpan, existingSubCategoryNameSpan, existingCategoryNote,
+			autoDetectCheckboxArea;
+		let currentSubCategoryIdInput, currentSelectedMainCategoryIdInput;
+		let generationSourceGroup, sourceSubjectRadio, sourceVideoRadio, videoSubtitlesDisplayArea, videoSubtitlesTextarea,
+			videoSubtitlesBase64Input, generationSourceInput;
+		
+		let addVideoModal = null;
+		let addVideoForm, lessonIdForVideoInput, lessonTitleForVideoSpan, youtubeVideoIdInputModal, submitVideoButton,
+			submitVideoSpinner, addVideoError, addVideoProgress; // Renamed youtubeVideoIdInput to youtubeVideoIdInputModal
+		
+		let currentGeneratedPlan = null;
+		let currentSuggestedMainCategory = null;
+		let currentSuggestedSubCategory = null;
+		let isAutoDetectingCategory = true; // Default for modal
+	
 	</script>
 	<script src="{{ asset('js/edit_lesson.js') }}"></script>
 	<script src="{{ asset('js/edit_lesson_top_settings.js') }}"></script>

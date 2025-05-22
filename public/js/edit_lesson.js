@@ -163,8 +163,27 @@ function updateSentenceImageDisplay(sentenceIndex, imageUrls, prompt, imageId, s
 	}
 }
 
+function displayLessonPlanPreview(plan) {
+	if (!plan) {
+		lessonPreviewBody.innerHTML = '<div class="alert alert-warning">Could not generate a valid lesson plan structure. Check AI model or prompt.</div>';
+		return;
+	}
+	let previewHtml = `<h4>${escapeHtml(plan.title || 'Lesson Preview')}</h4>`;
+	if (plan.image_prompt_idea) {
+		previewHtml += `<p><strong>Image Idea:</strong> ${escapeHtml(plan.image_prompt_idea)}</p>`;
+	}
+	previewHtml += '<hr>';
+	previewHtml += `
+            <div class="mb-3 card">
+                <div class="card-body">
+                    <p class="card-text" style="white-space: pre-line;">${escapeHtml(plan.lesson_content || 'No content generated.')}</p>
+                </div>
+            </div>
+        `;
+	lessonPreviewBody.innerHTML = previewHtml;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-	// --- Image Modal (Keep as is) ---
 	imageModal = document.getElementById('imageModal');
 	const imageModalDisplay = document.getElementById('imageModalDisplay');
 	const imageModalLabel = document.getElementById('imageModalLabel');
@@ -185,10 +204,501 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- Lesson Edit Modal Elements ---
 	const editContentModalElement = document.getElementById('editContentModal');
 	const editContentModal = editContentModalElement ? new bootstrap.Modal(editContentModalElement) : null;
-	const editContentTitleInput = document.getElementById('editContentTitle');
 	const editContentTextInput  = document.getElementById('editContentText');
 	const saveContentBtn = document.getElementById('saveContentBtn');
 	const editContentError = document.getElementById('editContentError');
+	
+	// --- MODAL Elements (copied from lessons_list.js, variable names already declared in blade push('scripts')) ---
+	generateContentModal = document.getElementById('generateContentModal');
+	lessonIdInput = document.getElementById('lessonIdForGeneration');
+	lessonTitleDisplay = document.getElementById('lessonTitleDisplay');
+	lessonSubjectTextarea = document.getElementById('lessonSubjectDisplay');
+	lessonNotesDisplay = document.getElementById('lessonNotesDisplay');
+	additionalInstructionsTextarea = document.getElementById('additionalInstructionsTextarea');
+	aiModelSelectModal = document.getElementById('aiModelSelect'); // Use the modal's select ID
+	autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
+	generatePreviewButton = document.getElementById('generatePreviewButton');
+	generatePreviewSpinner = document.getElementById('generatePreviewSpinner');
+	previewContentArea = document.getElementById('previewContentArea');
+	lessonPreviewBody = document.getElementById('lessonPreviewBody');
+	generationOptionsArea = document.getElementById('generationOptionsArea');
+	applyGenerationButton = document.getElementById('applyGenerationButton');
+	applyGenerationSpinner = document.getElementById('applyGenerationSpinner');
+	generationErrorMessage = document.getElementById('generationErrorMessage');
+	cancelGenerationButton = document.getElementById('cancelGenerationButton');
+	backToOptionsButton = document.getElementById('backToOptionsButton');
+	modalCategorySuggestionArea = document.getElementById('modalCategorySuggestionArea');
+	suggestedMainCategoryText = document.getElementById('suggestedMainCategoryText');
+	suggestedSubCategoryText = document.getElementById('suggestedSubCategoryText');
+	existingCategoryDisplayArea = document.getElementById('existingCategoryDisplayArea');
+	existingMainCategoryNameSpan = document.getElementById('existingMainCategoryName');
+	existingSubCategoryNameSpan = document.getElementById('existingSubCategoryName');
+	existingCategoryNote = document.getElementById('existingCategoryNote');
+	autoDetectCheckboxArea = document.getElementById('autoDetectCheckboxArea');
+	currentSubCategoryIdInput = document.getElementById('currentSubCategoryId');
+	currentSelectedMainCategoryIdInput = document.getElementById('currentSelectedMainCategoryId');
+	generationSourceGroup = document.getElementById('generationSourceGroup');
+	sourceSubjectRadio = document.getElementById('sourceSubject');
+	sourceVideoRadio = document.getElementById('sourceVideo');
+	videoSubtitlesDisplayArea = document.getElementById('videoSubtitlesDisplayArea');
+	videoSubtitlesTextarea = document.getElementById('videoSubtitlesTextarea');
+	videoSubtitlesBase64Input = document.getElementById('videoSubtitlesBase64');
+	generationSourceInput = document.getElementById('generationSourceInput');
+	
+	addVideoModal = document.getElementById('addVideoModal');
+	addVideoForm = document.getElementById('addVideoForm');
+	lessonIdForVideoInput = document.getElementById('lessonIdForVideo');
+	lessonTitleForVideoSpan = document.getElementById('lessonTitleForVideo');
+	youtubeVideoIdInputModal = document.getElementById('youtubeVideoIdInputModal'); // Use modal's input ID
+	submitVideoButton = document.getElementById('submitVideoButton');
+	submitVideoSpinner = document.getElementById('submitVideoSpinner');
+	addVideoError = document.getElementById('addVideoError');
+	addVideoProgress = document.getElementById('addVideoProgress');
+	
+	
+	// --- Event Listener for "Generate AI Content" button (now on edit page) ---
+	// This button is now outside the modal, directly on the page.
+	// We use event delegation on document.body in case it's added dynamically,
+	// or direct listeners if the buttons are always present.
+	// For simplicity, assuming '.generate-ai-content-btn' is present on load.
+	document.querySelectorAll('.generate-ai-content-btn').forEach(button => {
+		button.addEventListener('click', function() {
+			// This function will be called when the modal's 'show.bs.modal' event fires.
+			// The data attributes from *this* button will populate the modal.
+		});
+	});
+	document.querySelectorAll('.add-video-btn').forEach(button => {
+		button.addEventListener('click', function() {
+			// This function will be called when the modal's 'show.bs.modal' event fires.
+		});
+	});
+	
+	// --- generateContentModal Setup ---
+	if (generateContentModal) {
+		generateContentModal.addEventListener('show.bs.modal', async (event) => {
+			const button = event.relatedTarget; // This is the .generate-ai-content-btn
+			if (!button) return; // Should not happen if triggered by button
+			
+			const lessonId = button.dataset.lessonId;
+			const userTitle = button.dataset.userTitle;
+			const lessonSubject = button.dataset.lessonSubject;
+			const notes = button.dataset.notes;
+			const subCategoryId = button.dataset.subCategoryId;
+			const mainCategoryName = button.dataset.mainCategoryName;
+			const subCategoryName = button.dataset.subCategoryName;
+			const selectedMainCategoryId = button.dataset.selectedMainCategoryId;
+			const preferredLlm = button.dataset.preferredLlm;
+			const videoId = button.dataset.videoId;
+			const videoSubtitlesBase64 = button.dataset.videoSubtitles;
+			
+			// Reset modal state
+			previewContentArea.classList.add('d-none');
+			lessonPreviewBody.innerHTML = '';
+			generationOptionsArea.classList.remove('d-none');
+			applyGenerationButton.classList.add('d-none');
+			backToOptionsButton.classList.add('d-none');
+			cancelGenerationButton.textContent = 'Cancel';
+			generationErrorMessage.classList.add('d-none');
+			generationErrorMessage.textContent = '';
+			modalCategorySuggestionArea.classList.add('d-none');
+			currentGeneratedPlan = null;
+			currentSuggestedMainCategory = null;
+			currentSuggestedSubCategory = null;
+			generatePreviewButton.disabled = false;
+			generatePreviewSpinner.classList.add('d-none');
+			applyGenerationSpinner.classList.add('d-none');
+			existingCategoryDisplayArea.classList.add('d-none');
+			autoDetectCheckboxArea.classList.add('d-none');
+			autoDetectCheckbox.checked = false;
+			isAutoDetectingCategory = false;
+			additionalInstructionsTextarea.value = '';
+			generationSourceGroup.classList.add('d-none');
+			videoSubtitlesDisplayArea.classList.add('d-none');
+			videoSubtitlesTextarea.value = '';
+			videoSubtitlesBase64Input.value = '';
+			sourceSubjectRadio.checked = true;
+			generationSourceInput.value = 'subject';
+			lessonSubjectTextarea.disabled = false;
+			lessonNotesDisplay.disabled = false;
+			lessonSubjectTextarea.classList.remove('d-none');
+			lessonNotesDisplay.classList.remove('d-none');
+			
+			lessonIdInput.value = lessonId;
+			lessonTitleDisplay.value = userTitle || '';
+			lessonSubjectTextarea.value = lessonSubject;
+			lessonNotesDisplay.value = notes || '';
+			currentSubCategoryIdInput.value = subCategoryId || '';
+			currentSelectedMainCategoryIdInput.value = selectedMainCategoryId || '';
+			
+			try {
+				const response = await fetch('/user/llm-instructions', {
+					method: 'GET',
+					headers: {
+						'Accept': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+					}
+				});
+				if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+				const result = await response.json();
+				if (result.success && result.instructions) {
+					additionalInstructionsTextarea.value = result.instructions;
+				}
+			} catch (error) {
+				console.error('Error fetching user instructions:', error);
+			}
+			
+			if (aiModelSelectModal && preferredLlm) {
+				const preferredOption = aiModelSelectModal.querySelector(`option[value="${preferredLlm}"]`);
+				if (preferredOption) {
+					aiModelSelectModal.value = preferredLlm;
+				} else if (aiModelSelectModal.options.length > 0) {
+					// Fallback if preferredLlm from button is not in modal's list (e.g. list updated)
+					const defaultSelectedOption = aiModelSelectModal.querySelector('option[selected]');
+					if (defaultSelectedOption) aiModelSelectModal.value = defaultSelectedOption.value;
+					else aiModelSelectModal.selectedIndex = 0;
+				}
+			}
+			
+			
+			if (videoId && videoSubtitlesBase64) {
+				try {
+					const decodedSubtitles = atob(videoSubtitlesBase64);
+					videoSubtitlesTextarea.value = decodedSubtitles;
+					videoSubtitlesBase64Input.value = videoSubtitlesBase64;
+					generationSourceGroup.classList.remove('d-none');
+					sourceVideoRadio.disabled = false;
+				} catch (e) {
+					console.error("Error decoding base64 subtitles:", e);
+					generationSourceGroup.classList.add('d-none');
+					sourceVideoRadio.disabled = true;
+				}
+			} else {
+				generationSourceGroup.classList.add('d-none');
+				sourceVideoRadio.disabled = true;
+				sourceSubjectRadio.checked = true;
+				generationSourceInput.value = 'subject';
+			}
+			
+			if (subCategoryId && mainCategoryName && subCategoryName) {
+				existingMainCategoryNameSpan.textContent = mainCategoryName;
+				existingSubCategoryNameSpan.textContent = subCategoryName;
+				existingCategoryNote.textContent = 'Content will be generated for this category.';
+				existingCategoryDisplayArea.classList.remove('d-none');
+				autoDetectCheckboxArea.classList.add('d-none');
+				isAutoDetectingCategory = false;
+			} else if (selectedMainCategoryId && mainCategoryName && !subCategoryId) {
+				existingMainCategoryNameSpan.textContent = mainCategoryName;
+				existingSubCategoryNameSpan.textContent = '(None - will be auto-detected)';
+				existingCategoryNote.textContent = 'Sub-category will be auto-detected based on content.';
+				existingCategoryDisplayArea.classList.remove('d-none');
+				autoDetectCheckboxArea.classList.add('d-none');
+				isAutoDetectingCategory = true;
+			} else {
+				existingCategoryDisplayArea.classList.add('d-none');
+				autoDetectCheckboxArea.classList.remove('d-none');
+				autoDetectCheckbox.checked = true;
+				isAutoDetectingCategory = true;
+			}
+			
+			const autoDetectChangeHandler = () => {
+				if (!autoDetectCheckboxArea.classList.contains('d-none')) {
+					isAutoDetectingCategory = autoDetectCheckbox.checked;
+				}
+			};
+			autoDetectCheckbox.removeEventListener('change', autoDetectChangeHandler);
+			autoDetectCheckbox.addEventListener('change', autoDetectChangeHandler);
+			if (!autoDetectCheckboxArea.classList.contains('d-none')) {
+				isAutoDetectingCategory = autoDetectCheckbox.checked;
+			}
+		});
+		
+		if (generationSourceGroup) {
+			generationSourceGroup.addEventListener('change', (event) => {
+				const selectedSource = event.target.value;
+				generationSourceInput.value = selectedSource;
+				if (selectedSource === 'video') {
+					videoSubtitlesDisplayArea.classList.remove('d-none');
+					// lessonSubjectTextarea.disabled = true;
+					// lessonNotesDisplay.disabled = true;
+				} else {
+					videoSubtitlesDisplayArea.classList.add('d-none');
+					// lessonSubjectTextarea.disabled = false;
+					// lessonNotesDisplay.disabled = false;
+				}
+			});
+		}
+		
+		generateContentModal.addEventListener('hidden.bs.modal', () => {
+			lessonIdInput.value = '';
+			lessonTitleDisplay.value = '';
+			lessonSubjectTextarea.value = '';
+			lessonNotesDisplay.value = '';
+			additionalInstructionsTextarea.value = '';
+			currentSubCategoryIdInput.value = '';
+			currentSelectedMainCategoryIdInput.value = '';
+			generationSourceGroup.classList.add('d-none');
+			videoSubtitlesDisplayArea.classList.add('d-none');
+			videoSubtitlesTextarea.value = '';
+			videoSubtitlesBase64Input.value = '';
+			sourceSubjectRadio.checked = true;
+			generationSourceInput.value = 'subject';
+			lessonSubjectTextarea.disabled = false;
+			lessonNotesDisplay.disabled = false;
+			lessonSubjectTextarea.classList.remove('d-none');
+			lessonNotesDisplay.classList.remove('d-none');
+		});
+	}
+	
+	if (generatePreviewButton) {
+		generatePreviewButton.addEventListener('click', async () => {
+			const lessonId = lessonIdInput.value;
+			const userTitle = lessonTitleDisplay.value;
+			const subject = lessonSubjectTextarea.value;
+			const notes = lessonNotesDisplay.value;
+			const additionalInstructions = additionalInstructionsTextarea.value;
+			const llm = aiModelSelectModal.value; // Use modal's select
+			const autoDetect = isAutoDetectingCategory;
+			const generationSource = generationSourceInput.value;
+			let subtitles = null;
+			
+			if (generationSource === 'video') {
+				subtitles = videoSubtitlesTextarea.value;
+				if (!subtitles) {
+					showToast('Video subtitles are missing or empty.', 'Error', 'error');
+					return;
+				}
+			}
+			
+			if (!lessonId || !userTitle || !llm || (generationSource === 'subject' && !subject)) {
+				showToast('Missing required fields (Title, AI Model, and Subject if not using subtitles).', 'Error', 'error');
+				return;
+			}
+			
+			generatePreviewButton.disabled = true;
+			generatePreviewSpinner.classList.remove('d-none');
+			generationErrorMessage.classList.add('d-none');
+			generationErrorMessage.textContent = '';
+			previewContentArea.classList.remove('d-none');
+			lessonPreviewBody.innerHTML = `<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading preview...</span></div><p class="mt-2">Generating preview (this may take a minute)...</p></div>`;
+			generationOptionsArea.classList.add('d-none');
+			backToOptionsButton.classList.remove('d-none');
+			cancelGenerationButton.textContent = 'Cancel Generation';
+			
+			try {
+				const response = await fetch(`/lesson/${lessonId}/generate-preview`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					},
+					body: JSON.stringify({
+						llm: llm,
+						user_title: userTitle,
+						subject: subject,
+						notes: notes,
+						auto_detect_category: autoDetect,
+						additional_instructions: additionalInstructions,
+						generation_source: generationSource,
+						...(generationSource === 'video' && { video_subtitles: subtitles })
+					}),
+				});
+				const result = await response.json();
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				currentGeneratedPlan = result.plan;
+				currentSuggestedMainCategory = result.suggested_main_category;
+				currentSuggestedSubCategory = result.suggested_sub_category;
+				displayLessonPlanPreview(result.plan); // Ensure this function is available
+				if (autoDetect && currentSuggestedMainCategory && currentSuggestedSubCategory) {
+					suggestedMainCategoryText.textContent = currentSuggestedMainCategory;
+					suggestedSubCategoryText.textContent = currentSuggestedSubCategory;
+					modalCategorySuggestionArea.classList.remove('d-none');
+				} else {
+					modalCategorySuggestionArea.classList.add('d-none');
+				}
+				applyGenerationButton.classList.remove('d-none');
+			} catch (error) {
+				console.error('Error generating preview:', error);
+				lessonPreviewBody.innerHTML = `<div class="alert alert-danger">Failed to generate preview: ${escapeHtml(error.message)}</div>`;
+				generationErrorMessage.textContent = `Error: ${error.message}`;
+				generationErrorMessage.classList.remove('d-none');
+				applyGenerationButton.classList.add('d-none');
+			} finally {
+				generatePreviewSpinner.classList.add('d-none');
+				// Re-enable buttons
+				backToOptionsButton.disabled = false;
+				cancelGenerationButton.disabled = false;
+			}
+		});
+	}
+	
+	if (backToOptionsButton) {
+		backToOptionsButton.addEventListener('click', () => {
+			previewContentArea.classList.add('d-none');
+			generationOptionsArea.classList.remove('d-none');
+			applyGenerationButton.classList.add('d-none');
+			backToOptionsButton.classList.add('d-none');
+			cancelGenerationButton.textContent = 'Cancel';
+			generationErrorMessage.classList.add('d-none');
+			generationErrorMessage.textContent = '';
+			modalCategorySuggestionArea.classList.add('d-none');
+			currentGeneratedPlan = null;
+			currentSuggestedMainCategory = null;
+			currentSuggestedSubCategory = null;
+			generatePreviewButton.disabled = false;
+		});
+	}
+	
+	if (applyGenerationButton) {
+		applyGenerationButton.addEventListener('click', async () => {
+			if (!currentGeneratedPlan) {
+				showToast('No lesson plan data available to apply.', 'Error', 'error');
+				return;
+			}
+			const lessonId = lessonIdInput.value;
+			const categoryInput = isAutoDetectingCategory ? 'auto' : (currentSubCategoryIdInput.value || 'auto');
+			
+			applyGenerationButton.disabled = true;
+			applyGenerationSpinner.classList.remove('d-none');
+			generationErrorMessage.classList.add('d-none');
+			generationErrorMessage.textContent = '';
+			cancelGenerationButton.disabled = true;
+			backToOptionsButton.disabled = true;
+			
+			try {
+				const payload = {
+					plan: currentGeneratedPlan,
+					category_input: categoryInput,
+					suggested_main_category: categoryInput === 'auto' ? currentSuggestedMainCategory : null,
+					suggested_sub_category: categoryInput === 'auto' ? currentSuggestedSubCategory : null,
+				};
+				const response = await fetch(`/lesson/${lessonId}/apply-plan`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					},
+					body: JSON.stringify(payload),
+				});
+				const result = await response.json();
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				showToast(result.message || 'Lesson content applied successfully!', 'Success', 'success');
+				const modalInstance = bootstrap.Modal.getInstance(generateContentModal);
+				if (modalInstance) modalInstance.hide();
+				window.location.reload(); // Reload to see changes on edit page
+			} catch (error) {
+				console.error('Error applying generated plan:', error);
+				generationErrorMessage.textContent = `Failed to apply content: ${escapeHtml(error.message)}`;
+				generationErrorMessage.classList.remove('d-none');
+				applyGenerationButton.disabled = false;
+				cancelGenerationButton.disabled = false;
+				backToOptionsButton.disabled = false;
+			} finally {
+				applyGenerationSpinner.classList.add('d-none');
+			}
+		});
+	}
+	
+	
+	// --- addVideoModal Setup ---
+	if (addVideoModal) {
+		addVideoModal.addEventListener('show.bs.modal', (event) => {
+			const button = event.relatedTarget; // This is the .add-video-btn
+			if (!button) return;
+			
+			const lessonId = button.dataset.lessonId;
+			const lessonTitle = button.dataset.lessonTitle;
+			
+			lessonIdForVideoInput.value = lessonId;
+			lessonTitleForVideoSpan.textContent = lessonTitle;
+			youtubeVideoIdInputModal.value = ''; // Use modal's input ID
+			addVideoError.classList.add('d-none');
+			addVideoError.textContent = '';
+			addVideoProgress.classList.add('d-none');
+			submitVideoButton.disabled = false;
+			submitVideoSpinner.classList.add('d-none');
+		});
+	}
+	
+	if (addVideoForm) {
+		addVideoForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const lessonId = lessonIdForVideoInput.value;
+			let videoId = youtubeVideoIdInputModal.value.trim(); // Use modal's input ID
+			
+			if (!videoId) {
+				addVideoError.textContent = 'Please enter a YouTube Video ID or URL.';
+				addVideoError.classList.remove('d-none');
+				return;
+			}
+			
+			const urlPatterns = [
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+				/(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+			];
+			let extractedId = null;
+			for (const pattern of urlPatterns) {
+				const match = videoId.match(pattern);
+				if (match && match[1]) {
+					extractedId = match[1];
+					break;
+				}
+			}
+			if (!extractedId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+				extractedId = videoId;
+			}
+			
+			if (!extractedId) {
+				addVideoError.textContent = 'Invalid YouTube Video ID or URL format.';
+				addVideoError.classList.remove('d-none');
+				youtubeVideoIdInputModal.focus(); // Use modal's input ID
+				return;
+			}
+			youtubeVideoIdInputModal.value = extractedId; // Use modal's input ID
+			videoId = extractedId;
+			
+			submitVideoButton.disabled = true;
+			submitVideoSpinner.classList.remove('d-none');
+			addVideoError.classList.add('d-none');
+			addVideoError.textContent = '';
+			addVideoProgress.classList.remove('d-none');
+			
+			try {
+				const response = await fetch(`/lesson/${lessonId}/add-youtube`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					},
+					body: JSON.stringify({ youtube_video_id: videoId }),
+				});
+				const result = await response.json();
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				showToast(`Video '${result.video_title || ''}' added successfully!`, 'Success', 'success');
+				const modalInstance = bootstrap.Modal.getInstance(addVideoModal);
+				if (modalInstance) modalInstance.hide();
+				window.location.reload(); // Reload to see changes on edit page
+			} catch (error) {
+				console.error('Error adding YouTube video:', error);
+				addVideoError.textContent = `Error: ${error.message}`;
+				addVideoError.classList.remove('d-none');
+			} finally {
+				submitVideoButton.disabled = false;
+				submitVideoSpinner.classList.add('d-none');
+				addVideoProgress.classList.add('d-none');
+			}
+		});
+	}
 	
 	
 	// --- Event Listeners ---
@@ -439,12 +949,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		const editLessonContentBtn = event.target.closest('.edit-lesson-content-btn');
 		if (editLessonContentBtn && editContentModal) {
 			console.log(editLessonContentBtn.dataset);
-			const ContentTitle = editLessonContentBtn.dataset.contentTitle; // Get title from button data
 			const ContentTextElement = document.getElementById('content-text-display');
 			const ContentText = ContentTextElement ? ContentTextElement.textContent : '';
 			
 			// Populate modal
-			if (editContentTitleInput) editContentTitleInput.value = ContentTitle;
 			if (editContentTextInput) editContentTextInput.value = ContentText;
 			if (editContentError) {
 				editContentError.classList.add('d-none');
@@ -457,21 +965,15 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		
 		// --- Save Lesson Button Click Handler ---
-		if (saveContentBtn && editContentModal && editContentTitleInput && editContentTextInput && editContentError) {
+		if (saveContentBtn && editContentModal && editContentTextInput && editContentError) {
 			saveContentBtn.addEventListener('click', async () => {
-				const ContentTitle = editContentTitleInput.value.trim(); // Get updated title
 				const ContentText = editContentTextInput.value.trim();
 				
 				// Basic validation
 				let isValid = true;
-				editContentTitleInput.classList.remove('is-invalid');
 				editContentTextInput.classList.remove('is-invalid');
 				editContentError.classList.add('d-none');
 				
-				if (!ContentTitle) {
-					editContentTitleInput.classList.add('is-invalid');
-					isValid = false;
-				}
 				if (!ContentText || ContentText.length < 10) { // Example validation
 					editContentTextInput.classList.add('is-invalid');
 					isValid = false;
@@ -496,7 +998,6 @@ document.addEventListener('DOMContentLoaded', () => {
 							'Accept': 'application/json',
 						},
 						body: JSON.stringify({
-							lesson_title: ContentTitle,
 							lesson_text: ContentText
 						})
 					});

@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const selectedLanguage = editLanguageSelect.value;    // <-- Get Lesson Language
 			
 			const userTitleInput = document.getElementById('editUserTitle');
+			const subjectInput = document.getElementById('editSubject');
 			const notesInput = document.getElementById('editNotes');
 			const monthInput = document.getElementById('editMonth');
 			const yearInput = document.getElementById('editYear');
@@ -138,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					language: selectedLanguage,
 					
 					user_title: userTitleInput ? userTitleInput.value : null,
+					subject: subjectInput ? subjectInput.value : null,
 					notes: notesInput ? notesInput.value : null,
 					month: monthInput ? (monthInput.value || null) : null,
 					year: yearInput ? (yearInput.value || null) : null,

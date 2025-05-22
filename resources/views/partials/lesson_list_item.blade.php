@@ -7,11 +7,14 @@
 			@if($lesson->title && $lesson->title != $lesson->user_title)
 				<span class="badge bg-danger text-dark" title="AI-generated title">{{ $lesson->title }}</span>
 			@endif
-			
 			@if(!$lesson->ai_generated)
 				<span class="badge bg-warning text-dark">Needs Content</span>
 			@else
 				<span class="badge bg-success text-dark">Content Generated</span>
+			@endif
+			@if($lesson->youtube_video_id)
+				<span class="badge bg-info text-dark" title="YouTube Video ID: {{ $lesson->youtube_video_id }}"><i
+						class="fab fa-youtube"></i> Video Linked</span>
 			@endif
 		</h5>
 		<p class="mb-1">
@@ -21,7 +24,8 @@
 			<small class="text-muted">
 				Language: <span class="badge bg-secondary">{{ $lesson->language ?? 'N/A' }}</span> |
 				Total Questions: <span class="badge bg-light text-dark">{{ $lesson->questions_count ?? 0 }}</span>
-				Year/Month: <span class="badge bg-light text-dark">{{ $lesson->year ?? '?' }} / {{ $lesson->month ?? '?' }}</span>
+				Year/Month: <span
+					class="badge bg-light text-dark">{{ $lesson->year ?? '?' }} / {{ $lesson->month ?? '?' }}</span>
 				Week: <span class="badge bg-light text-dark">{{ $lesson->week ?? '?' }}</span>
 			</small>
 		</p>
@@ -63,59 +67,24 @@
 	{{-- Action Buttons --}}
 	<div class="text-md-end mt-2 mt-md-0 flex-shrink-0">
 		<div class="btn-group" role="group" aria-label="Lesson Actions for {{ $lesson->title ?? $lesson->subject }}">
-				{{-- Generate AI Content Button for lessons without content --}}
-				<button type="button" class="btn btn-sm btn-success me-1 generate-ai-content-btn"
-				        data-lesson-id="{{ $lesson->id }}"
-				        data-user-title="{{ $lesson->user_title }}"
-				        data-lesson-subject="{{ $lesson->subject }}"
-				        data-notes="{{ $lesson->notes }}"
-				        data-sub-category-id="{{ $lesson->sub_category_id ?? '' }}"
-				        data-selected-main-category-id="{{ $lesson->selected_main_category_id ?? '' }}"
-				        data-main-category-name="{{ $lesson->subCategory?->mainCategory?->name ?? ($mainCategoryNames[$lesson->selected_main_category_id] ?? '') }}"
-				        data-sub-category-name="{{ $lesson->subCategory?->name ?? '' }}"
-				        data-preferred-llm="{{ $lesson->preferredLlm ?? '' }}"
-				        data-video-id="{{ $lesson->youtube_video_id ?? '' }}"
-				        data-video-subtitles="{{ $lesson->video_subtitles_text ? base64_encode($lesson->video_subtitles_text) : '' }}"
-				        data-bs-toggle="modal"
-				        data-bs-target="#generateContentModal"
-				        title="Generate AI Content">
-					<i class="fas fa-magic"></i>
-					<span class="d-none d-lg-inline">Generate</span>
-				</button>
-				<button type="button" class="btn btn-sm btn-info me-1 add-video-btn"
-				        data-bs-toggle="modal"
-				        data-bs-target="#addVideoModal"
-				        data-lesson-id="{{ $lesson->id }}"
-				        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
-				        title="Add YouTube Video">
-					<i class="fab fa-youtube"></i> <span class="d-none d-lg-inline">Video</span>
-				</button>
-				<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}"
-				   class="btn btn-sm btn-success me-1" title="Start Learning">
-					<i class="fas fa-play"></i>
-					<span class="d-none d-lg-inline">Learn</span>
-				</a>
-			
-			<a href="{{ route('lesson.edit', ['lesson' => $lesson->id]) }}"
-			   class="btn btn-sm btn-primary me-1" title="Edit Lesson Structure & Questions">
-				<i class="fas fa-edit"></i>
-				<span class="d-none d-lg-inline">Edit</span>
+			{{-- "Generate AI Content" and "Add YouTube Video" buttons are MOVED to edit_lesson.blade.php --}}
+			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-success me-1"
+			   title="Start Learning">
+				<i class="fas fa-play"></i> <span class="d-none d-lg-inline">Learn</span>
 			</a>
-			
-			<a href="{{ route('progress.show', ['lesson' => $lesson->id]) }}"
-			   class="btn btn-sm btn-info me-1" title="View Learning Progress">
-				<i class="fas fa-chart-line"></i>
-				<span class="d-none d-lg-inline">Progress</span>
+			<a href="{{ route('lesson.edit', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-primary me-1"
+			   title="Edit Lesson Structure & Questions">
+				<i class="fas fa-edit"></i> <span class="d-none d-lg-inline">Edit</span>
 			</a>
-			
-			<button type="button" class="btn btn-sm btn-warning archive-progress-btn me-1"
-			        title="Archive Progress & Reset"
+			<a href="{{ route('progress.show', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-info me-1"
+			   title="View Learning Progress">
+				<i class="fas fa-chart-line"></i> <span class="d-none d-lg-inline">Progress</span>
+			</a>
+			<button type="button" class="btn btn-sm btn-warning archive-progress-btn me-1" title="Archive Progress & Reset"
 			        data-lesson-id="{{ $lesson->id }}"
 			        data-archive-url="{{ route('lesson.archive', ['lesson' => $lesson->id]) }}">
-				<i class="fas fa-archive"></i>
-				<span class="d-none d-lg-inline">Archive</span>
+				<i class="fas fa-archive"></i> <span class="d-none d-lg-inline">Archive</span>
 			</button>
-			
 			<button type="button" class="btn btn-sm btn-danger delete-lesson-btn"
 			        data-lesson-id="{{ $lesson->id }}"
 			        data-delete-url="{{ route('lesson.delete', $lesson->id) }}"

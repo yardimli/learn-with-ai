@@ -21,7 +21,6 @@
 	<div class="content-card shadow-sm">
 		<form id="lessonForm" action="{{ route('lesson.save.basic') }}" method="POST">
 			@csrf
-			
 			<div class="mb-3">
 				<label for="userTitleInput" class="form-label fs-5">Lesson Title:</label>
 				<input type="text" class="form-control form-control-lg" id="userTitleInput" name="user_title"
@@ -44,6 +43,16 @@
 				<small class="form-text text-muted">Provide any additional context or requirements for the AI.</small>
 			</div>
 			
+			{{-- YouTube Video ID --}}
+			<div class="mb-3">
+				<label for="youtubeVideoIdInput" class="form-label fs-5">YouTube Video ID or URL (Optional):</label>
+				<input type="text" class="form-control" id="youtubeVideoIdInput" name="youtube_video_id"
+				       placeholder="e.g., dQw4w9WgXcQ or full YouTube URL">
+				<small class="form-text text-muted">If provided, video details and subtitles (if available) will be
+					fetched.</small>
+			</div>
+			
+			
 			{{-- Row for Category and Language --}}
 			<div class="row mb-3">
 				<div class="col-md-6">
@@ -53,7 +62,6 @@
 						<option value="main_only">I'll select main category, AI suggests sub-category</option>
 						<option value="both">I'll select both main & sub-category</option>
 					</select>
-					
 					<div id="mainCategoryArea" class="mt-2 d-none">
 						<label for="mainCategorySelect" class="form-label">Main Category:</label>
 						<select class="form-select" id="mainCategorySelect" name="main_category_id" disabled>
@@ -63,7 +71,6 @@
 							@endforeach
 						</select>
 					</div>
-					
 					<div id="subCategoryArea" class="mt-2 d-none">
 						<label for="subCategorySelect" class="form-label">Sub-Category:</label>
 						<select class="form-select" id="subCategorySelect" name="sub_category_id" disabled>
@@ -71,10 +78,8 @@
 							{{-- Sub-categories will be populated via JavaScript --}}
 						</select>
 					</div>
-					
 					<small class="form-text text-muted">Choose how you want to categorize this lesson.</small>
 				</div>
-				
 				<div class="col-md-6">
 					<label for="languageSelect" class="form-label">Lesson Language:</label>
 					<select class="form-select" id="languageSelect" name="language" required>
@@ -89,11 +94,14 @@
 				</div>
 			</div>
 			
+			
 			{{-- LLM Selection --}}
 			<div class="mb-3">
 				<label for="preferredLlmSelect" class="form-label">Preferred AI Model:</label>
 				<select class="form-select" id="preferredLlmSelect" name="preferred_llm" required>
-					@php $defaultLlmId = env('DEFAULT_LLM', ''); @endphp
+					@php
+						$defaultLlmId = env('DEFAULT_LLM', '');
+					@endphp
 					@forelse ($llms ?? [] as $llm)
 						<option value="{{ $llm['id'] }}" {{ $llm['id'] === $defaultLlmId ? 'selected' : '' }}>
 							{{ $llm['name'] }}
@@ -109,8 +117,11 @@
 			<div class="mb-3">
 				<label for="ttsEngineSelect" class="form-label">Text-to-Speech Engine:</label>
 				<select class="form-select" id="ttsEngineSelect" name="tts_engine" required>
-					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS </option>
-					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud TTS </option>
+					<option value="openai" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'openai' ? 'selected' : '' }}>OpenAI TTS
+					</option>
+					<option value="google" {{ env('DEFAULT_TTS_ENGINE', 'google') === 'google' ? 'selected' : '' }}>Google Cloud
+						TTS
+					</option>
 				</select>
 			</div>
 			
@@ -158,9 +169,11 @@
 				<small class="form-text text-muted">Primarily used by Google TTS. OpenAI often auto-detects.</small>
 			</div>
 			
+			
 			<div class="d-grid">
 				<button type="submit" id="createBasicLessonButton" class="btn btn-primary btn-lg" disabled>
-					<span id="createBasicLessonSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span id="createBasicLessonSpinner" class="spinner-border spinner-border-sm d-none" role="status"
+                          aria-hidden="true"></span>
 					Create Basic Lesson
 				</button>
 				<small class="form-text text-muted mt-2 text-center">
@@ -170,15 +183,11 @@
 		</form>
 		<div id="categoryDataContainer" class="d-none">
 			@foreach ($mainCategories as $mainCategory)
-				<div
-					class="main-category-data"
-					data-main-id="{{ $mainCategory->id }}"
-					data-main-name="{{ $mainCategory->name }}">
+				<div class="main-category-data" data-main-id="{{ $mainCategory->id }}"
+				     data-main-name="{{ $mainCategory->name }}">
 					@foreach ($mainCategory->subCategories as $subCategory)
-						<div
-							class="sub-category-data"
-							data-sub-id="{{ $subCategory->id }}"
-							data-sub-name="{{ $subCategory->name }}"></div>
+						<div class="sub-category-data" data-sub-id="{{ $subCategory->id }}"
+						     data-sub-name="{{ $subCategory->name }}"></div>
 					@endforeach
 				</div>
 			@endforeach
