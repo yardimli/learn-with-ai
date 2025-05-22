@@ -3,6 +3,14 @@ let allQuestionsFromCurrentFetch = [];
 // Store IDs of questions answered incorrectly in the current "pass" through currentQuestions
 let incorrectQuestionIdsInThisPass = [];
 
+// New variables to track difficulty progression
+let questionsByDifficulty = {
+	'easy': [],
+	'medium': [],
+	'hard': []
+};
+let currentDifficulty = 'easy'; // Start with easy questions
+let difficultyOrder = ['easy', 'medium', 'hard'];
 
 function loadLessonQustions() {
 	if (isLoading) return;
@@ -11,10 +19,17 @@ function loadLessonQustions() {
 	
 	// Reset for a new round of fetching questions from the backend
 	allQuestionsFromCurrentFetch = [];
-	currentQuestions = []; // This will be the active list for the user to go through
-	incorrectQuestionIdsInThisPass = []; // Clear incorrect IDs for the new round
+	currentQuestions = [];
+	questionsByDifficulty = {
+		'easy': [],
+		'medium': [],
+		'hard': []
+	};
+	incorrectQuestionIdsInThisPass = [];
 	currentQuestionIndex = -1;
 	currentQuestion = null;
+	currentDifficulty = 'easy'; // Always start with easy
+	
 	updateProgressBar();
 	
 	fetch(`/lesson/${lessonId}/questions`, {
@@ -28,12 +43,14 @@ function loadLessonQustions() {
 	})
 		.then(response => {
 			if (!response.ok) {
-				return response.json().then(err => { throw new Error(err.message || `HTTP error ${response.status}`) });
+				return response.json().then(err => {
+					throw new Error(err.message || `HTTP error ${response.status}`)
+				});
 			}
 			return response.json();
 		})
 		.then(data => {
-			setLoadingState(false); // Set loading to false once data is received
+			setLoadingState(false);
 			
 			if (!data.success) {
 				throw new Error(data.message || 'Failed to fetch questions.');
@@ -43,34 +60,52 @@ function loadLessonQustions() {
 			
 			if (allQuestionsFromCurrentFetch.length === 0) {
 				console.log("Backend returned no questions. Checking overall lesson state.");
-				// This implies the lesson might be empty or already fully completed.
-				// The currentState.status (updated after each answer) is the source of truth.
+				
 				if (currentState.status === 'completed') {
 					showCompletionScreen();
 				} else {
-					// Lesson not complete, but no questions. Could be an empty lesson.
 					setErrorState(`No questions found for this lesson.`);
 					toggleElement(questionArea, false);
-					showIntro(); // Go back to intro or show a specific message
+					showIntro();
 				}
 				return;
 			}
 			
-			// Filter out questions that should be skipped (already perfectly answered)
-			// This forms the initial set of questions for the user in this "pass"
-			currentQuestions = allQuestionsFromCurrentFetch.filter(question => !question.should_skip);
+			// Group questions by difficulty level
+			allQuestionsFromCurrentFetch.forEach(question => {
+				if (question.difficulty_level && difficultyOrder.includes(question.difficulty_level)) {
+					// Only add questions that should not be skipped
+					if (!question.should_skip) {
+						questionsByDifficulty[question.difficulty_level].push(question);
+					}
+				} else {
+					console.warn(`Question ${question.id} has invalid difficulty: ${question.difficulty_level}`);
+				}
+			});
 			
-			console.log(`Loaded ${allQuestionsFromCurrentFetch.length} questions from backend, ${currentQuestions.length} are active for this pass.`);
+			// Set current questions to the first difficulty level with available questions
+			for (const difficulty of difficultyOrder) {
+				if (questionsByDifficulty[difficulty].length > 0) {
+					currentDifficulty = difficulty;
+					currentQuestions = questionsByDifficulty[difficulty];
+					break;
+				}
+			}
+			
+			console.log(`Loaded ${allQuestionsFromCurrentFetch.length} questions from backend.`);
+			console.log(`Questions by difficulty:`, {
+				easy: questionsByDifficulty.easy.length,
+				medium: questionsByDifficulty.medium.length,
+				hard: questionsByDifficulty.hard.length
+			});
 			
 			if (currentQuestions.length === 0) {
-				// All questions returned by the backend were marked 'should_skip = true'.
-				// This means the lesson is effectively complete from a question-answering perspective.
-				console.log("All available questions from this fetch were already correctly answered! Showing completion.");
-				showCompletionScreen(); // This should align with currentState.status === 'completed'
+				console.log("No active questions available. Showing completion.");
+				showCompletionScreen();
 				return;
 			}
 			
-			currentQuestionIndex = 0; // Reset index for the new list of currentQuestions
+			currentQuestionIndex = 0;
 			showQuestionScreen();
 			displayQuestionAtIndex(currentQuestionIndex);
 		})
@@ -79,33 +114,108 @@ function loadLessonQustions() {
 			setErrorState(`Error: ${error.message}`);
 			setLoadingState(false);
 			toggleElement(questionArea, false);
-			toggleElement(IntroArea, false); // Or showIntro() if appropriate
+			toggleElement(IntroArea, false);
 		});
 }
 
-function showCompletionMessage() { // This function seems to be a simpler version of showCompletionScreen
-	setErrorState(null);
-	toggleElement(questionArea, false);
-	toggleElement(IntroArea, false);
-	const completionMsgEl = document.getElementById('CompletionMessage'); // Corrected variable name
-	if (completionMsgEl) {
-		completionMsgEl.innerHTML = `
-            <div class="alert alert-success" role="alert">
-                <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Complete!</h4>
-                <p>You've successfully answered all questions.</p>
-                <hr>
-                <a href="${document.referrer || '/'}" class="btn btn-primary mt-2">Back to Lessons</a>
-            </div>`;
-		toggleElement(completionMsgEl, true);
-	} else {
-		// Fallback if the specific completion message element isn't found
-		showIntro(); // Or handle differently
+function checkStateAndTransition() {
+	console.log("Checking state and transitioning. CurrentState:", currentState, "Feedback:", feedbackData);
+	
+	const wasCorrect = feedbackData.was_correct || false;
+	
+	// Always trust the backend's assessment of overall lesson completion
+	if (currentState.status === 'completed') {
+		console.log("Transition: Lesson Overall Completed (confirmed by backend state)");
+		showCompletionScreen();
+		return;
 	}
-	// Ensure interactions are enabled on the final completion message screen
-	setInteractionsDisabled(false);
-	updateButtonStates(0); // Use a distinct callerId or make it generic
+	
+	const currentQuestionId = currentQuestion.id;
+	
+	if (wasCorrect) {
+		// If the question was previously marked incorrect in this pass, remove it
+		incorrectQuestionIdsInThisPass = incorrectQuestionIdsInThisPass.filter(id => id !== currentQuestionId);
+		
+		if (currentQuestionIndex >= currentQuestions.length - 1) {
+			// Last question in the current difficulty pass
+			console.log(`Last question in '${currentDifficulty}' difficulty answered correctly.`);
+			
+			if (incorrectQuestionIdsInThisPass.length > 0) {
+				console.log(`Looping back to incorrectly answered questions in '${currentDifficulty}' difficulty:`, incorrectQuestionIdsInThisPass);
+				
+				// Filter current difficulty questions to get only incorrectly answered ones
+				const incorrectQuestions = questionsByDifficulty[currentDifficulty].filter(
+					q => incorrectQuestionIdsInThisPass.includes(q.id) && !q.should_skip
+				);
+				
+				if (incorrectQuestions.length > 0) {
+					currentQuestions = incorrectQuestions;
+					incorrectQuestionIdsInThisPass = []; // Clear for the new pass
+					currentQuestionIndex = 0;
+					console.log(`Restarting pass with incorrect '${currentDifficulty}' questions:`, currentQuestions.map(q => q.id));
+					displayQuestionAtIndex(currentQuestionIndex);
+				} else {
+					// Move to the next difficulty level
+					moveToNextDifficulty();
+				}
+			} else {
+				// All questions in current difficulty answered correctly, move to next difficulty
+				moveToNextDifficulty();
+			}
+		} else {
+			// Move to the next question in the current difficulty
+			console.log(`Moving to next question (index ${currentQuestionIndex + 1} in '${currentDifficulty}' difficulty)`);
+			displayQuestionAtIndex(currentQuestionIndex + 1);
+		}
+	} else {
+		// Incorrect answer
+		// Add to incorrect list if not already there for this pass
+		if (!incorrectQuestionIdsInThisPass.includes(currentQuestionId)) {
+			incorrectQuestionIdsInThisPass.push(currentQuestionId);
+		}
+		
+		console.log(`Wrong answer for '${currentDifficulty}' question. Allowing another attempt. Incorrect IDs this pass:`, incorrectQuestionIdsInThisPass);
+		
+		// Reset the buttons for another attempt
+		questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+			if (!button.classList.contains('incorrect')) {
+				// Only re-enable non-incorrect buttons
+				button.classList.remove('selected');
+				button.classList.add('btn-outline-primary');
+				button.disabled = false;
+			}
+		});
+		
+		setInteractionsDisabled(false);
+	}
+	
+	updateProgressBar();
 }
 
+function moveToNextDifficulty() {
+	const currentDifficultyIndex = difficultyOrder.indexOf(currentDifficulty);
+	
+	// Check if there's a next difficulty level
+	if (currentDifficultyIndex < difficultyOrder.length - 1) {
+		// Find the next difficulty with available questions
+		for (let i = currentDifficultyIndex + 1; i < difficultyOrder.length; i++) {
+			const nextDifficulty = difficultyOrder[i];
+			if (questionsByDifficulty[nextDifficulty].length > 0) {
+				console.log(`Moving to next difficulty: ${currentDifficulty} -> ${nextDifficulty}`);
+				currentDifficulty = nextDifficulty;
+				currentQuestions = questionsByDifficulty[nextDifficulty];
+				currentQuestionIndex = 0;
+				incorrectQuestionIdsInThisPass = []; // Clear incorrect IDs for new difficulty
+				displayQuestionAtIndex(currentQuestionIndex);
+				return;
+			}
+		}
+	}
+	
+	// If we reach here, there are no more difficulties with questions
+	console.log("All difficulty levels completed. Checking with server...");
+	loadLessonQustions(); // Refresh questions from server to verify completion
+}
 
 function displayQuestionAtIndex(index) {
 	// This function now operates on `currentQuestions` which might be the full set or a filtered incorrect set
@@ -116,11 +226,28 @@ function displayQuestionAtIndex(index) {
 		checkStateAndTransition(); // This will evaluate what to do next
 		return;
 	}
+	
 	currentQuestionIndex = index;
 	currentQuestion = currentQuestions[index];
 	selectedIndex = null;
 	currentAttemptNumber = currentQuestion.next_attempt_number || 1;
 	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber}) from current batch of ${currentQuestions.length} questions.`);
+	
+	// Update difficulty badge
+	const difficultyBadge = document.getElementById('currentDifficultyBadge');
+	if (difficultyBadge) {
+		difficultyBadge.textContent = capitalizeFirstLetter(currentDifficulty);
+		
+		// Optional: Change badge color based on difficulty
+		difficultyBadge.className = 'badge';
+		if (currentDifficulty === 'easy') {
+			difficultyBadge.classList.add('bg-info');
+		} else if (currentDifficulty === 'medium') {
+			difficultyBadge.classList.add('bg-warning');
+		} else {
+			difficultyBadge.classList.add('bg-danger');
+		}
+	}
 	
 	updateUIForQuestion();
 	setInteractionsDisabled(true); // Disable interactions while auto-playing
