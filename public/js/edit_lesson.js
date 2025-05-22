@@ -208,14 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	const saveContentBtn = document.getElementById('saveContentBtn');
 	const editContentError = document.getElementById('editContentError');
 	
-	// --- MODAL Elements (copied from lessons_list.js, variable names already declared in blade push('scripts')) ---
+	// --- MODAL Elements (variable names already declared in blade push('scripts'))
 	generateContentModal = document.getElementById('generateContentModal');
 	lessonIdInput = document.getElementById('lessonIdForGeneration');
 	lessonTitleDisplay = document.getElementById('lessonTitleDisplay');
 	lessonSubjectTextarea = document.getElementById('lessonSubjectDisplay');
 	lessonNotesDisplay = document.getElementById('lessonNotesDisplay');
 	additionalInstructionsTextarea = document.getElementById('additionalInstructionsTextarea');
-	aiModelSelectModal = document.getElementById('aiModelSelect'); // Use the modal's select ID
+	aiModelSelect = document.getElementById('aiModelSelect'); // Use the modal's select ID
 	autoDetectCheckbox = document.getElementById('autoDetectCategoryCheck');
 	generatePreviewButton = document.getElementById('generatePreviewButton');
 	generatePreviewSpinner = document.getElementById('generatePreviewSpinner');
@@ -256,11 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	addVideoProgress = document.getElementById('addVideoProgress');
 	
 	
-	// --- Event Listener for "Generate AI Content" button (now on edit page) ---
-	// This button is now outside the modal, directly on the page.
-	// We use event delegation on document.body in case it's added dynamically,
-	// or direct listeners if the buttons are always present.
-	// For simplicity, assuming '.generate-ai-content-btn' is present on load.
 	document.querySelectorAll('.generate-ai-content-btn').forEach(button => {
 		button.addEventListener('click', function() {
 			// This function will be called when the modal's 'show.bs.modal' event fires.
@@ -347,15 +342,15 @@ document.addEventListener('DOMContentLoaded', () => {
 				console.error('Error fetching user instructions:', error);
 			}
 			
-			if (aiModelSelectModal && preferredLlm) {
-				const preferredOption = aiModelSelectModal.querySelector(`option[value="${preferredLlm}"]`);
+			if (aiModelSelect && preferredLlm) {
+				const preferredOption = aiModelSelect.querySelector(`option[value="${preferredLlm}"]`);
 				if (preferredOption) {
-					aiModelSelectModal.value = preferredLlm;
-				} else if (aiModelSelectModal.options.length > 0) {
+					aiModelSelect.value = preferredLlm;
+				} else if (aiModelSelect.options.length > 0) {
 					// Fallback if preferredLlm from button is not in modal's list (e.g. list updated)
-					const defaultSelectedOption = aiModelSelectModal.querySelector('option[selected]');
-					if (defaultSelectedOption) aiModelSelectModal.value = defaultSelectedOption.value;
-					else aiModelSelectModal.selectedIndex = 0;
+					const defaultSelectedOption = aiModelSelect.querySelector('option[selected]');
+					if (defaultSelectedOption) aiModelSelect.value = defaultSelectedOption.value;
+					else aiModelSelect.selectedIndex = 0;
 				}
 			}
 			
@@ -456,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const subject = lessonSubjectTextarea.value;
 			const notes = lessonNotesDisplay.value;
 			const additionalInstructions = additionalInstructionsTextarea.value;
-			const llm = aiModelSelectModal.value; // Use modal's select
+			const llm = aiModelSelect.value; // Use modal's select
 			const autoDetect = isAutoDetectingCategory;
 			const generationSource = generationSourceInput.value;
 			let subtitles = null;
@@ -699,6 +694,45 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 	}
+	
+	// --- Delete Lesson Button Handler ---
+	const deleteLessonButton = document.getElementById('deleteLessonButton');
+	if (deleteLessonButton) {
+		deleteLessonButton.addEventListener('click', function () {
+			const lessonId = this.dataset.lessonId;
+			const deleteUrl = this.dataset.deleteUrl;
+			const lessonTitle = this.dataset.lessonTitle;
+			
+			if (confirm(`Are you sure you want to delete the lesson "${lessonTitle}" and all its associated questions and progress? This action cannot be undone.`)) {
+				fetch(deleteUrl, {
+					method: 'DELETE',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+					}
+				})
+					.then(response => response.json())
+					.then(data => {
+						if (data.success) {
+							showToast(data.message || 'Lesson deleted successfully.', 'Success', 'success');
+							if (data.redirectUrl) {
+								window.location.href = data.redirectUrl;
+							} else {
+								// Fallback, ideally the controller always provides redirectUrl
+								window.location.href = '/lessons';
+							}
+						} else {
+							showToast(data.message || 'Failed to delete lesson.', 'Error', 'error');
+						}
+					})
+					.catch(error => {
+						console.error('Error deleting lesson:', error);
+						showToast('An error occurred while deleting the lesson.', 'Error', 'error');
+					});
+			}
+		});
+	}
+	
 	
 	
 	// --- Event Listeners ---

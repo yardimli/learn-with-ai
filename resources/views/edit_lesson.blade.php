@@ -45,6 +45,13 @@
 			        title="Add or Update YouTube Video">
 				<i class="fab fa-youtube"></i> {{ $lesson->youtube_video_id ? 'Update Video' : 'Add Video' }}
 			</button>
+			<button type="button" class="btn btn-danger" id="deleteLessonButton"
+			        data-lesson-id="{{ $lesson->id }}"
+			        data-delete-url="{{ route('lesson.delete', $lesson->id) }}"
+			        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
+			        title="Delete Lesson">
+				<i class="fas fa-trash"></i> Delete
+			</button>
 		</div>
 	</div>
 	
@@ -295,10 +302,7 @@
 					class="fas fa-trash-alt text-danger"></i> to delete questions.</small></p>
 	</div>
 	
-	
-	{{-- MODIFIED: Display single lesson content block --}}
 	@php
-		// $lesson->lesson_content is now the single content object (array)
 		$lessonContent = $lesson->lesson_content;
 		$contentText = $lessonContent['text'] ?? '';
 		$sentences = $lessonContent['sentences'] ?? [];
@@ -343,7 +347,7 @@
 		</div>
 		<div id="lesson-content-error" class="text-danger small mb-2" style="display: none;"></div>
 		
-		<div class="sentences-list mt-3" id="sentences-list-lesson"> {{-- MODIFIED: ID for sentences list --}}
+		<div class="sentences-list mt-3" id="sentences-list-lesson">
 			@if(!empty($sentences))
 				@foreach($sentences as $sentenceIndex => $sentence)
 					@include('partials._sentence_edit_item', ['lesson' => $lesson, 'sentenceIndex' => $sentenceIndex, 'sentence' => $sentence])
@@ -413,14 +417,20 @@
 	@include('partials._freepik_modal')
 	@include('partials._question_batch_success_modal')
 	@include('partials._edit_texts_modal')
-	@include('partials._edit_content_modal') {{-- Assuming you rename/create this for single content --}}
+	@include('partials._edit_content_modal')
+	
+	<form action="{{ route('lesson.delete', $lesson->id) }}" method="POST" class="d-none" id="delete-lesson-form-{{ $lesson->id }}">
+		@csrf
+		@method('DELETE')
+	</form>
+	
 @endsection
 
 @push('scripts')
 	<script>
 		// Global/shared variables for edit_lesson page
 		let sharedAudioPlayer = null;
-		let imageModal = null; // For general image modal
+		let imageModal = null;
 		let currentlyPlayingButton = null;
 		
 		// Settings related (can be scoped within edit_lesson_top_settings.js if preferred)
@@ -440,10 +450,9 @@
 		const initialSelectedSubCategoryId = @json($lesson->sub_category_id);
 		
 		// Variables for modals (generateContentModal, addVideoModal)
-		// These will be initialized in edit_lesson.js, similar to how they were in lessons_list.js
+		// These will be initialized in edit_lesson.js
 		let generateContentModal = null;
-		let lessonIdInput, lessonTitleDisplay, lessonSubjectTextarea, lessonNotesDisplay, additionalInstructionsTextarea,
-			aiModelSelectModal; // Renamed aiModelSelect to aiModelSelectModal
+		let lessonIdInput, lessonTitleDisplay, lessonSubjectTextarea, lessonNotesDisplay, additionalInstructionsTextarea, aiModelSelect;
 		let autoDetectCheckbox, generatePreviewButton, generatePreviewSpinner, previewContentArea, lessonPreviewBody;
 		let generationOptionsArea, applyGenerationButton, applyGenerationSpinner, generationErrorMessage,
 			cancelGenerationButton, backToOptionsButton;
@@ -456,7 +465,7 @@
 		
 		let addVideoModal = null;
 		let addVideoForm, lessonIdForVideoInput, lessonTitleForVideoSpan, youtubeVideoIdInputModal, submitVideoButton,
-			submitVideoSpinner, addVideoError, addVideoProgress; // Renamed youtubeVideoIdInput to youtubeVideoIdInputModal
+			submitVideoSpinner, addVideoError, addVideoProgress;
 		
 		let currentGeneratedPlan = null;
 		let currentSuggestedMainCategory = null;

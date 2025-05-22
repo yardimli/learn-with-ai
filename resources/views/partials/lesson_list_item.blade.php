@@ -3,7 +3,7 @@
 	{{-- Lesson Details --}}
 	<div class="mb-2 mb-md-0 me-md-3 flex-grow-1">
 		<h5 class="mb-1">
-			{{ $lesson->user_title ?? 'Untitled' }}
+			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="nav-link">{{ $lesson->user_title ?? 'Untitled' }}</a>
 			@if($lesson->title && $lesson->title != $lesson->user_title)
 				<span class="badge bg-danger text-dark" title="AI-generated title">{{ $lesson->title }}</span>
 			@endif
@@ -16,6 +16,14 @@
 				<span class="badge bg-info text-dark" title="YouTube Video ID: {{ $lesson->youtube_video_id }}"><i
 						class="fab fa-youtube"></i> Video Linked</span>
 			@endif
+			
+			@if($lesson->ai_generated)
+			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-success me-1"
+			   title="Start Learning">
+				<i class="fas fa-play"></i> <span class="d-none d-lg-inline">Learn</span> Start Lesson
+			</a>
+			@endif
+		
 		</h5>
 		<p class="mb-1">
 			<small class="text-muted">
@@ -67,11 +75,6 @@
 	{{-- Action Buttons --}}
 	<div class="text-md-end mt-2 mt-md-0 flex-shrink-0">
 		<div class="btn-group" role="group" aria-label="Lesson Actions for {{ $lesson->title ?? $lesson->subject }}">
-			{{-- "Generate AI Content" and "Add YouTube Video" buttons are MOVED to edit_lesson.blade.php --}}
-			<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-success me-1"
-			   title="Start Learning">
-				<i class="fas fa-play"></i> <span class="d-none d-lg-inline">Learn</span>
-			</a>
 			<a href="{{ route('lesson.edit', ['lesson' => $lesson->id]) }}" class="btn btn-sm btn-primary me-1"
 			   title="Edit Lesson Structure & Questions">
 				<i class="fas fa-edit"></i> <span class="d-none d-lg-inline">Edit</span>
@@ -85,18 +88,6 @@
 			        data-archive-url="{{ route('lesson.archive', ['lesson' => $lesson->id]) }}">
 				<i class="fas fa-archive"></i> <span class="d-none d-lg-inline">Archive</span>
 			</button>
-			<button type="button" class="btn btn-sm btn-danger delete-lesson-btn"
-			        data-lesson-id="{{ $lesson->id }}"
-			        data-delete-url="{{ route('lesson.delete', $lesson->id) }}"
-			        data-lesson-title="{{ $lesson->user_title ?? $lesson->subject }}"
-			        title="Delete Lesson">
-				<i class="fas fa-trash"></i> <span class="d-none d-lg-inline">Delete</span>
-			</button>
-			<form action="{{ route('lesson.delete', $lesson->id) }}" method="POST" class="d-none"
-			      id="delete-form-{{ $lesson->id }}">
-				@csrf
-				@method('DELETE')
-			</form>
 		</div>
 	</div>
 </div>
