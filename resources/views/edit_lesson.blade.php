@@ -216,10 +216,27 @@
 					<label for="preferredLlmSelect" class="form-label me-2 mb-0 text-nowrap"><i
 							class="fas fa-robot text-primary me-1"></i>AI Model:</label>
 					<select id="preferredLlmSelect" class="form-select form-select-sm">
-						@php $defaultLlmId = env('DEFAULT_LLM', ''); @endphp
+						@php
+							$defaultLlmId = env('DEFAULT_LLM', '');
+							$preferredLlmExists = false;
+							
+							// Check if the preferred LLM exists in the available options
+							if (isset($lesson->preferredLlm) && !empty($llms)) {
+									foreach ($llms as $llm) {
+											if ($lesson->preferredLlm === $llm['id']) {
+													$preferredLlmExists = true;
+													break;
+											}
+									}
+							}
+							
+							// If preferred LLM doesn't exist, use default
+							$selectedLlmId = ($preferredLlmExists) ? $lesson->preferredLlm : $defaultLlmId;
+						@endphp
+						
 						@forelse ($llms ?? [] as $llm_option)
 							<option value="{{ $llm_option['id'] }}"
-								{{ ($lesson->preferredLlm ?? $defaultLlmId) === $llm_option['id'] ? 'selected' : '' }}>
+								{{ $selectedLlmId === $llm_option['id'] ? 'selected' : '' }}>
 								{{ $llm_option['name'] }}
 							</option>
 						@empty
