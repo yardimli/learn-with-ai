@@ -53,7 +53,6 @@ class GenerateAssetController extends Controller
 		}
 
 		$lessonText = $lessonContent['text'] ?? '';
-		$lessonTitleSlug = Str::slug($lessonContent['title'] ?? 'lesson-' . $lesson->id);
 
 		if (empty($lessonText)) {
 			Log::warning("Lesson text is empty for Lesson ID: {$lesson->id}. Cannot generate assets.");

@@ -16,7 +16,7 @@ function setLoadingState(loading, message = 'Loading...') {
 		loadingOverlay.classList.toggle('d-none', !loading);
 	}
 	
-	if (startQuestionButton) startQuestionButton.disabled = loading || interactionsDisabled;
+	if (startLessonButton) startLessonButton.disabled = loading || interactionsDisabled;
 	
 	// Update button states after loading state changes, as it affects interactionsDisabled
 	if(wasLoading !== isLoading) updateButtonStates(1);
@@ -49,8 +49,8 @@ function updateButtonStates(callerId) {
 	});
 	
 	// Update Start Button state
-	if (startQuestionButton) {
-		startQuestionButton.disabled = interactionsDisabled || isLoading;
+	if (startLessonButton) {
+		startLessonButton.disabled = interactionsDisabled || isLoading;
 	}
 }
 

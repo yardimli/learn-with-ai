@@ -21,7 +21,7 @@ class LessonController extends Controller
 		$this->authorize('takeLesson', $lesson);
 		Log::info("Loading question interface for Lesson ID: {$lesson->id})");
 		$state = $this->calculateCurrentState($lesson->id);
-		$lessonIntro = $this->getLessonIntro($lesson); // MODIFIED: Renamed and simplified
+		$lessonIntro = $this->getLessonIntro($lesson);
 		$question = null;
 		Log::info("Initial State for Lesson ID {$lesson->id}: ", $state);
 
@@ -44,7 +44,8 @@ class LessonController extends Controller
 	{
 		$lessonContent = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
 		if (!is_array($lessonContent)) {
-			$lessonContent = ['title' => 'Lesson Content', 'text' => '', 'sentences' => []];
+			// Provide a default structure if lesson_content is not as expected
+			$lessonContent = ['title' => $lesson->title ?? 'Lesson Content', 'text' => '', 'sentences' => []];
 		}
 
 		$allSentenceImageIds = [];
@@ -55,12 +56,14 @@ class LessonController extends Controller
 				}
 			}
 		}
+
 		$imagesById = GeneratedImage::whereIn('id', array_unique($allSentenceImageIds))->get()->keyBy('id');
 
 		$processedSentences = [];
 		$sentencesData = $lessonContent['sentences'] ?? [];
 		foreach ($sentencesData as $sentence) {
-			if (!empty($sentence['audio_url'])) {
+			// Ensure sentence has text and audio_url to be considered valid for intro playback
+			if (!empty($sentence['text']) && !empty($sentence['audio_url'])) {
 				$imageId = $sentence['generated_image_id'] ?? null;
 				$imageUrl = null;
 				if ($imageId && isset($imagesById[$imageId])) {
@@ -71,11 +74,15 @@ class LessonController extends Controller
 			}
 		}
 
+		$videoUrl = $lesson->video_url; // Accessor from Lesson model
+
 		return [
-			'title' => $lessonContent['title'] ?? "Lesson Content",
+			'title' => $lesson->title ?? "Lesson Content",
 			'full_text' => $this->getLessonText($lesson),
 			'sentences' => $processedSentences,
-			'has_audio' => !empty($processedSentences)
+			'has_audio' => !empty($processedSentences),
+			'has_video' => !empty($videoUrl),
+			'video_url' => $videoUrl,
 		];
 	}
 

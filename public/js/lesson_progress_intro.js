@@ -1,6 +1,6 @@
 function setupIntroEventListeners() {
-	if (startQuestionButton) {
-		startQuestionButton.addEventListener('click', startQuestions);
+	if (startLessonButton) {
+		startLessonButton.addEventListener('click', startQuestions);
 	}
 }
 
@@ -22,106 +22,132 @@ function updateProgressBar() {
 
 function showIntro() {
 	console.log(`Showing intro`);
+	stopPlaybackSequence(true); // Stop any sentence audio
+	if (introVideoPlayer && !introVideoPlayer.paused) { // Stop video if playing
+		introVideoPlayer.pause();
+	}
 	
-	stopPlaybackSequence(true);
 	feedbackData = null;
 	isIntroVisible = true;
-	
 	const introData = window.lessonIntro;
 	const introTitle = introData.title;
 	
-	// --- Populate Intro Area ---
 	if (IntroTitle) IntroTitle.textContent = `${introTitle}`;
 	
-	// --- Reset Image Display ---
+	// --- Reset Image Display (for sentences) ---
 	if (introSentenceImage) {
-		introSentenceImage.style.display = 'none'; // Hide initially
-		introSentenceImage.src = ''; // Clear src
+		introSentenceImage.style.display = 'none';
+		introSentenceImage.src = '';
 	}
 	if (introSentenceImagePlaceholder) {
-		introSentenceImagePlaceholder.style.display = 'block'; // Show placeholder
+		introSentenceImagePlaceholder.style.display = 'block';
 	}
 	
-	// Populate Sentence Spans
-	if (IntroTextContainer && IntroText) {
-		console.log(introData);
-		IntroTextContainer.innerHTML = ''; // Clear previous
-		if (introData.sentences && introData.sentences.length > 0) {
+	// --- Hide all content areas initially ---
+	toggleElement(introVideoArea, false);
+	toggleElement(introSentencesArea, false);
+	toggleElement(introFullTextDisplayArea, false);
+	toggleElement(introPlaybackControls, false); // Hide sentence playback controls by default
+	
+	if (introData.has_video && introData.video_url) {
+		console.log("Displaying intro video:", introData.video_url);
+		if (introVideoPlayer) {
+			const sourceElement = introVideoPlayer.querySelector('source') || document.createElement('source');
+			sourceElement.setAttribute('src', introData.video_url);
+			// Determine video type (basic check for now)
+			let videoType = 'video/mp4';
+			if (introData.video_url.endsWith('.webm')) {
+				videoType = 'video/webm';
+			} else if (introData.video_url.endsWith('.ogv')) {
+				videoType = 'video/ogg';
+			}
+			sourceElement.setAttribute('type', videoType);
+			
+			if (!introVideoPlayer.querySelector('source')) {
+				introVideoPlayer.appendChild(sourceElement);
+			}
+			introVideoPlayer.load(); // Important to load the new source
+		}
+		toggleElement(introVideoArea, true);
+	} else if (introData.has_audio && introData.sentences && introData.sentences.length > 0) {
+		console.log("Displaying intro sentences with audio.");
+		toggleElement(introSentencesArea, true);
+		if (IntroTextContainer) {
+			IntroTextContainer.innerHTML = ''; // Clear previous content (like the <p id="IntroText">)
 			introData.sentences.forEach((sentence, index) => {
-				console.log(sentence);
 				const span = document.createElement('span');
 				span.classList.add('intro-sentence');
 				span.dataset.sentenceIndex = index;
 				span.textContent = sentence.text + ' '; // Add space
 				IntroTextContainer.appendChild(span);
 			});
-			toggleElement(IntroText, false); // Hide placeholder P tag
-		} else {
-			// Display full text if no playable sentences or just use a message
-			IntroTextContainer.innerHTML = `<p class="text-muted">${introData.full_text || '(No introduction text available.)'}</p>`;
-			toggleElement(IntroText, false);
 		}
-	} else if (IntroText) {
-		// Fallback if container issue
-		IntroText.textContent = introData.full_text || '(No introduction text available.)';
-		toggleElement(IntroText, true);
+		buildIntroPlaybackQueue(introData.sentences);
+		toggleElement(introPlaybackControls, true); // Show sentence playback controls
+		if (isAutoPlayEnabled) {
+			console.log("Auto-playing intro sentences...");
+			startPlaybackSequence();
+		} else {
+			console.log("Auto-play disabled for intro sentences.");
+			// Ensure image placeholder is visible if not auto-playing sentences
+			if (introSentenceImage) introSentenceImage.style.display = 'none';
+			if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
+		}
+	} else if (introData.full_text && introData.full_text.trim() !== '') {
+		console.log("Displaying intro full text.");
+		if (introFullTextContent) {
+			introFullTextContent.textContent = introData.full_text;
+		}
+		toggleElement(introFullTextDisplayArea, true);
+	} else {
+		console.log("No intro video, sentences, or full text available.");
+		if (introFullTextContent) {
+			introFullTextContent.textContent = '(No introduction content available for this lesson.)';
+		}
+		toggleElement(introFullTextDisplayArea, true); // Show the area with the "no content" message
 	}
 	
-	
-	// --- Show/Hide Elements ---
+	// --- Show/Hide Common Elements ---
 	toggleElement(IntroArea, true);
 	toggleElement(questionArea, false);
 	toggleElement(completionMessage, false);
 	
 	// --- Update Buttons and State ---
-	if (startQuestionButton) {
-		startQuestionButton.textContent = `Start Questions`;
-		startQuestionButton.disabled = false;
+	if (startLessonButton) {
+		startLessonButton.textContent = `Start Questions`;
+		startLessonButton.disabled = false;
 	}
 	updateProgressBar();
 	setInteractionsDisabled(false);
 	updateButtonStates(11);
-	
-	// --- Handle Audio ---
-	if (introData.has_audio && introData.sentences.length > 0) {
-		buildIntroPlaybackQueue(introData.sentences); // Build queue from sentence data
-		if (introPlaybackControls) {
-			toggleElement(introPlaybackControls, true);
-		}
-		if (isAutoPlayEnabled) {
-			console.log("Auto-playing intro sentences...");
-			startPlaybackSequence(); // Start sequence if auto-play is on
-		} else {
-			console.log("Auto-play disabled for intro.");
-			if (introSentenceImage) introSentenceImage.style.display = 'none';
-			if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
-		}
-	} else {
-		console.log("No audio available for this intro or no sentences.");
-		if (introSentenceImage) introSentenceImage.style.display = 'none';
-		if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
-		if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide manual controls
-		playbackQueue = []; // Ensure queue is empty
-	}
 }
 
 
 function startQuestions() {
 	if (isLoading || interactionsDisabled) return;
 	
-	// No need to check for video play state anymore
-	
 	console.log(`Starting questions`);
 	isIntroVisible = false;
-	stopPlaybackSequence(true); // Stop intro audio and enable interactions
+	stopPlaybackSequence(true); // Stop intro sentence audio and enable interactions
+	
+	// Stop and hide video if it was playing/visible
+	if (introVideoPlayer && !introVideoPlayer.paused) {
+		introVideoPlayer.pause();
+		// Optionally reset video: introVideoPlayer.currentTime = 0;
+	}
+	toggleElement(introVideoArea, false); // Ensure video area is hidden
+	
+	// Hide sentence-specific elements
+	toggleElement(introSentencesArea, false);
+	if (introSentenceImage) introSentenceImage.style.display = 'none';
+	if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block'; // Reset placeholder
+	if (introPlaybackControls) toggleElement(introPlaybackControls, false);
+	
+	// Hide full text display area
+	toggleElement(introFullTextDisplayArea, false);
 	
 	// Hide Intro Area, show loading state (which will then show question area)
 	toggleElement(IntroArea, false);
-	if (introSentenceImage) introSentenceImage.style.display = 'none';
-	if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
-	
-	if (introPlaybackControls) toggleElement(introPlaybackControls, false); // Hide controls when leaving intro
 	toggleElement(questionArea, false); // Hide question area initially
-	
 	loadQuestionsForLevel();
 }

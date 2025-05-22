@@ -347,7 +347,7 @@
 		}
 
 		// Helper function (keep or adapt from existing)
-		private function performFreepikApiSearch(string $query, int $page = 1, int $limit = 12)
+		private function performFreepikApiSearch(string $query, int $page = 1, int $limit = 36)
 		{
 			$apiKey = env('FREEPIK_API_KEY');
 			if (!$apiKey) {

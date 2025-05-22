@@ -118,8 +118,14 @@
 		let IntroArea = null;
 		let IntroTitle = null;
 		let IntroText = null;
-		let startQuestionButton = null; // Renamed to startLessonQuestionButton
+		let startLessonButton = null; // Renamed to startLessonQuestionButton
 		let isIntroVisible = false; // Renamed to isLessonIntroVisible
+		
+		let introVideoArea = null;
+		let introVideoPlayer = null;
+		let introSentencesArea = null;
+		let introFullTextDisplayArea = null;
+		let introFullTextContent = null;
 		
 		let loadingOverlay = null;
 		let loadingMessageEl = null;
@@ -152,7 +158,14 @@
 			introSentenceImageContainer = document.getElementById('introSentenceImageContainer');
 			introSentenceImage = document.getElementById('introSentenceImage');
 			introSentenceImagePlaceholder = document.getElementById('introSentenceImagePlaceholder');
-			startQuestionButton = document.getElementById('startQuestionButton'); // Should be startLessonQuestionButton
+			startLessonButton = document.getElementById('startLessonButton');
+			
+			introVideoArea = document.getElementById('introVideoArea');
+			introVideoPlayer = document.getElementById('introVideoPlayer');
+			introSentencesArea = document.getElementById('introSentencesArea');
+			introFullTextDisplayArea = document.getElementById('introFullTextDisplayArea');
+			introFullTextContent = document.getElementById('introFullTextContent');
+			
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
 			autoPlayAudioSwitch = document.getElementById('autoPlayAudioSwitch');
