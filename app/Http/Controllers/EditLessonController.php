@@ -770,6 +770,7 @@ PROMPT;
 
 			if (!$response->successful()) {
 				Log::error("RapidAPI request failed for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['status' => $response->status(), 'body' => $response->body()]);
+				Log::error("RapidAPI response: " . $response->body());
 				throw new Exception("Failed to fetch video details from API (Status: {$response->status()}).");
 			}
 
