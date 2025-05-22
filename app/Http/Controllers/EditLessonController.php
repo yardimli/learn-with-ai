@@ -823,6 +823,7 @@ PROMPT;
 
 			if (!$downloadResponse->successful()) {
 				Log::error("Failed to download video stream for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $downloadResponse->status());
+				Log::error("Download response: " . json_encode($videoData));
 				throw new Exception("Failed to download video file (Status: {$downloadResponse->status()}).");
 			}
 
