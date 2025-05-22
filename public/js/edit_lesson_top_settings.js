@@ -55,44 +55,50 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	// --- LLM Selector Logic ---
-	if (preferredLlmSelect) {
+	iif (preferredLlmSelect) {
 		// Load available LLMs via AJAX
 		fetch(llmsListUrl) // Use variable defined in script tag
 			.then(response => response.json())
 			.then(data => {
 				if (data.llms && Array.isArray(data.llms)) {
 					const currentLlmValue = preferredLlmSelect.value; // Get the value set by Blade
+					let currentLlmExists = false;
 					
-					// Clear existing options except the first one (which shows current)
-					while (preferredLlmSelect.options.length > 1) {
-						preferredLlmSelect.remove(1);
+					// Check if current value exists in the available LLMs
+					for (const llm of data.llms) {
+						if (llm.id === currentLlmValue) {
+							currentLlmExists = true;
+							break;
+						}
 					}
 					
-					// Rebuild options list
+					// Clear existing options
+					preferredLlmSelect.innerHTML = '';
+					
+					// Add all available LLMs to dropdown
 					data.llms.forEach(llm => {
-						// Don't add the 'current' one again if it's in the list
-						if (llm.id !== currentLlmValue) {
-							const option = document.createElement('option');
-							option.value = llm.id;
-							option.textContent = `${llm.name}`; // Simpler text
-							preferredLlmSelect.appendChild(option);
-						}
+						const option = document.createElement('option');
+						option.value = llm.id;
+						option.textContent = llm.name;
+						preferredLlmSelect.appendChild(option);
 					});
 					
-					// Ensure the first option text reflects the name correctly
-					const currentOption = preferredLlmSelect.options[0];
-					const matchingLlm = data.llms.find(llm => llm.id === currentLlmValue);
-					if (currentOption && matchingLlm) {
-						currentOption.textContent = `${matchingLlm.name}`; // Update display name
-					} else if (currentOption) {
-						currentOption.textContent = currentLlmValue; // Fallback to ID if name not found
+					// Set the selected option
+					if (currentLlmExists) {
+						// If the stored LLM exists, select it
+						preferredLlmSelect.value = currentLlmValue;
+					} else if (data.llms.length > 0) {
+						// If stored LLM doesn't exist, select the first available one
+						// (which is typically the default)
+						preferredLlmSelect.value = data.llms[0].id;
+						console.warn(`Selected LLM '${currentLlmValue}' not found in available models. Defaulting to '${data.llms[0].id}'.`);
+						showToast(`Selected AI model was no longer available. Defaulted to ${data.llms[0].name}.`, 'Note', 'info');
 					}
-					
 				}
 			})
 			.catch(error => {
 				console.error('Error loading LLMs list:', error);
-				// Optionally show an error to the user
+				showToast('Error loading AI models.', 'Error', 'error');
 			});
 	}
 	
