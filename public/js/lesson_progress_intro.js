@@ -4,7 +4,6 @@ function setupIntroEventListeners() {
 	}
 }
 
-
 function updateProgressBar() {
 	if (!progressBar || !currentState) return;
 	
@@ -13,19 +12,26 @@ function updateProgressBar() {
 		: (currentState.status === 'completed' ? 100 : 0);
 	
 	const displayProgress = Math.min(100, Math.max(0, overallProgress)); // Clamp 0-100
+	
 	progressBar.style.width = `${displayProgress}%`;
 	progressBar.textContent = `${displayProgress}%`;
 	progressBar.setAttribute('aria-valuenow', displayProgress);
-	
 }
 
 
 function showIntro() {
 	console.log(`Showing intro`);
 	stopPlaybackSequence(true); // Stop any sentence audio
-	if (introVideoPlayer && !introVideoPlayer.paused) { // Stop video if playing
+	
+	// Stop video if playing (both types)
+	if (introVideoPlayer && !introVideoPlayer.paused) {
 		introVideoPlayer.pause();
 	}
+	if (youtubeIframePlayer && youtubeEmbedContainer && !youtubeEmbedContainer.classList.contains('d-none')) {
+		// To stop YouTube, set src to empty. It will be restored if needed when intro is reshown.
+		youtubeIframePlayer.src = '';
+	}
+	
 	
 	feedbackData = null;
 	isIntroVisible = true;
@@ -44,36 +50,47 @@ function showIntro() {
 	}
 	
 	// --- Hide all content areas initially ---
-	toggleElement(introVideoArea, false);
+	toggleElement(introVideoArea, false); // Hide the main video area container first
+	toggleElement(introVideoPlayer, false); // Hide self-hosted player
+	toggleElement(youtubeEmbedContainer, false); // Hide YouTube embed container
 	toggleElement(introSentencesArea, false);
 	toggleElement(introFullTextDisplayArea, false);
 	toggleElement(introPlaybackControls, false); // Hide sentence playback controls by default
 	
+	
 	if (introData.has_video && introData.video_url) {
-		console.log("Displaying intro video:", introData.video_url);
-		if (introVideoPlayer) {
-			const sourceElement = introVideoPlayer.querySelector('source') || document.createElement('source');
-			sourceElement.setAttribute('src', introData.video_url);
-			// Determine video type (basic check for now)
-			let videoType = 'video/mp4';
-			if (introData.video_url.endsWith('.webm')) {
-				videoType = 'video/webm';
-			} else if (introData.video_url.endsWith('.ogv')) {
-				videoType = 'video/ogg';
+		console.log("Displaying intro video. URL:", introData.video_url, "Is YouTube Embed:", introData.is_youtube_embed);
+		toggleElement(introVideoArea, true); // Show the main video area container
+		
+		if (introData.is_youtube_embed) {
+			if (youtubeIframePlayer) {
+				youtubeIframePlayer.src = introData.video_url;
+				toggleElement(youtubeEmbedContainer, true); // Show YouTube embed
 			}
-			sourceElement.setAttribute('type', videoType);
-			
-			if (!introVideoPlayer.querySelector('source')) {
-				introVideoPlayer.appendChild(sourceElement);
+		} else {
+			if (introVideoPlayer) {
+				const sourceElement = introVideoPlayer.querySelector('source') || document.createElement('source');
+				sourceElement.setAttribute('src', introData.video_url);
+				// Determine video type (basic check for now)
+				let videoType = 'video/mp4';
+				if (introData.video_url.endsWith('.webm')) {
+					videoType = 'video/webm';
+				} else if (introData.video_url.endsWith('.ogv')) {
+					videoType = 'video/ogg';
+				}
+				sourceElement.setAttribute('type', videoType);
+				if (!introVideoPlayer.querySelector('source')) {
+					introVideoPlayer.appendChild(sourceElement);
+				}
+				introVideoPlayer.load(); // Important to load the new source
+				toggleElement(introVideoPlayer, true); // Show self-hosted player
 			}
-			introVideoPlayer.load(); // Important to load the new source
 		}
-		toggleElement(introVideoArea, true);
 	} else if (introData.has_audio && introData.sentences && introData.sentences.length > 0) {
 		console.log("Displaying intro sentences with audio.");
 		toggleElement(introSentencesArea, true);
 		if (IntroTextContainer) {
-			IntroTextContainer.innerHTML = ''; // Clear previous content (like the <p id="IntroText">)
+			IntroTextContainer.innerHTML = ''; // Clear previous content
 			introData.sentences.forEach((sentence, index) => {
 				const span = document.createElement('span');
 				span.classList.add('intro-sentence');
@@ -89,7 +106,6 @@ function showIntro() {
 			startPlaybackSequence();
 		} else {
 			console.log("Auto-play disabled for intro sentences.");
-			// Ensure image placeholder is visible if not auto-playing sentences
 			if (introSentenceImage) introSentenceImage.style.display = 'none';
 			if (introSentenceImagePlaceholder) introSentenceImagePlaceholder.style.display = 'block';
 		}
@@ -125,17 +141,24 @@ function showIntro() {
 
 function startQuestions() {
 	if (isLoading || interactionsDisabled) return;
-	
 	console.log(`Starting questions`);
 	isIntroVisible = false;
 	stopPlaybackSequence(true); // Stop intro sentence audio and enable interactions
 	
-	// Stop and hide video if it was playing/visible
+	// Stop and hide video if it was playing/visible (both types)
 	if (introVideoPlayer && !introVideoPlayer.paused) {
 		introVideoPlayer.pause();
 		// Optionally reset video: introVideoPlayer.currentTime = 0;
 	}
-	toggleElement(introVideoArea, false); // Ensure video area is hidden
+	if (youtubeIframePlayer && youtubeEmbedContainer && !youtubeEmbedContainer.classList.contains('d-none')) {
+		// Stop YouTube video by setting src to empty or a blank page
+		youtubeIframePlayer.src = ''; // Clear src to stop playback
+		console.log("Stopped YouTube iframe player.");
+	}
+	
+	toggleElement(introVideoArea, false); // Ensure video area is hidden (hides both types)
+	toggleElement(introVideoPlayer, false); // Explicitly hide self-hosted
+	toggleElement(youtubeEmbedContainer, false); // Explicitly hide YouTube embed
 	
 	// Hide sentence-specific elements
 	toggleElement(introSentencesArea, false);

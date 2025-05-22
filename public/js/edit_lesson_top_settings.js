@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	
 	// --- LLM Selector Logic ---
-	iif (preferredLlmSelect) {
+	if (preferredLlmSelect) {
 		// Load available LLMs via AJAX
 		fetch(llmsListUrl) // Use variable defined in script tag
 			.then(response => response.json())

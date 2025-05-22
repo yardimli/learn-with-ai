@@ -44,7 +44,6 @@ class LessonController extends Controller
 	{
 		$lessonContent = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
 		if (!is_array($lessonContent)) {
-			// Provide a default structure if lesson_content is not as expected
 			$lessonContent = ['title' => $lesson->title ?? 'Lesson Content', 'text' => '', 'sentences' => []];
 		}
 
@@ -56,13 +55,11 @@ class LessonController extends Controller
 				}
 			}
 		}
-
 		$imagesById = GeneratedImage::whereIn('id', array_unique($allSentenceImageIds))->get()->keyBy('id');
 
 		$processedSentences = [];
 		$sentencesData = $lessonContent['sentences'] ?? [];
 		foreach ($sentencesData as $sentence) {
-			// Ensure sentence has text and audio_url to be considered valid for intro playback
 			if (!empty($sentence['text']) && !empty($sentence['audio_url'])) {
 				$imageId = $sentence['generated_image_id'] ?? null;
 				$imageUrl = null;
@@ -74,15 +71,26 @@ class LessonController extends Controller
 			}
 		}
 
-		$videoUrl = $lesson->video_url; // Accessor from Lesson model
+		$videoUrl = null;
+		$isYoutubeEmbed = false;
+
+		if ($lesson->video_path && Storage::disk('public')->exists($lesson->video_path)) {
+			$videoUrl = $lesson->video_url; // Accessor for self-hosted video
+		} elseif ($lesson->youtube_video_id) {
+			// Use YouTube embed if local file is not available but YouTube ID exists
+			$videoUrl = "https://www.youtube.com/embed/{$lesson->youtube_video_id}?autoplay=0&rel=0&modestbranding=1";
+			$isYoutubeEmbed = true;
+			Log::info("Lesson {$lesson->id}: Using YouTube embed for video_id {$lesson->youtube_video_id} as local file not found/available.");
+		}
 
 		return [
 			'title' => $lesson->title ?? "Lesson Content",
 			'full_text' => $this->getLessonText($lesson),
 			'sentences' => $processedSentences,
 			'has_audio' => !empty($processedSentences),
-			'has_video' => !empty($videoUrl),
+			'has_video' => !empty($videoUrl), // True if either self-hosted or YouTube embed
 			'video_url' => $videoUrl,
+			'is_youtube_embed' => $isYoutubeEmbed, // New flag
 		];
 	}
 

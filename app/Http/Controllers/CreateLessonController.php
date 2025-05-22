@@ -120,8 +120,6 @@ class CreateLessonController extends Controller
 			$extractedYouTubeId = self::extractYouTubeId($youtubeVideoIdInput);
 			if (!$extractedYouTubeId) {
 				Log::warning("Invalid YouTube URL/ID provided during lesson creation, ignoring: " . $youtubeVideoIdInput);
-				// Optionally, you could return an error here if strict validation is needed:
-				// return response()->json(['success' => false, 'message' => 'Invalid YouTube Video ID or URL provided.'], 422);
 			}
 		}
 
@@ -158,8 +156,8 @@ class CreateLessonController extends Controller
 			'user_title' => $userTitle,
 			'subject' => $lessonSubject,
 			'notes' => $notes,
-			'title' => null, // Will be populated by AI later
-			'image_prompt_idea' => null, // Will be populated by AI later
+			'title' => null,
+			'image_prompt_idea' => null,
 			'lesson_content' => json_encode(['text' => null, 'sentences' => []]),
 			'preferredLlm' => $preferredLlm,
 			'ttsEngine' => $ttsEngine,
@@ -173,16 +171,17 @@ class CreateLessonController extends Controller
 			'youtube_video_id' => $extractedYouTubeId, // Store extracted YouTube ID
 		]);
 
+
 		Log::info("Basic lesson record created with ID: {$lesson->id}, SubCategoryID: {$finalSubCategoryId}, Mode: {$categorySelectionMode}, YouTubeID: {$extractedYouTubeId}");
 
 		if ($extractedYouTubeId && $lesson) {
 			// Process YouTube video details (this happens synchronously)
 			$videoResult = EditLessonController::processAndStoreYouTubeVideo($lesson, $extractedYouTubeId);
-			if (!$videoResult['success']) {
+			if (!$videoResult['success']) { // This 'success' means the overall attempt, not necessarily download
 				Log::warning("Failed to process YouTube video {$extractedYouTubeId} details for new lesson ID {$lesson->id}: " . $videoResult['message']);
-				// Lesson is created, but video details might be missing. User can add/retry from edit page.
+				// Lesson is created, but video details might be missing or incomplete.
 			} else {
-				Log::info("Successfully processed YouTube video {$extractedYouTubeId} for new lesson ID {$lesson->id}.");
+				Log::info("Successfully processed YouTube video {$extractedYouTubeId} for new lesson ID {$lesson->id}. Downloaded: " . ($videoResult['video_downloaded'] ? 'Yes' : 'No') . ". Message: " . $videoResult['message']);
 			}
 		}
 

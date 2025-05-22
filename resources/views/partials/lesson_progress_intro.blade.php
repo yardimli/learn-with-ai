@@ -11,10 +11,21 @@
 	
 	{{-- Video Area --}}
 	<div id="introVideoArea" class="text-center mb-3 d-none">
-		<video id="introVideoPlayer" width="100%" style="max-width: 1024px; border-radius: 0.25rem; box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;" controls>
-			<source src="" type="video/mp4">
+		{{-- Self-hosted video player --}}
+		<video id="introVideoPlayer" width="100%" style="max-width: 1024px; border-radius: 0.25rem; box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;" controls class="d-none">
+			<source src="" type="video/mp4"> {{-- Type will be set by JS if needed --}}
 			Your browser does not support the video tag.
 		</video>
+		{{-- YouTube embed iframe --}}
+		<div id="youtubeEmbedContainer" class="d-none ratio ratio-16x9" style="max-width: 1024px; margin: 0 auto;">
+			<iframe id="youtubeIframePlayer"
+			        src=""
+			        title="YouTube video player"
+			        frameborder="0"
+			        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+			        allowfullscreen>
+			</iframe>
+		</div>
 	</div>
 	
 	{{-- Sentences/Image Area --}}
@@ -27,7 +38,8 @@
 						(Image will appear here as audio plays)
 					</div>
 				</div>
-				<div id="introPlaybackControls" class="text-center mb-3 mt-3 d-none"> {{-- Shown only if sentences are active --}}
+				<div id="introPlaybackControls" class="text-center mb-3 mt-3 d-none">
+					{{-- Shown only if sentences are active --}}
 					<button id="startOverIntroButton" class="btn btn-sm btn-outline-secondary" title="Restart Intro Audio & Images">
 						<i class="fas fa-redo-alt me-1"></i> Start Over Intro
 					</button>

@@ -72,6 +72,7 @@
 		window.questionInitialState = @json($state);
 		window.lessonIntro = @json($lessonIntro);
 		
+		// DOM Element Variables
 		let IntroTextContainer = null;
 		let introPlaybackControls = null;
 		let startOverIntroButton = null;
@@ -93,10 +94,27 @@
 		let feedbackAudioError = null;
 		let modalTryAgainButton = null;
 		let modalNextButton = null;
+		let lessonId = null; // Will be assigned from hidden input
+		let autoPlayAudioSwitch = null;
+		let progressBar = null;
+		let IntroArea = null;
+		let IntroTitle = null;
+		let startLessonButton = null;
+		let introVideoArea = null;
+		let introVideoPlayer = null;
+		let introSentencesArea = null;
+		let introFullTextDisplayArea = null;
+		let introFullTextContent = null;
+		let loadingOverlay = null;
+		let loadingMessageEl = null;
+		let errorMessageArea = null;
+		let errorMessageText = null;
+		let closeErrorButton = null;
+		let youtubeEmbedContainer = null; // New
+		let youtubeIframePlayer = null;  // New
 		
-		let lessonId = null;
+		// State Variables
 		let isAutoPlayEnabled = true;
-		let difficulties = ['easy', 'medium', 'hard'];
 		let currentState = window.questionInitialState || null;
 		let currentLessonQuestions = [];
 		let currentQuestionIndex = -1;
@@ -105,71 +123,42 @@
 		let isLoading = false;
 		let interactionsDisabled = false;
 		let isModalVisible = false;
-		
 		let playbackQueue = [];
 		let currentPlaybackIndex = -1;
 		let isAutoPlaying = false;
 		let currentHighlightElement = null;
 		let ttsAudioPlayer = null;
 		let feedbackAudioPlayer = null;
-		let autoPlayAudioSwitch = null;
-		
-		let progressBar = null;
-		let IntroArea = null;
-		let IntroTitle = null;
-		let IntroText = null;
-		let startLessonButton = null; // Renamed to startLessonQuestionButton
-		let isIntroVisible = false; // Renamed to isLessonIntroVisible
-		
-		let introVideoArea = null;
-		let introVideoPlayer = null;
-		let introSentencesArea = null;
-		let introFullTextDisplayArea = null;
-		let introFullTextContent = null;
-		
-		let loadingOverlay = null;
-		let loadingMessageEl = null;
-		let errorMessageArea = null;
-		let errorMessageText = null;
-		let closeErrorButton = null;
+		let isIntroVisible = false;
 		let currentAttemptNumber = 1;
+		let feedbackData = null; // To store feedback from submitAnswer for checkStateAndTransition
 		
 		document.addEventListener('DOMContentLoaded', () => {
+			// Assign DOM Elements
 			loadingOverlay = document.getElementById('loadingOverlay');
 			loadingMessageEl = document.getElementById('loadingMessage');
 			errorMessageArea = document.getElementById('errorMessageArea');
 			errorMessageText = document.getElementById('errorMessageText');
 			closeErrorButton = document.getElementById('closeErrorButton');
-			
 			lessonId = document.getElementById('lessonId').value;
-			currentState = window.questionInitialState || null;
-			currentLessonQuestions = [];
-			currentQuestionIndex = -1;
-			currentQuestion = null;
-			selectedIndex = null;
-			isLoading = false;
-			interactionsDisabled = false;
-			
 			progressBar = document.getElementById('progressBar');
 			IntroArea = document.getElementById('IntroArea');
 			IntroTitle = document.getElementById('IntroTitle');
-			IntroText = document.getElementById('IntroText');
 			IntroTextContainer = document.getElementById('IntroTextContainer');
 			introSentenceImageContainer = document.getElementById('introSentenceImageContainer');
 			introSentenceImage = document.getElementById('introSentenceImage');
 			introSentenceImagePlaceholder = document.getElementById('introSentenceImagePlaceholder');
 			startLessonButton = document.getElementById('startLessonButton');
-			
 			introVideoArea = document.getElementById('introVideoArea');
 			introVideoPlayer = document.getElementById('introVideoPlayer');
+			youtubeEmbedContainer = document.getElementById('youtubeEmbedContainer'); // New
+			youtubeIframePlayer = document.getElementById('youtubeIframePlayer');   // New
 			introSentencesArea = document.getElementById('introSentencesArea');
 			introFullTextDisplayArea = document.getElementById('introFullTextDisplayArea');
 			introFullTextContent = document.getElementById('introFullTextContent');
-			
 			ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 			feedbackAudioPlayer = document.getElementById('feedbackAudioPlayer');
 			autoPlayAudioSwitch = document.getElementById('autoPlayAudioSwitch');
-			
 			questionArea = document.getElementById('questionArea');
 			questionDifficulty = document.getElementById('questionDifficulty');
 			questionTextElement = document.getElementById('questionTextElement');
@@ -184,7 +173,6 @@
 			modalTryAgainButton = document.getElementById('modalTryAgainButton');
 			modalNextButton = document.getElementById('modalNextButton');
 			completionMessage = document.getElementById('completionMessage');
-			
 			introPlaybackControls = document.getElementById('introPlaybackControls');
 			startOverIntroButton = document.getElementById('startOverIntroButton');
 			
@@ -196,6 +184,7 @@
 				autoPlayAudioSwitch.checked = isAutoPlayEnabled;
 			}
 			
+			// Initialize
 			setupAutoPlaySwitchListener();
 			setupIntroEventListeners();
 			setupAudioEventListeners();
