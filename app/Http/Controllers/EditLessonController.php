@@ -913,6 +913,7 @@ PROMPT;
 			}
 
 			// --- Update Lesson Record ---
+			$lesson->youtube_video_id = $youtubeVideoIdToProcess; // Set the ID if not already set
 			$lesson->video_api_host = $rapidApiHost;
 			$lesson->video_api_response = $videoData;
 			$lesson->video_path = $videoStoragePath; // This will be null if download failed or no stream
