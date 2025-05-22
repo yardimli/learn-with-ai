@@ -9,7 +9,9 @@
 			@endif
 			
 			@if(!$lesson->ai_generated)
-				<span class="badge bg-warning text-dark">Needs AI Content</span>
+				<span class="badge bg-warning text-dark">Needs Content</span>
+			@else
+				<span class="badge bg-success text-dark">Content Generated</span>
 			@endif
 		</h5>
 		<p class="mb-1">
@@ -61,7 +63,6 @@
 	{{-- Action Buttons --}}
 	<div class="text-md-end mt-2 mt-md-0 flex-shrink-0">
 		<div class="btn-group" role="group" aria-label="Lesson Actions for {{ $lesson->title ?? $lesson->subject }}">
-			@if(!$lesson->ai_generated)
 				{{-- Generate AI Content Button for lessons without content --}}
 				<button type="button" class="btn btn-sm btn-success me-1 generate-ai-content-btn"
 				        data-lesson-id="{{ $lesson->id }}"
@@ -89,14 +90,11 @@
 				        title="Add YouTube Video">
 					<i class="fab fa-youtube"></i> <span class="d-none d-lg-inline">Video</span>
 				</button>
-			@else
-				{{-- Learn button for lessons with content --}}
 				<a href="{{ route('question.interface', ['lesson' => $lesson->id]) }}"
 				   class="btn btn-sm btn-success me-1" title="Start Learning">
 					<i class="fas fa-play"></i>
 					<span class="d-none d-lg-inline">Learn</span>
 				</a>
-			@endif
 			
 			<a href="{{ route('lesson.edit', ['lesson' => $lesson->id]) }}"
 			   class="btn btn-sm btn-primary me-1" title="Edit Lesson Structure & Questions">
