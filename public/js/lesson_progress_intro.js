@@ -149,5 +149,5 @@ function startQuestions() {
 	// Hide Intro Area, show loading state (which will then show question area)
 	toggleElement(IntroArea, false);
 	toggleElement(questionArea, false); // Hide question area initially
-	loadQuestionsForLevel();
+	loadLessonQustions();
 }

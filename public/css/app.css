@@ -116,7 +116,6 @@ body {
 
 
 .reading-highlight {
-    font-weight: bold;
     color: #0d6efd;
     background-color: #e7f1ff;
     transition: background-color 0.3s ease;
@@ -588,9 +587,9 @@ body {
 .dark-mode .reading-highlight {
     font-weight: bold;
     transition: background-color 0.3s ease;
-    border-color: #0d6efd;
+    border-color: #0d6efd !important;
     background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
-    color: #c0dfff; /* Lighter text for highlight */
+    color: #c0dfff !important; /* Lighter text for highlight */
     box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
 }
 

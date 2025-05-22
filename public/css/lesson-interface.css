@@ -144,14 +144,11 @@
 
 /* Reading Highlight (used in intro) */
 .reading-highlight {
-    font-weight: bold;
     color: #0d6efd;
     background-color: #e7f1ff;
     transition: background-color 0.3s ease;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
     border-color: #0d6efd;
-    border-radius: 0.2rem;
-    padding: 0.1em 0.2em;
 }
 
 /* Auto Play Switch (Specific to this interface - moved from blade) */

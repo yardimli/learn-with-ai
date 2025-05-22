@@ -250,11 +250,16 @@
     border-color: var(--bs-danger-border-subtle) !important;
     color: var(--bs-danger-text-emphasis) !important;
 }
+.dark-mode .reading-highlight {
+    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
+    color: #c0dfff; /* Lighter text for highlight */
+    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
+    border-color: #0d6efd;
+}
+
 .dark-mode .answer-btn:disabled {
-    background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-secondary-color);
-    opacity: 0.6;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 /* Dark Mode Switch */
@@ -321,12 +326,6 @@
     background-color: rgba(var(--bs-primary-rgb), 0.4); /* Darker blue for dark mode */
     color: #e0e0e0; /* Ensure text is light */
     box-shadow: 0 0 5px rgba(var(--bs-primary-rgb), 0.4);
-}
-.dark-mode .reading-highlight {
-    background-color: rgba(88, 166, 255, 0.3); /* Highlight color for dark mode */
-    color: #c0dfff; /* Lighter text for highlight */
-    box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
-    border-color: transparent; /* Remove border or match background */
 }
 
 .dark-mode #completionMessage, .dark-mode #partCompletionMessage {
