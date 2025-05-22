@@ -30,7 +30,7 @@ use Exception;
 
 // Add Exception import
 
-class EditController extends Controller
+class EditLessonController extends Controller
 {
 	// MODIFIED: System prompt for quiz generation based on single lesson content
 	private const SYSTEM_PROMPT_QUIZ_GENERATION = <<<PROMPT
@@ -475,19 +475,27 @@ PROMPT;
 		}
 
 		$lessonPrompt = $lesson->subject;
-		// MODIFIED: Retrieve single lesson content
+		$lessonTitle = $leson->title ?? $lesson->user_title ?? 'Lesson Content';
+
 		$lessonContent = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
 
-		if (!is_array($lessonContent) || !isset($lessonContent['text'])) {
+		if (!is_array($lessonContent)) {
 			Log::error("Invalid lesson content data for Lesson ID: {$lesson->id}.");
 			return response()->json(['success' => false, 'message' => 'Invalid lesson content.'], 400);
 		}
-		$lessonTitle = $leson->title ?? $lesson->user_title ?? 'Lesson Content';
+
+// First try to get text from lesson_content
 		$contentText = $lessonContent['text'] ?? '';
 
+// If text is empty, try to get video subtitles text as an alternative
+		if (empty($contentText) && isset($lesson->video_subtitles_text)) {
+			$contentText = $lesson->video_subtitles_text;
+			Log::info("Using video subtitles text for Lesson ID: {$lesson->id} as primary text was empty.");
+		}
+
 		if (empty($contentText)) {
-			Log::error("Cannot generate questions for lesson {$lesson->id}: Text is empty.");
-			return response()->json(['success' => false, 'message' => 'Lesson content text is empty.'], 400);
+			Log::error("Cannot generate questions for lesson {$lesson->id}: Both text and video subtitles text are empty.");
+			return response()->json(['success' => false, 'message' => 'No content available for question generation.'], 400);
 		}
 
 		$llm = $lesson->preferredLlm;
@@ -646,9 +654,16 @@ PROMPT;
 		Log::info("AJAX request to update content for Lesson ID: {$lesson->id}");
 
 		$validator = Validator::make($request->all(), [
-			'lesson_title' => 'required|string|max:255',
-			'lesson_text' => 'required|string|min:10|max:2000', // Max length for lesson text
+			'lesson_text' => 'nullable|string|min:10|max:2000', // Make it nullable
+			'video_subtitles_text' => 'nullable|string|max:15000'
 		]);
+
+// Add a custom validation rule to ensure at least one is present
+		$validator->after(function ($validator) use ($request) {
+			if (empty($request->lesson_text) && empty($request->video_subtitles_text)) {
+				$validator->errors()->add('content', 'Either lesson text or video subtitles must be provided.');
+			}
+		});
 
 		if ($validator->fails()) {
 			Log::warning("Lesson content update validation failed for Lesson ID: {$lesson->id}", ['errors' => $validator->errors()]);
@@ -695,11 +710,21 @@ PROMPT;
 				$lessonContent['audio_generated_at'] = null; // Reset timestamp for the whole content block
 			}
 
-			$lessonContent['title'] = $request->input('lesson_title');
 			$lessonContent['text'] = $newText;
 			// Image prompt idea for the whole lesson content is not edited here, but could be added if needed.
 
 			$lesson->lesson_content = $lessonContent; // Save the modified object back
+
+			// Update video subtitles if provided and lesson has a video
+			$newVideoSubtitlesText = null;
+			if ($lesson->youtube_video_id && $request->has('video_subtitles_text')) {
+				$newVideoSubtitlesText = $request->input('video_subtitles_text');
+				if ($lesson->video_subtitles_text !== $newVideoSubtitlesText) {
+					$lesson->video_subtitles_text = $newVideoSubtitlesText;
+					Log::info("Updated video subtitles for Lesson ID: {$lesson->id}");
+				}
+			}
+
 			$lesson->save();
 			DB::commit();
 
@@ -708,8 +733,8 @@ PROMPT;
 				'success' => true,
 				'message' => 'Lesson content updated successfully.',
 				'updated_content' => [ // Send back updated data for JS
-					'title' => $lessonContent['title'],
 					'text' => $lessonContent['text'],
+					'video_subtitles_text' => $newVideoSubtitlesText,
 					'sentences_cleared' => ($oldText !== $newText) // Flag if sentences were cleared
 				]
 			]);

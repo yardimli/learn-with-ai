@@ -111,7 +111,7 @@ class GenerateAssetController extends Controller
 				$overallSuccess = false;
 			}
 
-			$imageIdeaResult = EditController::generateSentenceImageIdeas($llm, $sentenceText);
+			$imageIdeaResult = EditLessonController::generateSentenceImageIdeas($llm, $sentenceText);
 			if (!isset($imageIdeaResult['error'])) {
 				$sentenceData['image_prompt_idea'] = $imageIdeaResult['image_prompt_idea'];
 				$sentenceData['image_search_keywords'] = $imageIdeaResult['image_search_keywords'];

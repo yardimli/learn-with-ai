@@ -2,7 +2,7 @@
 
 	use App\Http\Controllers\CategoryManagementController;
 	use App\Http\Controllers\Controller;
-	use App\Http\Controllers\EditController;
+	use App\Http\Controllers\EditLessonController;
 	use App\Http\Controllers\FreePikController;
 	use App\Http\Controllers\GenerateAssetController;
 	use App\Http\Controllers\ProgressController;
@@ -35,13 +35,13 @@
 		Route::post('/lesson/{lesson}/apply-plan', [CreateLessonController::class, 'applyGeneratedPlan'])->name('lesson.apply.plan');
 
 // --- Lesson Editing & Asset Management ---
-		Route::get('/lesson/{lesson}/edit', [EditController::class, 'edit'])->name('lesson.edit');
-		Route::post('/lesson/{lesson}/update-settings', [EditController::class, 'updateSettingsAjax'])->name('lesson.update.settings');
+		Route::get('/lesson/{lesson}/edit', [EditLessonController::class, 'edit'])->name('lesson.edit');
+		Route::post('/lesson/{lesson}/update-settings', [EditLessonController::class, 'updateSettingsAjax'])->name('lesson.update.settings');
 
-		Route::post('/lesson/{lesson}/update-content', [EditController::class, 'updateLessonContentAjax'])
+		Route::post('/lesson/{lesson}/update-content', [EditLessonController::class, 'updateLessonContentAjax'])
 			->name('lesson.content.update.text'); // Kept similar name for now, JS might use it
 
-		Route::post('/lesson/{lesson}/add-youtube', [EditController::class, 'addYoutubeVideoAjax'])->name('lesson.add.youtube');
+		Route::post('/lesson/{lesson}/add-youtube', [EditLessonController::class, 'addYoutubeVideoAjax'])->name('lesson.add.youtube');
 
 // --- Category Management ---
 		Route::prefix('manage')->name('category_management.')->group(function () {
@@ -63,16 +63,16 @@
 // --- End Category Management ---
 
 // MODIFIED: Generate Question Batch (no partIndex)
-		Route::post('/lesson/{lesson}/generate-questions/{difficulty}', [EditController::class, 'generateQuestionBatchAjax'])
+		Route::post('/lesson/{lesson}/generate-questions/{difficulty}', [EditLessonController::class, 'generateQuestionBatchAjax'])
 			->where(['difficulty' => 'easy|medium|hard'])
 			->name('question.generate.batch');
 
 // Question Text/Answer Update
-		Route::post('/question/{question}/update-texts', [EditController::class, 'updateQuestionTextsAjax'])
+		Route::post('/question/{question}/update-texts', [EditLessonController::class, 'updateQuestionTextsAjax'])
 			->name('question.update.texts');
 
 // Delete Question
-		Route::delete('/question/{question}', [EditController::class, 'deleteQuestionAjax'])
+		Route::delete('/question/{question}', [EditLessonController::class, 'deleteQuestionAjax'])
 			->name('question.delete');
 
 // Generate Assets

@@ -10,9 +10,16 @@
 				<form id="editContentForm">
 					<div class="mb-3">
 						<label for="editContentText" class="form-label">Content Text</label>
-						<textarea class="form-control" id="editContentText" rows="8" required></textarea>
-						<div class="invalid-feedback">Content text is required (minimum 10 characters)</div>
+						<textarea class="form-control" id="editContentText" rows="8"></textarea>
+						<div class="invalid-feedback">Either Content text or Video Transcription is required.</div>
 					</div>
+					
+					<div class="mb-3 d-none" id="videoTranscriptionGroup">
+						<label for="editContentVideoTranscription" class="form-label">Video Transcription</label>
+						<textarea class="form-control" id="editContentVideoTranscription" rows="5" placeholder="Edit video transcription here..."></textarea>
+						<small class="form-text text-muted">This will update the subtitles text associated with the lesson's YouTube video.</small>
+					</div>
+					
 				</form>
 				<div id="editContentError" class="alert alert-danger mt-3 d-none"></div>
 			</div>

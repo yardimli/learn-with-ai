@@ -205,6 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const editContentModalElement = document.getElementById('editContentModal');
 	const editContentModal = editContentModalElement ? new bootstrap.Modal(editContentModalElement) : null;
 	const editContentTextInput  = document.getElementById('editContentText');
+	const editContentVideoTranscriptionTextarea = document.getElementById('editContentVideoTranscription');
+	const videoTranscriptionGroup = document.getElementById('videoTranscriptionGroup');
 	const saveContentBtn = document.getElementById('saveContentBtn');
 	const editContentError = document.getElementById('editContentError');
 	
@@ -988,6 +990,14 @@ document.addEventListener('DOMContentLoaded', () => {
 			
 			// Populate modal
 			if (editContentTextInput) editContentTextInput.value = ContentText;
+			
+			if (lessonHasVideo && editContentVideoTranscriptionTextarea && videoTranscriptionGroup) {
+				editContentVideoTranscriptionTextarea.value = lessonVideoSubtitlesText || ''; // Use global JS var
+				videoTranscriptionGroup.classList.remove('d-none');
+			} else if (videoTranscriptionGroup) {
+				videoTranscriptionGroup.classList.add('d-none');
+			}
+			
 			if (editContentError) {
 				editContentError.classList.add('d-none');
 				editContentError.textContent = '';
@@ -1003,12 +1013,18 @@ document.addEventListener('DOMContentLoaded', () => {
 			saveContentBtn.addEventListener('click', async () => {
 				const ContentText = editContentTextInput.value.trim();
 				
+				let newVideoSubtitlesText = null;
+				
+				if (videoTranscriptionGroup && !videoTranscriptionGroup.classList.contains('d-none') && editContentVideoTranscriptionTextarea) {
+					newVideoSubtitlesText = editContentVideoTranscriptionTextarea.value.trim();
+				}
+				
 				// Basic validation
 				let isValid = true;
 				editContentTextInput.classList.remove('is-invalid');
 				editContentError.classList.add('d-none');
 				
-				if (!ContentText || ContentText.length < 10) { // Example validation
+				if ( (!ContentText || ContentText.length < 10) && (!newVideoSubtitlesText || newVideoSubtitlesText.length < 10) ) { // Example validation
 					editContentTextInput.classList.add('is-invalid');
 					isValid = false;
 				}
@@ -1023,6 +1039,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				
 				showSpinner(saveContentBtn, true);
 				
+				const payload = {
+					lesson_text: ContentText,
+				};
+				// Only include video_subtitles_text if the field was visible and potentially edited
+				if (videoTranscriptionGroup && !videoTranscriptionGroup.classList.contains('d-none')) {
+					payload.video_subtitles_text = newVideoSubtitlesText; // Send even if empty, to allow clearing
+				}
+				
 				try {
 					const response = await fetch(updateContentUrl, {
 						method: 'POST',
@@ -1031,9 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
 							'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 							'Accept': 'application/json',
 						},
-						body: JSON.stringify({
-							lesson_text: ContentText
-						})
+						body: JSON.stringify(payload)
 					});
 					
 					const result = await response.json();
@@ -1044,15 +1066,38 @@ document.addEventListener('DOMContentLoaded', () => {
 					
 					// --- Success: Update the display on the main page ---
 					const TextElement = document.getElementById(`text-display`);
-					const titleElement = document.querySelector(`.edit-lesson-content-btn`).closest('h3').querySelector('span');
 					const editButton = document.querySelector(`.edit-lesson-content-btn`);
 					if (TextElement) TextElement.textContent = result.updated_content.text;
-					if (titleElement) titleElement.textContent = result.updated_content.title;
-					if (editButton) editButton.dataset.Title = result.updated_content.title; // Update button data attribute
+					
+					// Update video transcription display on main page
+					const videoTranscriptionDisplayElement = document.getElementById('video-transcription-display');
+					const videoTranscriptionSection = document.querySelector('.video-transcription-section');
+					
+					if (videoTranscriptionDisplayElement && videoTranscriptionSection) {
+						if (result.updated_content.video_subtitles_text !== null && result.updated_content.video_subtitles_text !== undefined) {
+							videoTranscriptionDisplayElement.textContent = result.updated_content.video_subtitles_text;
+							videoTranscriptionSection.classList.remove('d-none');
+							lessonVideoSubtitlesText = result.updated_content.video_subtitles_text; // Update global JS var
+						} else {
+							videoTranscriptionDisplayElement.textContent = '';
+							videoTranscriptionSection.classList.add('d-none');
+							lessonVideoSubtitlesText = ''; // Update global JS var
+						}
+					}
 					
 					editContentModal.hide();
 					showToast(result.message || 'Lesson updated successfully!', 'Success', 'success');
 					
+					if (result.updated_content.sentences_cleared) {
+						const sentencesList = document.getElementById('sentences-list-lesson');
+						if (sentencesList) {
+							sentencesList.innerHTML = '<p class="text-muted fst-italic" id="no-sentences-msg-lesson">Lesson text changed. Please regenerate sentence assets.</p>';
+						}
+						const audioStatusEl = document.getElementById('lesson-content-audio-status');
+						if (audioStatusEl) {
+							audioStatusEl.textContent = '(Sentence assets cleared due to text change. Please regenerate.)';
+						}
+					}
 				} catch (error) {
 					console.error(`Error updating lesson:`, error);
 					editContentError.textContent = `Update Failed: ${error.message}`;

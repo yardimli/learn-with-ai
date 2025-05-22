@@ -22,7 +22,7 @@ use Intervention\Image\Laravel\Facades\Image as InterventionImage;
 use Exception;
 
 // Add Exception import
-use App\Http\Controllers\EditController;
+use App\Http\Controllers\EditLessonController;
 
 // For YouTube processing
 
@@ -177,7 +177,7 @@ class CreateLessonController extends Controller
 
 		if ($extractedYouTubeId && $lesson) {
 			// Process YouTube video details (this happens synchronously)
-			$videoResult = EditController::processAndStoreYouTubeVideo($lesson, $extractedYouTubeId);
+			$videoResult = EditLessonController::processAndStoreYouTubeVideo($lesson, $extractedYouTubeId);
 			if (!$videoResult['success']) {
 				Log::warning("Failed to process YouTube video {$extractedYouTubeId} details for new lesson ID {$lesson->id}: " . $videoResult['message']);
 				// Lesson is created, but video details might be missing. User can add/retry from edit page.

@@ -362,6 +362,17 @@
 		<p class="text-muted mt-3 mb-0" style="padding-left:4px;">Lesson Content Text:</p>
 		<p class="p-2 content-card" style=" white-space: pre-line;" id="content-text-display">{{ $contentText }}</p>
 		
+		@if($lesson->youtube_video_id && !empty($lesson->video_subtitles_text))
+			<div class="mt-3 video-transcription-section">
+				<p class="text-muted mb-0" style="padding-left:4px;">Video Transcription:</p>
+				<pre class="p-2 content-card" id="video-transcription-display" style="white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto;">{{ $lesson->video_subtitles_text }}</pre>
+			</div>
+		@else
+			<div class="mt-3 video-transcription-section d-none"> {{-- Keep structure for JS to unhide --}}
+				<p class="text-muted mb-0" style="padding-left:4px;">Video Transcription:</p>
+				<pre class="p-2 content-card" id="video-transcription-display" style="white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto;"></pre>
+			</div>
+		@endif
 		
 		<div class="questions-section border-top pt-3 mt-4">
 			<h4 class="mt-0 mb-3">Questions for this Lesson</h4>
@@ -448,6 +459,9 @@
 		const llmsListUrl = @json(route('api.llms.list')); // For AI model dropdown in modal
 		const initialSelectedMainCategoryId = @json($lesson->selected_main_category_id);
 		const initialSelectedSubCategoryId = @json($lesson->sub_category_id);
+		
+		let lessonHasVideo = @json(!empty($lesson->youtube_video_id));
+		let lessonVideoSubtitlesText = @json($lesson->video_subtitles_text ?? '')
 		
 		// Variables for modals (generateContentModal, addVideoModal)
 		// These will be initialized in edit_lesson.js
