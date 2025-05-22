@@ -134,10 +134,11 @@ PROMPT;
 	 * @param int $maxRetries Maximum number of retries for the LLM call.
 	 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 	 */
-	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle, string $lessonContentText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
+	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle,  string $lessonNotes, string $lessonContentText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
 	{
 		$userContent = "Initial Lesson Prompt: " . $lessonPrompt . "\n\n";
 		$userContent .= "Lesson Title: " . $lessonTitle . "\n\n";
+		$userContent .= "Lesson Notes: " . $lessonNotes . "\n\n";
 		$userContent .= "Lesson Text: " . $lessonContentText . "\n\n";
 		$userContent .= "Target Difficulty: " . $difficulty . "\n\n";
 		$userContent .= "Previously Generated Questions (Avoid Duplicates):\n";
@@ -476,6 +477,7 @@ PROMPT;
 
 		$lessonPrompt = $lesson->subject;
 		$lessonTitle = $leson->title ?? $lesson->user_title ?? 'Lesson Content';
+		$lessonNotes = $lesson->notes ?? 'No notes provided.';
 
 		$lessonContent = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
 
@@ -512,11 +514,11 @@ PROMPT;
 		Log::debug("Found " . count($existingQuestionTexts) . " existing questions for lesson {$lesson->id}");
 		$maxRetries = 1;
 
-		// MODIFIED: Call generateQuestionsForLessonDifficulty
 		$questionResult = self::generateQuestionsForLessonDifficulty(
 			$llm,
 			$lessonPrompt,
 			$lessonTitle,
+			$lessonNotes,
 			$contentText,
 			$difficulty,
 			$existingQuestionTexts,
