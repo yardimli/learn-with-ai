@@ -134,7 +134,7 @@ PROMPT;
 	 * @param int $maxRetries Maximum number of retries for the LLM call.
 	 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 	 */
-	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle,  string $lessonNotes, string $lessonContentText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
+	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle, string $lessonNotes, string $lessonContentText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
 	{
 		$userContent = "Initial Lesson Prompt: " . $lessonPrompt . "\n\n";
 		$userContent .= "Lesson Title: " . $lessonTitle . "\n\n";
@@ -764,198 +764,175 @@ PROMPT;
 
 		Log::info("Attempting to process YouTube video '{$youtubeVideoIdToProcess}' for Lesson ID: {$lesson->id}");
 
-		try {
-			// --- Fetch Video Details ---
-			$response = Http::withHeaders([
-				'x-rapidapi-host' => $rapidApiHost,
-				'x-rapidapi-key' => $rapidApiKey,
-			])->timeout(30)->get("https://{$rapidApiHost}/v2/video/details", ['videoId' => $youtubeVideoIdToProcess]);
+		// --- Fetch Video Details ---
+		$response = Http::withHeaders([
+			'x-rapidapi-host' => $rapidApiHost,
+			'x-rapidapi-key' => $rapidApiKey,
+		])->timeout(30)->get("https://{$rapidApiHost}/v2/video/details", ['videoId' => $youtubeVideoIdToProcess]);
 
-			if (!$response->successful()) {
-				Log::error("RapidAPI request failed for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['status' => $response->status(), 'body' => $response->body()]);
-				throw new Exception("Failed to fetch video details from API (Status: {$response->status()}).");
-			}
+		if (!$response->successful()) {
+			Log::error("RapidAPI request failed for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['status' => $response->status(), 'body' => $response->body()]);
+			throw new Exception("Failed to fetch video details from API (Status: {$response->status()}).");
+		}
 
-			$videoData = $response->json();
-			if (!$videoData || !($videoData['status'] ?? false)) {
-				Log::error("RapidAPI returned error or invalid data for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['response' => $videoData]);
-				throw new Exception("API returned an error: " . ($videoData['errorId'] ?? 'Unknown error'));
-			}
-			Log::info("Successfully fetched details for video: " . ($videoData['title'] ?? 'N/A') . " for Lesson ID: {$lesson->id}");
+		$videoData = $response->json();
+		if (!$videoData || !($videoData['status'] ?? false)) {
+			Log::error("RapidAPI returned error or invalid data for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['response' => $videoData]);
+			throw new Exception("API returned an error: " . ($videoData['errorId'] ?? 'Unknown error'));
+		}
+		Log::info("Successfully fetched details for video: " . ($videoData['title'] ?? 'N/A') . " for Lesson ID: {$lesson->id}");
 
-			// --- Attempt Video Download ---
-			$bestVideoUrl = null;
-			$highestQuality = 0;
-			if (isset($videoData['videos']['items']) && is_array($videoData['videos']['items'])) {
-				foreach ($videoData['videos']['items'] as $video) {
-					if (isset($video['url'], $video['height'], $video['hasAudio']) && $video['hasAudio'] === true && str_contains($video['mimeType'] ?? '', 'mp4') && $video['height'] > $highestQuality) {
-						$bestVideoUrl = $video['url'];
-						$highestQuality = $video['height'];
-					}
+		// --- Attempt Video Download ---
+		$bestVideoUrl = null;
+		$highestQuality = 0;
+		if (isset($videoData['videos']['items']) && is_array($videoData['videos']['items'])) {
+			foreach ($videoData['videos']['items'] as $video) {
+				if (isset($video['url'], $video['height'], $video['hasAudio']) && $video['hasAudio'] === true && str_contains($video['mimeType'] ?? '', 'mp4') && $video['height'] > $highestQuality) {
+					$bestVideoUrl = $video['url'];
+					$highestQuality = $video['height'];
 				}
 			}
+		}
 
-			if (!$bestVideoUrl) {
-				if (isset($videoData['audios']['items']) && is_array($videoData['audios']['items']) && count($videoData['audios']['items']) > 0) {
-					Log::warning("No suitable video stream found for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Falling back to audio stream for download attempt.");
-					$bestVideoUrl = $videoData['audios']['items'][0]['url'] ?? null;
-				}
+		if (!$bestVideoUrl) {
+			if (isset($videoData['audios']['items']) && is_array($videoData['audios']['items']) && count($videoData['audios']['items']) > 0) {
+				Log::warning("No suitable video stream found for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Falling back to audio stream for download attempt.");
+				$bestVideoUrl = $videoData['audios']['items'][0]['url'] ?? null;
 			}
+		}
 
-			if ($bestVideoUrl) {
-				try {
-					$videoFileName = 'video_' . Str::random(10) . '.mp4';
-					$candidateVideoStoragePath = "lessons/{$lesson->id}/{$videoFileName}";
+		if ($bestVideoUrl) {
+			try {
+				$videoFileName = 'video_' . Str::random(10) . '.mp4';
+				$candidateVideoStoragePath = "lessons/{$lesson->id}/{$videoFileName}";
 
-					if (!Storage::disk('public')->exists("lessons")) {
-						Storage::disk('public')->makeDirectory("lessons");
-					}
-					if (!Storage::disk('public')->exists("lessons/{$lesson->id}")) {
-						Storage::disk('public')->makeDirectory("lessons/{$lesson->id}");
-					}
+				if (!Storage::disk('public')->exists("lessons")) {
+					Storage::disk('public')->makeDirectory("lessons");
+				}
+				if (!Storage::disk('public')->exists("lessons/{$lesson->id}")) {
+					Storage::disk('public')->makeDirectory("lessons/{$lesson->id}");
+				}
 
-					Log::info("Attempting to download video from {$bestVideoUrl} to {$candidateVideoStoragePath} for Lesson ID: {$lesson->id}");
-					$downloadResponse = Http::timeout(300)->withOptions(['stream' => true])->get($bestVideoUrl);
+				Log::info("Attempting to download video from {$bestVideoUrl} to {$candidateVideoStoragePath} for Lesson ID: {$lesson->id}");
+				$downloadResponse = Http::timeout(300)->withOptions(['stream' => true])->get($bestVideoUrl);
 
-					if (!$downloadResponse->successful()) {
-						Log::error("Failed to download video stream for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $downloadResponse->status());
-						// Do not throw exception, allow subtitle processing
+				if (!$downloadResponse->successful()) {
+					Log::error("Failed to download video stream for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $downloadResponse->status());
+					// Do not throw exception, allow subtitle processing
+				} else {
+					$storageSuccess = Storage::disk('public')->put($candidateVideoStoragePath, $downloadResponse->getBody());
+					if (!$storageSuccess) {
+						Log::error("Failed to save downloaded video to storage at {$candidateVideoStoragePath} for Lesson ID {$lesson->id}. Check permissions.");
 					} else {
-						$storageSuccess = Storage::disk('public')->put($candidateVideoStoragePath, $downloadResponse->getBody());
-						if (!$storageSuccess) {
-							Log::error("Failed to save downloaded video to storage at {$candidateVideoStoragePath} for Lesson ID {$lesson->id}. Check permissions.");
-						} else {
-							$videoStoragePath = $candidateVideoStoragePath; // Set the actual path only on success
-							$downloadSucceeded = true;
-							Log::info("Successfully downloaded and saved video to {$videoStoragePath} for Lesson ID: {$lesson->id}");
-						}
+						$videoStoragePath = $candidateVideoStoragePath; // Set the actual path only on success
+						$downloadSucceeded = true;
+						Log::info("Successfully downloaded and saved video to {$videoStoragePath} for Lesson ID: {$lesson->id}");
 					}
-				} catch (Exception $downloadEx) {
-					Log::error("Exception during video download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $downloadEx->getMessage());
-					// $videoStoragePath remains null, $downloadSucceeded remains false
 				}
-			} else {
-				Log::warning("No suitable video or audio stream found for download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Proceeding to subtitles.");
+			} catch (Exception $downloadEx) {
+				Log::error("Exception during video download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $downloadEx->getMessage());
+				// $videoStoragePath remains null, $downloadSucceeded remains false
+			}
+		} else {
+			Log::warning("No suitable video or audio stream found for download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Proceeding to subtitles.");
+		}
+
+		// --- Fetch Subtitles (proceeds even if video download failed) ---
+		$plaintextSubtitles = "";
+		$rawSubtitleContent = '';
+		if (isset($videoData['subtitles']['items']) && is_array($videoData['subtitles']['items'])) {
+			Log::info("Found " . count($videoData['subtitles']['items']) . " subtitle tracks for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
+			$subtitleUrl = '';
+			foreach ($videoData['subtitles']['items'] as $subtitle) {
+				if (isset($subtitle['url'], $subtitle['code']) && $subtitle['code'] == 'en') {
+					if (isset($subtitle['text']) && $subtitle['text'] === 'English') {
+						$subtitleUrl = $subtitle['url'];
+						break;
+					}
+					if (empty($subtitleUrl)) {
+						$subtitleUrl = $subtitle['url'];
+					}
+				}
+			}
+			if (empty($subtitleUrl)) {
+				foreach ($videoData['subtitles']['items'] as $subtitle) {
+					if (isset($subtitle['url'], $subtitle['code']) && in_array($subtitle['code'], ['en-US', 'en-GB'])) {
+						$subtitleUrl = $subtitle['url'];
+						break;
+					}
+				}
 			}
 
-			// --- Fetch Subtitles (proceeds even if video download failed) ---
-			$plaintextSubtitles = "";
-			$rawSubtitleContent = '';
-			if (isset($videoData['subtitles']['items']) && is_array($videoData['subtitles']['items'])) {
-				Log::info("Found " . count($videoData['subtitles']['items']) . " subtitle tracks for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
-				$subtitleUrl = '';
-				foreach ($videoData['subtitles']['items'] as $subtitle) {
-					if (isset($subtitle['url'], $subtitle['code']) && $subtitle['code'] == 'en') {
-						if (isset($subtitle['text']) && $subtitle['text'] === 'English') {
-							$subtitleUrl = $subtitle['url'];
-							break;
-						}
-						if (empty($subtitleUrl)) {
-							$subtitleUrl = $subtitle['url'];
-						}
-					}
-				}
-				if (empty($subtitleUrl)) {
-					foreach ($videoData['subtitles']['items'] as $subtitle) {
-						if (isset($subtitle['url'], $subtitle['code']) && in_array($subtitle['code'], ['en-US', 'en-GB'])) {
-							$subtitleUrl = $subtitle['url'];
-							break;
-						}
-					}
-				}
-
-				if ($subtitleUrl !== '') {
-					try {
-						$subtitleResponse = Http::timeout(20)->get($subtitleUrl);
-						if ($subtitleResponse->successful()) {
-							$rawSubtitleContent = $subtitleResponse->body();
-							$tempSubtitleText = '';
-							if (str_contains($rawSubtitleContent, 'WEBVTT') || preg_match('/^\d+\s*\R\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/m', $rawSubtitleContent)) {
-								$lines = preg_split('/\r\n|\r|\n/', $rawSubtitleContent);
-								$isTextLine = false;
-								foreach ($lines as $line) {
-									if (empty(trim($line))) {
-										$isTextLine = false;
-										continue;
-									}
-									if (str_contains($line, '-->') || preg_match('/^\d+$/', trim($line)) || str_contains($line, 'WEBVTT')) {
-										$isTextLine = true;
-										continue;
-									}
-									if ($isTextLine) {
-										$tempSubtitleText .= strip_tags($line) . ' ';
-									}
+			if ($subtitleUrl !== '') {
+				try {
+					$subtitleResponse = Http::timeout(20)->get($subtitleUrl);
+					if ($subtitleResponse->successful()) {
+						$rawSubtitleContent = $subtitleResponse->body();
+						$tempSubtitleText = '';
+						if (str_contains($rawSubtitleContent, 'WEBVTT') || preg_match('/^\d+\s*\R\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/m', $rawSubtitleContent)) {
+							$lines = preg_split('/\r\n|\r|\n/', $rawSubtitleContent);
+							$isTextLine = false;
+							foreach ($lines as $line) {
+								if (empty(trim($line))) {
+									$isTextLine = false;
+									continue;
 								}
-							} else {
-								$xml = @simplexml_load_string($rawSubtitleContent);
-								if ($xml !== false) {
-									foreach ($xml->xpath('//p | //text') as $textNode) {
-										$tempSubtitleText .= (string)$textNode . ' ';
-									}
-								} else {
-									Log::info("Failed to parse subtitle XML for track for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Content might not be XML.");
-									$tempSubtitleText = strip_tags($rawSubtitleContent);
+								if (str_contains($line, '-->') || preg_match('/^\d+$/', trim($line)) || str_contains($line, 'WEBVTT')) {
+									$isTextLine = true;
+									continue;
+								}
+								if ($isTextLine) {
+									$tempSubtitleText .= strip_tags($line) . ' ';
 								}
 							}
-							$plaintextSubtitles = html_entity_decode($tempSubtitleText, ENT_QUOTES | ENT_HTML5);
-							$plaintextSubtitles = preg_replace('/\s+/', ' ', $plaintextSubtitles);
-							$plaintextSubtitles = trim($plaintextSubtitles);
-							Log::info("Processed subtitles for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Length: " . strlen($plaintextSubtitles));
 						} else {
-							Log::warning("Failed to download subtitle track for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $subtitleResponse->status());
+							$xml = @simplexml_load_string($rawSubtitleContent);
+							if ($xml !== false) {
+								foreach ($xml->xpath('//p | //text') as $textNode) {
+									$tempSubtitleText .= (string)$textNode . ' ';
+								}
+							} else {
+								Log::info("Failed to parse subtitle XML for track for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Content might not be XML.");
+								$tempSubtitleText = strip_tags($rawSubtitleContent);
+							}
 						}
-					} catch (Exception $subE) {
-						Log::warning("Error processing subtitle track for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $subE->getMessage());
+						$plaintextSubtitles = html_entity_decode($tempSubtitleText, ENT_QUOTES | ENT_HTML5);
+						$plaintextSubtitles = preg_replace('/\s+/', ' ', $plaintextSubtitles);
+						$plaintextSubtitles = trim($plaintextSubtitles);
+						Log::info("Processed subtitles for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Length: " . strlen($plaintextSubtitles));
+					} else {
+						Log::warning("Failed to download subtitle track for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $subtitleResponse->status());
 					}
-				} else {
-					Log::warning("No suitable English subtitle track found for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
+				} catch (Exception $subE) {
+					Log::warning("Error processing subtitle track for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $subE->getMessage());
 				}
 			} else {
-				Log::info("No subtitle tracks found in API response for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
+				Log::warning("No suitable English subtitle track found for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
 			}
-
-			// --- Update Lesson Record ---
-			$lesson->youtube_video_id = $youtubeVideoIdToProcess; // Set the ID if not already set
-			$lesson->video_api_host = $rapidApiHost;
-			$lesson->video_api_response = $videoData;
-			$lesson->video_path = $videoStoragePath; // This will be null if download failed or no stream
-			$lesson->video_subtitles = !empty($rawSubtitleContent) ? trim($rawSubtitleContent) : null;
-			$lesson->video_subtitles_text = !empty($plaintextSubtitles) ? trim($plaintextSubtitles) : null;
-			// $lesson->youtube_video_id is already set or passed in
-			$lesson->save();
-
-			Log::info("Updated Lesson ID {$lesson->id} with video data for '{$youtubeVideoIdToProcess}'. Video downloaded: " . ($downloadSucceeded ? 'Yes' : 'No'));
-
-			return [
-				'success' => true, // Overall process "succeeded" in terms of attempting
-				'message' => 'YouTube video details processed. ' . ($downloadSucceeded ? 'Video downloaded.' : 'Video download failed or skipped.') . ' Subtitles fetched if available.',
-				'video_title' => $videoData['title'] ?? 'N/A',
-				'video_downloaded' => $downloadSucceeded
-			];
-
-		} catch (Exception $e) { // This catch is for the *outer* try-catch, e.g., initial API call failure
-			Log::error("FATAL Error processing YouTube video {$youtubeVideoIdToProcess} for Lesson {$lesson->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-
-			// Cleanup partially downloaded file if an error occurred *after* a successful download but *before* lesson save.
-			// This is less likely now with the inner try-catch for download, but kept for safety.
-			if ($videoStoragePath && Storage::disk('public')->exists($videoStoragePath)) {
-				Storage::disk('public')->delete($videoStoragePath);
-				Log::info("Cleaned up video file due to error after download: {$videoStoragePath} for lesson {$lesson->id}");
-			}
-
-			// Reset fields if a fatal error occurred.
-			// Check if lesson exists before trying to save, though it should if called from Create/Edit.
-			if ($lesson->exists && $lesson->isDirty(['video_api_host', 'video_api_response', 'video_path', 'video_subtitles', 'video_subtitles_text'])) {
-				$lesson->video_api_host = null;
-				$lesson->video_api_response = null;
-				$lesson->video_path = null;
-				$lesson->video_subtitles = null;
-				$lesson->video_subtitles_text = null;
-				// $lesson->youtube_video_id = null; // Keep the ID
-				$lesson->saveQuietly();
-			}
-			return ['success' => false, 'message' => 'Error processing video: ' . $e->getMessage(), 'video_title' => null, 'video_downloaded' => false];
+		} else {
+			Log::info("No subtitle tracks found in API response for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.");
 		}
+
+		// --- Update Lesson Record ---
+		$lesson->youtube_video_id = $youtubeVideoIdToProcess; // Set the ID if not already set
+		$lesson->video_api_host = $rapidApiHost;
+		$lesson->video_api_response = $videoData;
+		$lesson->video_path = $videoStoragePath; // This will be null if download failed or no stream
+		$lesson->video_subtitles = !empty($rawSubtitleContent) ? trim($rawSubtitleContent) : null;
+		$lesson->video_subtitles_text = !empty($plaintextSubtitles) ? trim($plaintextSubtitles) : null;
+		// $lesson->youtube_video_id is already set or passed in
+		$lesson->save();
+
+		Log::info("Updated Lesson ID {$lesson->id} with video data for '{$youtubeVideoIdToProcess}'. Video downloaded: " . ($downloadSucceeded ? 'Yes' : 'No'));
+
+		return [
+			'success' => true, // Overall process "succeeded" in terms of attempting
+			'message' => 'YouTube video details processed. ' . ($downloadSucceeded ? 'Video downloaded.' : 'Video download failed or skipped.') . ' Subtitles fetched if available.',
+			'video_title' => $videoData['title'] ?? 'N/A',
+			'video_downloaded' => $downloadSucceeded
+		];
+
+
 	}
 
 
