@@ -6,13 +6,13 @@
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<h1>Existing Lessons</h1>
 		<div>
-			<button id="generateAllButton" class="btn btn-warning mb-1 mb-md-0 me-md-2"
-			        title="Automatically generate content for all pending lessons">
-				<i class="fas fa-robot"></i>
-				<span id="generateAllText">Generate All Pending</span>
-				<span id="generateAllSpinner" class="spinner-border spinner-border-sm d-none ms-1" role="status"
-				      aria-hidden="true"></span>
-			</button>
+{{--			<button id="generateAllButton" class="btn btn-warning mb-1 mb-md-0 me-md-2"--}}
+{{--			        title="Automatically generate content for all pending lessons">--}}
+{{--				<i class="fas fa-robot"></i>--}}
+{{--				<span id="generateAllText">Generate All Pending</span>--}}
+{{--				<span id="generateAllSpinner" class="spinner-border spinner-border-sm d-none ms-1" role="status"--}}
+{{--				      aria-hidden="true"></span>--}}
+{{--			</button>--}}
 			<a href="{{ route('create-lesson') }}" class="btn btn-primary mb-1 mb-md-0">
 				<i class="fas fa-plus"></i> Create New Lesson
 			</a>
