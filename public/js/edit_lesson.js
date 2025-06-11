@@ -204,11 +204,20 @@ document.addEventListener('DOMContentLoaded', () => {
 	// --- Lesson Edit Modal Elements ---
 	const editContentModalElement = document.getElementById('editContentModal');
 	const editContentModal = editContentModalElement ? new bootstrap.Modal(editContentModalElement) : null;
-	const editContentTextInput  = document.getElementById('editContentText');
+	const editContentTextInput = document.getElementById('editContentText');
 	const editContentVideoTranscriptionTextarea = document.getElementById('editContentVideoTranscription');
 	const videoTranscriptionGroup = document.getElementById('videoTranscriptionGroup');
 	const saveContentBtn = document.getElementById('saveContentBtn');
 	const editContentError = document.getElementById('editContentError');
+	
+	// --- Question Generation Modal Elements ---
+	const questionGenerationModalEl = document.getElementById('questionGenerationModal');
+	const questionGenerationModal = questionGenerationModalEl ? new bootstrap.Modal(questionGenerationModalEl) : null;
+	const questionGenDifficultySpan = document.getElementById('questionGenDifficulty');
+	const questionGenUrlInput = document.getElementById('questionGenUrl');
+	const questionGenInstructionsTextarea = document.getElementById('questionGenInstructions');
+	const confirmQuestionGenerationBtn = document.getElementById('confirmQuestionGenerationBtn');
+	const questionGenError = document.getElementById('questionGenError');
 	
 	// --- MODAL Elements (variable names already declared in blade push('scripts'))
 	generateContentModal = document.getElementById('generateContentModal');
@@ -259,13 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	
 	document.querySelectorAll('.generate-ai-content-btn').forEach(button => {
-		button.addEventListener('click', function() {
+		button.addEventListener('click', function () {
 			// This function will be called when the modal's 'show.bs.modal' event fires.
 			// The data attributes from *this* button will populate the modal.
 		});
 	});
 	document.querySelectorAll('.add-video-btn').forEach(button => {
-		button.addEventListener('click', function() {
+		button.addEventListener('click', function () {
 			// This function will be called when the modal's 'show.bs.modal' event fires.
 		});
 	});
@@ -497,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						auto_detect_category: autoDetect,
 						additional_instructions: additionalInstructions,
 						generation_source: generationSource,
-						...(generationSource === 'video' && { video_subtitles: subtitles })
+						...(generationSource === 'video' && {video_subtitles: subtitles})
 					}),
 				});
 				const result = await response.json();
@@ -675,7 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
 						'Accept': 'application/json',
 					},
-					body: JSON.stringify({ youtube_video_id: videoId }),
+					body: JSON.stringify({youtube_video_id: videoId}),
 				});
 				const result = await response.json();
 				if (!response.ok || !result.success) {
@@ -693,6 +702,56 @@ document.addEventListener('DOMContentLoaded', () => {
 				submitVideoButton.disabled = false;
 				submitVideoSpinner.classList.add('d-none');
 				addVideoProgress.classList.add('d-none');
+			}
+		});
+	}
+	
+	if (confirmQuestionGenerationBtn && questionGenerationModal) {
+		confirmQuestionGenerationBtn.addEventListener('click', async () => {
+			const url = questionGenUrlInput.value;
+			const instructions = questionGenInstructionsTextarea.value.trim();
+			const difficulty = questionGenDifficultySpan.textContent.toLowerCase();
+			
+			if (!url) {
+				console.error('Generate URL is missing from modal.');
+				showError(questionGenError, 'Internal error: URL is missing.');
+				return;
+			}
+			
+			hideError(questionGenError);
+			showSpinner(confirmQuestionGenerationBtn, true);
+			
+			try {
+				const response = await fetch(url, {
+					method: 'POST',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+						'Accept': 'application/json',
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						user_instructions: instructions
+					})
+				});
+				
+				const result = await response.json();
+				
+				if (!response.ok || !result.success) {
+					throw new Error(result.message || `HTTP error ${response.status}`);
+				}
+				
+				questionGenerationModal.hide();
+				
+				const successModal = new bootstrap.Modal(document.getElementById('questionBatchSuccessModal'));
+				document.getElementById('questionBatchSuccessMessage').textContent = `Successfully generated ${result.questions.length} ${difficulty} questions.`;
+				document.getElementById('questionBatchSuccessConfirm').onclick = () => window.location.reload();
+				successModal.show();
+				
+			} catch (error) {
+				console.error(`Error generating ${difficulty} questions:`, error);
+				showError(questionGenError, `Failed: ${error.message}`);
+			} finally {
+				showSpinner(confirmQuestionGenerationBtn, false);
 			}
 		});
 	}
@@ -734,7 +793,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 	}
-	
 	
 	
 	// --- Event Listeners ---
@@ -780,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			} catch (error) {
 				console.error(`Error generating assets:`, error);
 				// Update status to failed - pass error message
-				updateLessonSentenceAssetsStatus(false, { message: error.message });
+				updateLessonSentenceAssetsStatus(false, {message: error.message});
 				showToast(`Failed to generate assets: ${error.message}`, 'Error', 'error');
 			} finally {
 				// Spinner handling is now inside updateLessonSentenceAssetsStatus
@@ -818,7 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						'Accept': 'application/json',
 						'Content-Type': 'application/json'
 					},
-					body: JSON.stringify({ prompt: prompt }) // Send the prompt
+					body: JSON.stringify({prompt: prompt}) // Send the prompt
 				});
 				const result = await response.json();
 				
@@ -911,63 +969,44 @@ document.addEventListener('DOMContentLoaded', () => {
 		
 		const addQuestionBatchBtn = event.target.closest('.add-question-batch-btn');
 		if (addQuestionBatchBtn) {
-			const btn = addQuestionBatchBtn;
-			const url = btn.dataset.generateUrl;
-			const difficulty = btn.dataset.difficulty;
-			const targetListId = btn.dataset.targetListId;
-			const errorAreaId = btn.dataset.errorAreaId;
-			const targetListElement = document.getElementById(targetListId);
-			
-			if (!targetListElement) {
-				console.error(`Target list element #${targetListId} not found.`);
+			if (!questionGenerationModal) {
+				console.error('Question Generation Modal not found');
 				return;
 			}
 			
-			hideError(errorAreaId);
-			showSpinner(btn, true);
+			const btn = addQuestionBatchBtn;
+			const url = btn.dataset.generateUrl;
+			const difficulty = btn.dataset.difficulty;
 			
+			// Populate modal
+			questionGenDifficultySpan.textContent = difficulty;
+			questionGenUrlInput.value = url;
+			
+			// Reset state
+			hideError(questionGenError);
+			showSpinner(confirmQuestionGenerationBtn, false);
+			questionGenInstructionsTextarea.value = 'Loading your preferences...';
+			questionGenInstructionsTextarea.disabled = true;
+			
+			// Fetch user instructions
 			try {
-				const response = await fetch(url, {
-					method: 'POST',
-					headers: {
-						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-						'Accept': 'application/json',
-					}
-				});
+				const response = await fetch('/user/llm-instructions', {headers: {'Accept': 'application/json'}});
 				const result = await response.json();
-				
-				if (!response.ok || !result.success) {
-					throw new Error(result.message || `HTTP error ${response.status}`);
-				}
-				
-				// Success: Render the new questions
-				if (result.questions && Array.isArray(result.questions)) {
-					
-					// Show success message using proper Bootstrap modal
-					const successModal = new bootstrap.Modal(document.getElementById('questionBatchSuccessModal'));
-					document.getElementById('questionBatchSuccessMessage').textContent =
-						`Successfully generated ${result.questions.length} ${difficulty} questions.`;
-					
-					// Set up the reload action when modal is confirmed
-					document.getElementById('questionBatchSuccessConfirm').onclick = function () {
-						window.location.reload();
-					};
-					
-					// Show the modal
-					successModal.show();
-					
+				if (result.success) {
+					questionGenInstructionsTextarea.value = result.instructions || '';
 				} else {
-					console.warn("Question generation successful, but no question data returned.");
-					alert("Questions generated, but no data returned. Please check the console for details.");
+					questionGenInstructionsTextarea.value = ''; // Clear on error
+					console.warn('Could not fetch user instructions.');
 				}
-				
 			} catch (error) {
-				console.error(`Error generating ${difficulty} questions:`, error);
-				showError(errorAreaId, `Failed: ${error.message}`);
+				console.error('Error fetching user instructions:', error);
+				questionGenInstructionsTextarea.value = ''; // Clear on error
 			} finally {
-				showSpinner(btn, false);
+				questionGenInstructionsTextarea.disabled = false;
 			}
-			return; // Stop processing
+			
+			questionGenerationModal.show();
+			return; // Stop processing, as the actual generation happens from the modal button
 		}
 		
 		const triggerUploadBtn = event.target.closest('.trigger-upload-btn');
@@ -1024,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				editContentTextInput.classList.remove('is-invalid');
 				editContentError.classList.add('d-none');
 				
-				if ( (!ContentText || ContentText.length < 10) && (!newVideoSubtitlesText || newVideoSubtitlesText.length < 10) ) { // Example validation
+				if ((!ContentText || ContentText.length < 10) && (!newVideoSubtitlesText || newVideoSubtitlesText.length < 10)) { // Example validation
 					editContentTextInput.classList.add('is-invalid');
 					isValid = false;
 				}
@@ -1163,5 +1202,5 @@ document.addEventListener('DOMContentLoaded', () => {
 			fileInput.value = ''; // Reset file input
 		}
 	});
-
+	
 }); // End DOMContentLoaded

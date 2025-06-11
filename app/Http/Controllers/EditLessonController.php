@@ -39,6 +39,7 @@ The user will provide:
 1. The title and text content for THE ENTIRE LESSON.
 2. The target difficulty level ('easy', 'medium', or 'hard').
 3. A list of question questions already generated for OTHER difficulties of the lesson.
+4. (Optional) Specific instructions on the tone, style, or focus for the questions.
 
 You MUST generate a JSON array containing exactly 3 question questions ONLY for the CURRENT lesson's content and the SPECIFIED difficulty.
 The JSON output MUST be ONLY an array of 3 objects, like this:
@@ -67,6 +68,7 @@ Constraints:
 - All questions, answers, and feedback MUST be directly based on the provided "Current Lesson Text" and "Current Lesson Title". Do NOT use external knowledge beyond interpreting the provided text.
 - Generate questions appropriate for the requested 'Target Difficulty'.
 - **CRITICAL**: Review the "Previously Generated Questions" list provided by the user. Do NOT generate questions that are identical or substantially similar in meaning to any question in that list.
+- Adhere to any "User Instructions for Question Style" if provided.
 - `image_prompt_idea` short, and descriptive.
 - `image_search_keywords` short, and relevant to the question without hinting the answer.
 PROMPT;
@@ -131,16 +133,22 @@ PROMPT;
 	 * @param string $lessonContentText Text of the lesson content.
 	 * @param string $difficulty The target difficulty ('easy', 'medium', 'hard').
 	 * @param array $existingQuestionTexts Array of question texts already generated for the whole lesson.
+	 * @param string|null $userInstructions Optional user-provided instructions.
 	 * @param int $maxRetries Maximum number of retries for the LLM call.
 	 * @return array Result from llm_no_tool_call (JSON decoded array or error array).
 	 */
-	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle, string $lessonNotes, string $lessonContentText, string $difficulty, array $existingQuestionTexts, int $maxRetries = 1): array
+	public static function generateQuestionsForLessonDifficulty(string $llm, string $lessonPrompt, string $lessonTitle, string $lessonNotes, string $lessonContentText, string $difficulty, array $existingQuestionTexts, ?string $userInstructions, int $maxRetries = 1): array
 	{
 		$userContent = "Initial Lesson Prompt: " . $lessonPrompt . "\n\n";
 		$userContent .= "Lesson Title: " . $lessonTitle . "\n\n";
 		$userContent .= "Lesson Notes: " . $lessonNotes . "\n\n";
 		$userContent .= "Lesson Text: " . $lessonContentText . "\n\n";
 		$userContent .= "Target Difficulty: " . $difficulty . "\n\n";
+
+		if (!empty($userInstructions)) {
+			$userContent .= "User Instructions for Question Style: " . $userInstructions . "\n\n";
+		}
+
 		$userContent .= "Previously Generated Questions (Avoid Duplicates):\n";
 		if (empty($existingQuestionTexts)) {
 			$userContent .= "- None yet";
@@ -468,6 +476,23 @@ PROMPT;
 	public function generateQuestionBatchAjax(Request $request, Lesson $lesson, string $difficulty)
 	{
 		$this->authorize('generateAssets', $lesson);
+
+		// --- New: Save user instructions ---
+		$user = Auth::user();
+		$userInstructions = $request->input('user_instructions');
+
+		if ($request->has('user_instructions') && $user->llm_generation_instructions !== $userInstructions) {
+			try {
+				$user->llm_generation_instructions = $userInstructions;
+				$user->save();
+				Log::info("Updated question generation instructions for User ID: {$user->id}");
+			} catch (Exception $e) {
+				Log::error("Failed to save user instructions for User ID {$user->id}: " . $e->getMessage());
+				// Don't fail the whole request, just log the error.
+			}
+		}
+		// --- End new section ---
+
 		Log::info("AJAX request to generate '{$difficulty}' question batch for Lesson ID: {$lesson->id}");
 
 		if (!in_array($difficulty, ['easy', 'medium', 'hard'])) {
@@ -476,7 +501,7 @@ PROMPT;
 		}
 
 		$lessonPrompt = $lesson->subject;
-		$lessonTitle = $leson->title ?? $lesson->user_title ?? 'Lesson Content';
+		$lessonTitle = $lesson->title ?? $lesson->user_title ?? 'Lesson Content';
 		$lessonNotes = $lesson->notes ?? 'No notes provided.';
 
 		$lessonContent = is_array($lesson->lesson_content) ? $lesson->lesson_content : json_decode($lesson->lesson_content, true);
@@ -522,6 +547,7 @@ PROMPT;
 			$contentText,
 			$difficulty,
 			$existingQuestionTexts,
+			$userInstructions,
 			$maxRetries
 		);
 		Log::info("LLM Question Gen Result for Lesson {$lesson->id}, Difficulty '{$difficulty}': ", $questionResult);

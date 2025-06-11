@@ -355,17 +355,6 @@ PROMPT;
 			return response()->json(['success' => false, 'message' => 'Cannot generate from video: Subtitles are missing.'], 400);
 		}
 
-
-		try {
-			$user = Auth::user();
-			if ($user->llm_generation_instructions !== $additionalInstructions) {
-				$user->update(['llm_generation_instructions' => $additionalInstructions]);
-				Log::info("Updated user's LLM generation instructions.", ['user_id' => $user->id]);
-			}
-		} catch (\Exception $e) {
-			Log::error("Failed to save user's LLM generation instructions.", ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
-		}
-
 		$lesson->preferredLlm = $llm; // Update the preferred LLM in the lesson record
 		$lesson->user_title = $userTitle; // Update the user title
 		if ($generationSource === 'subject') {
