@@ -7,7 +7,7 @@
 			@if($lesson->title && $lesson->title != $lesson->user_title)
 				<span class="badge bg-danger text-dark" title="AI-generated title">{{ $lesson->title }}</span>
 			@endif
-			@if(!$lesson->ai_generated)
+			@if(!$lesson->ai_generated && !$lesson->youtube_video_id)
 				<span class="badge bg-warning text-dark">Needs Content</span>
 			@else
 				<span class="badge bg-success text-dark">Content Generated</span>
