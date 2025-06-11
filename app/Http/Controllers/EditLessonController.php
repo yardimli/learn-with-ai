@@ -776,7 +776,7 @@ PROMPT;
 		}
 
 		$videoData = $response->json();
-		if (!$videoData || !($videoData['status'] ?? false)) {
+		if (!$videoData) {
 			Log::error("RapidAPI returned error or invalid data for video {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}.", ['response' => $videoData]);
 			throw new Exception("API returned an error: " . ($videoData['errorId'] ?? 'Unknown error'));
 		}
@@ -817,12 +817,12 @@ PROMPT;
 				$downloadResponse = Http::timeout(300)->withOptions(['stream' => true])->get($bestVideoUrl);
 
 				if (!$downloadResponse->successful()) {
-					Log::error("Failed to download video stream for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $downloadResponse->status());
+					Log::warning("Failed to download video stream for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}. Status: " . $downloadResponse->status());
 					// Do not throw exception, allow subtitle processing
 				} else {
 					$storageSuccess = Storage::disk('public')->put($candidateVideoStoragePath, $downloadResponse->getBody());
 					if (!$storageSuccess) {
-						Log::error("Failed to save downloaded video to storage at {$candidateVideoStoragePath} for Lesson ID {$lesson->id}. Check permissions.");
+						Log::warning("Failed to save downloaded video to storage at {$candidateVideoStoragePath} for Lesson ID {$lesson->id}. Check permissions.");
 					} else {
 						$videoStoragePath = $candidateVideoStoragePath; // Set the actual path only on success
 						$downloadSucceeded = true;
@@ -830,7 +830,7 @@ PROMPT;
 					}
 				}
 			} catch (Exception $downloadEx) {
-				Log::error("Exception during video download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $downloadEx->getMessage());
+				Log::warning("Exception during video download for {$youtubeVideoIdToProcess}, Lesson ID {$lesson->id}: " . $downloadEx->getMessage());
 				// $videoStoragePath remains null, $downloadSucceeded remains false
 			}
 		} else {
