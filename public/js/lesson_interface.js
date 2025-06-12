@@ -2,6 +2,7 @@
 let allQuestionsFromCurrentFetch = [];
 // Store IDs of questions answered incorrectly in the current "pass" through currentQuestions
 let incorrectQuestionIdsInThisPass = [];
+let keyboardFocusIndex = -1;
 
 // New variables to track difficulty progression
 let questionsByDifficulty = {
@@ -11,6 +12,7 @@ let questionsByDifficulty = {
 };
 let currentDifficulty = 'easy'; // Start with easy questions
 let difficultyOrder = ['easy', 'medium', 'hard'];
+
 
 function loadLessonQustions() {
 	if (isLoading) return;
@@ -231,6 +233,7 @@ function displayQuestionAtIndex(index) {
 	currentQuestion = currentQuestions[index];
 	selectedIndex = null;
 	currentAttemptNumber = currentQuestion.next_attempt_number || 1;
+	keyboardFocusIndex = -1;
 	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber}) from current batch of ${currentQuestions.length} questions.`);
 	
 	// Update difficulty badge
@@ -567,6 +570,13 @@ function setupQuestionAnswerEventListeners() {
 	questionAnswersContainer.addEventListener('click', (event) => {
 		const targetButton = event.target.closest('.answer-btn');
 		if (targetButton && !targetButton.disabled) {
+			// Clear keyboard focus if a mouse click occurs
+			if (keyboardFocusIndex !== -1) {
+				const focusedButton = questionAnswersContainer.querySelector('.keyboard-focus');
+				if (focusedButton) focusedButton.classList.remove('keyboard-focus');
+				keyboardFocusIndex = -1;
+			}
+			
 			// Disable all buttons immediately on click to prevent double submission
 			questionAnswersContainer.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
 			submitAnswer(parseInt(targetButton.dataset.index, 10));
@@ -658,6 +668,12 @@ function setupModalEventListeners() {
 			isModalVisible = true;
 			setInteractionsDisabled(true); // Disable background interactions while modal is visible
 			updateButtonStates(10);
+			
+			if (modalTryAgainButton && !modalTryAgainButton.classList.contains('d-none')) {
+				modalTryAgainButton.focus();
+			} else if (modalNextButton && !modalNextButton.classList.contains('d-none')) {
+				modalNextButton.focus();
+			}
 		});
 	}
 	
@@ -749,4 +765,70 @@ function escapeHtml(text) {
 	const div = document.createElement('div');
 	div.textContent = text;
 	return div.innerHTML;
+}
+
+/**
+ * Updates which answer button has keyboard focus.
+ * @param {number} newIndex - The index in the `buttons` array to focus. -1 to clear.
+ * @param {HTMLElement[]} buttons - The array of currently available buttons.
+ */
+function updateKeyboardFocus(newIndex, buttons) {
+	// Remove focus from the previously focused button
+	if (keyboardFocusIndex !== -1 && buttons[keyboardFocusIndex]) {
+		buttons[keyboardFocusIndex].classList.remove('keyboard-focus');
+	}
+	
+	keyboardFocusIndex = newIndex;
+	
+	// Add focus to the new button
+	if (keyboardFocusIndex !== -1 && buttons[keyboardFocusIndex]) {
+		const buttonToFocus = buttons[keyboardFocusIndex];
+		buttonToFocus.classList.add('keyboard-focus');
+		buttonToFocus.focus(); // Also set native browser focus for accessibility
+	}
+}
+
+/**
+ * Handles keyboard navigation for answer selection.
+ */
+function handleQuestionKeydown(event) {
+	// Only act if the question area is visible and interactions are allowed
+	if (isLoading || interactionsDisabled || isModalVisible || questionArea.classList.contains('d-none')) {
+		return;
+	}
+	
+	const availableButtons = Array.from(questionAnswersContainer.querySelectorAll('.answer-btn:not(:disabled)'));
+	if (availableButtons.length === 0) {
+		return;
+	}
+	
+	let keyHandled = false;
+	
+	if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+		keyHandled = true;
+		let nextIndex = keyboardFocusIndex;
+		
+		if (keyboardFocusIndex === -1) {
+			// If no button is focused, ArrowDown starts at the first, ArrowUp at the last.
+			nextIndex = (event.key === 'ArrowDown') ? 0 : availableButtons.length - 1;
+		} else {
+			if (event.key === 'ArrowDown') {
+				nextIndex = (keyboardFocusIndex + 1) % availableButtons.length;
+			} else { // ArrowUp
+				nextIndex = (keyboardFocusIndex - 1 + availableButtons.length) % availableButtons.length;
+			}
+		}
+		updateKeyboardFocus(nextIndex, availableButtons);
+		
+	} else if ((event.key === 'Enter' || event.key === ' ') && keyboardFocusIndex !== -1) {
+		const focusedButton = availableButtons[keyboardFocusIndex];
+		if (focusedButton) {
+			keyHandled = true;
+			focusedButton.click();
+		}
+	}
+	
+	if (keyHandled) {
+		event.preventDefault();
+	}
 }

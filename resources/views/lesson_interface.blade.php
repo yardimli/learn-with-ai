@@ -192,6 +192,7 @@
 			setupQuestionAnswerEventListeners();
 			setupHelperEventListeners();
 			setupStartOverIntroButtonListener();
+			document.addEventListener('keydown', handleQuestionKeydown);
 			initQuestionInterface();
 		});
 	</script>

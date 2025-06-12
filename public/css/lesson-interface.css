@@ -163,3 +163,8 @@
     backdrop-filter: blur(3px);
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
+.answer-btn.keyboard-focus {
+    outline: 3px solid var(--bs-primary-border-subtle);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
+    border-color: var(--bs-primary);
+}
