@@ -2,6 +2,7 @@
 let allQuestionsFromCurrentFetch = [];
 // Store IDs of questions answered incorrectly in the current "pass" through currentQuestions
 let incorrectQuestionIdsInThisPass = [];
+let currentQuestionIncorrectAttempts = 0;
 let keyboardFocusIndex = -1;
 
 // New variables to track difficulty progression
@@ -234,6 +235,8 @@ function displayQuestionAtIndex(index) {
 	selectedIndex = null;
 	currentAttemptNumber = currentQuestion.next_attempt_number || 1;
 	keyboardFocusIndex = -1;
+	currentQuestionIncorrectAttempts = 0;
+	
 	console.log(`Displaying question index ${index} (ID: ${currentQuestion.id}, Attempt: ${currentAttemptNumber}) from current batch of ${currentQuestions.length} questions.`);
 	
 	// Update difficulty badge
@@ -354,20 +357,49 @@ function checkStateAndTransition() {
 			displayQuestionAtIndex(currentQuestionIndex + 1);
 		}
 	} else { // Incorrect answer
+		currentQuestionIncorrectAttempts++;
+		
 		// Add to incorrect list if not already there for this pass
 		if (!incorrectQuestionIdsInThisPass.includes(currentQuestionId)) {
 			incorrectQuestionIdsInThisPass.push(currentQuestionId);
 		}
-		console.log("Wrong answer. Allowing another attempt on the same question. Incorrect IDs this pass:", incorrectQuestionIdsInThisPass);
-		// Reset the buttons for another attempt
-		questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
-			if (!button.classList.contains('incorrect')) { // Only re-enable non-incorrect buttons
-				button.classList.remove('selected');
-				button.classList.add('btn-outline-primary');
-				button.disabled = false;
+		console.log(`Wrong answer for '${currentDifficulty}' question (Attempt ${currentQuestionIncorrectAttempts}). Incorrect IDs this pass:`, incorrectQuestionIdsInThisPass);
+		
+		if (currentQuestionIncorrectAttempts >= 3) {
+			console.log("Three incorrect attempts. Moving to the next question.");
+			// Move to the next question or phase
+			if (currentQuestionIndex >= currentQuestions.length - 1) {
+				// Last question in the current difficulty pass. Loop back to other incorrects.
+				console.log(`Last question in '${currentDifficulty}' difficulty failed 3 times. Looping back to other incorrects.`);
+				const incorrectQuestions = questionsByDifficulty[currentDifficulty].filter( q => incorrectQuestionIdsInThisPass.includes(q.id) && !q.should_skip );
+				if (incorrectQuestions.length > 0) {
+					currentQuestions = incorrectQuestions;
+					incorrectQuestionIdsInThisPass = []; // Clear for the new pass
+					currentQuestionIndex = 0;
+					console.log(`Restarting pass with incorrect '${currentDifficulty}' questions:`, currentQuestions.map(q => q.id));
+					displayQuestionAtIndex(currentQuestionIndex);
+				} else {
+					// This case is unlikely, but as a fallback, move to next difficulty.
+					moveToNextDifficulty();
+				}
+			} else {
+				// Not the last question, just move to the next one in the current pass.
+				console.log(`Moving to next question (index ${currentQuestionIndex + 1} in '${currentDifficulty}' difficulty) after 3 failures.`);
+				displayQuestionAtIndex(currentQuestionIndex + 1);
 			}
-		});
-		setInteractionsDisabled(false); // Re-enable interactions for retry
+		} else {
+			// Less than 3 incorrect attempts, allow another try.
+			console.log(`Wrong answer for '${currentDifficulty}' question. Allowing another attempt. Incorrect IDs this pass:`, incorrectQuestionIdsInThisPass);
+			// Reset the buttons for another attempt
+			questionAnswersContainer.querySelectorAll('.answer-btn').forEach(button => {
+				if (!button.classList.contains('incorrect')) { // Only re-enable non-incorrect buttons
+					button.classList.remove('selected');
+					button.classList.add('btn-outline-primary');
+					button.disabled = false;
+				}
+			});
+			setInteractionsDisabled(false);
+		}
 	}
 	updateProgressBar(); // Update progress based on 'currentState' from backend
 }
@@ -466,8 +498,8 @@ function showFeedbackModal(feedbackResult) {
 		}
 	});
 	
-	toggleElement(modalTryAgainButton, !isCorrect);
-	toggleElement(modalNextButton, isCorrect || currentState.status === 'completed'); // Show Next if correct OR if lesson is now complete
+	toggleElement(modalTryAgainButton, !isCorrect && currentQuestionIncorrectAttempts < 3);
+	toggleElement(modalNextButton, isCorrect || currentState.status === 'completed' || currentQuestionIncorrectAttempts >= 3); // Show Next if correct OR if lesson is now complete
 	
 	if (feedbackResult.feedback_audio_url) {
 		playFeedbackModalButton.dataset.audioUrl = feedbackResult.feedback_audio_url;
